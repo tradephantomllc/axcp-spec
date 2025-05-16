@@ -11,20 +11,60 @@ _Work in progress – structure auto-generated._
 
 ## Table of Contents
 
-1. Preface  
-   1.1 Motivation  
-   1.2 Status of This Document  
-   1.3 Conventions Used
+## 1. Preface
+AXCP (Adaptive eXchange Context Protocol) nasce dall’esigenza di orchestrare agenti AI distribuiti che devono:
 
-2. Scope & Non-Goals  
-   2.1 Supported Topologies  
-   2.2 Out-of-scope Features (v0.2+)
+* scambiarsi contesto in modo **delta-efficiente**, riducendo il token-overhead
+* negoziare capacità e tool in maniera **decentralizzata** (zero vendor-lock-in)
+* preservare **privacy** e fornire **verificabilità** del calcolo (enclave, attestazione)
 
-3. Terminology  
-   3.1 Node, Agent, Tool  
-   3.2 Context Segment, Delta Patch  
-   3.3 Capability, Contract, Envelope  
-   3.4 Edge Node, Cloud Node, Gateway
+AXCP v0.1 è una **Draft Exploratory**: fissa lessico, formati wire e flussi minimi per un Proof-of-Concept interoperabile.
+
+### 1.1 Motivation
+Protocollo | Limite attuale | Come AXCP lo supera
+-----------|----------------|---------------------
+**MCP** (Anthropic) | Single-vendor stack | Multi-vendor & edge-aware  
+**A2A** (OpenAI) | Niente delta-context | Delta-synced cache  
+**ACP** | JSON verboso | QUIC + Protobuf binario  
+
+### 1.2 Status of This Document
+* **v0.1 Draft** – NON usare in produzione.  
+* Cambiamenti sostanziali possibili fino alla tag `v0.1-rc`.
+
+### 1.3 Conventions Used
+* “MUST/SHOULD/MAY” secondo [RFC 2119].  
+* Diagrammi sequenza in **mermaid**.  
+* Tipi Protobuf in `CamelCase`, campi in `snake_case`.
+
+---
+
+## 2. Scope & Non-Goals
+### 2.1 Supported Topologies
+* **Edge → Cloud** (smart-device ⇄ LLM-backend)  
+* **Mesh** tra agenti paritari  
+* **Hierarchical** (gateway aggregatore)
+
+### 2.2 Out-of-scope (v0.1)
+* Settlement on-chain (rinviato a v0.2)  
+* Streaming audio/video nativo  
+* Multi-tenant quota enforcement
+
+---
+
+## 3. Terminology
+Termine | Definizione
+------- | -----------
+**Node** | Processo che parla AXCP (edge, cloud, gateway)  
+**Agent** | Modulo logico che esegue un task (p.es. “QA-bot”)  
+**Tool** | Funzione invocabile dall’agente (p.es. HTTP GET)  
+**Context Segment** | Oggetto JSON versione-ato contenente stato/dati  
+**Delta Patch** | Serie di `DeltaOp {ADD | REPLACE | REMOVE}`  
+**Capability** | Funzionalità dichiarata da un nodo (“search”)  
+**Envelope** | Struttura Protobuf di trasporto (`AxcpEnvelope`)  
+**Gateway** | Nodo che fa routing edge/cloud e policy
+
+*(Glossary esteso a fine documento)*
+
 
 4. Reference Architecture  
    4.1 Layer Diagram  
