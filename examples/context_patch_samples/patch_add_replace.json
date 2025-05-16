@@ -1,0 +1,16 @@
+{
+  "context_id": "demo_context_01",
+  "base_version": 7,
+  "ops": [
+    {
+      "op": "ADD",
+      "path": "/agent/capabilities/search",
+      "data": "InZpZGVvX3F1ZXJ5Ig=="
+    },
+    {
+      "op": "REPLACE",
+      "path": "/agent/status/battery",
+      "data": "MTAw"  // 100 (percentuale)
+    }
+  ]
+}
