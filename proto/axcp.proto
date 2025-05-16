@@ -63,3 +63,24 @@ message ErrorMessage {
   string reason      = 2;
   bytes  diagnostics = 3;
 }
+
+// _________ Routing Policy _________
+message RoutePolicyMessage {
+  string policy_id = 1;
+  bytes  wasm_blob = 2;  // WASM policy byte-code
+  uint32 ttl_ms    = 3;  // Time-to-live in milliseconds
+}
+
+// _________ Error Codes _________
+enum ErrorCode {
+  UNKNOWN_ERROR      = 0;
+  INVALID_ENVELOPE   = 1;
+  UNAUTHORIZED       = 2;
+  TOOL_UNAVAILABLE   = 3;
+}
+
+// _________ Placeholder for v0.2 _________
+message ContextGraphVersion {
+  string version_id = 1;
+  uint64 timestamp  = 2;
+}
