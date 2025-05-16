@@ -66,6 +66,45 @@ Termine | Definizione
 *(Glossary esteso a fine documento)*
 
 
+## 4 – Reference Architecture
+
+### 4.1 Layer Diagram
+
+```mermaid
+graph TD
+  subgraph Edge Node
+    E1[Agent] --> E2[AXCP Client]
+  end
+  subgraph Cloud Gateway
+    C1[AXCP Gateway] --> C2[Tool Adapter]
+  end
+  E2 -- QUIC/Protobuf --> C1
+
+sequenceDiagram
+  participant Agent
+  participant AXCP Client
+  participant AXCP Gateway
+  participant Tool Adapter
+  participant LLM Tool
+
+  Agent->>AXCP Client: Crea ContextPatch
+  AXCP Client->>AXCP Gateway: Envelope (context_patch)
+  AXCP Gateway->>Tool Adapter: Routing
+  Tool Adapter->>LLM Tool: Inoltra richiesta
+  LLM Tool-->>Tool Adapter: Risposta
+  Tool Adapter-->>AXCP Gateway: Output
+  AXCP Gateway-->>AXCP Client: Envelope (response)
+  AXCP Client-->>Agent: Risposta finale
+
+### 4.3 Threat Model
+
+AXCP assume un modello di minaccia che considera:
+
+- **Man-in-the-middle su QUIC** → mitigato da mTLS + JWT a breve termine.  
+- **Offerta malevola di capability** → validazione e verifica firma WASM.  
+- **Replay di un vecchio ContextPatch** → ogni patch include versioning e trace ID.
+
+
 4. Reference Architecture  
    4.1 Layer Diagram  
    4.2 Sequence Overview  
