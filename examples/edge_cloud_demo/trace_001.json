@@ -1,0 +1,19 @@
+{
+  "timestamp": "2025-05-16T20:45:00Z",
+  "agent_id": "edge-node-001",
+  "target": "cloud-node-07",
+  "envelope": {
+    "version": 1,
+    "trace_id": "axcp-demo-001",
+    "payload": {
+      "context_patch": {
+        "context_id": "agent_state",
+        "base_version": 42,
+        "ops": [
+          { "op": "ADD", "path": "/location", "data": "c29tZS1nZW8tY29vcmQ=" },
+          { "op": "REPLACE", "path": "/battery", "data": "OTU=" }
+        ]
+      }
+    }
+  }
+}
