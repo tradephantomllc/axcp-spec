@@ -2,36 +2,40 @@ syntax = "proto3";
 
 package axcp.v0_1;
 
-// _________ Envelope _________
+// ---------- Envelope ----------
 message AxcpEnvelope {
-  uint32 version        = 1;  // presently 1
-  string trace_id       = 2;
+  uint32 version  = 1;  // presently 1
+  string trace_id = 2;
 
   oneof payload {
-    ContextPatch        context_patch  = 10;
-    CapabilityMessage   capability_msg = 11;
-    RoutePolicyMessage  route_msg      = 12;
-    ErrorMessage        error          = 13;
+    ContextPatch       context_patch  = 10;
+    CapabilityMessage  capability_msg = 11;
+    RoutePolicyMessage route_msg      = 12;
+    ErrorMessage       error          = 13;
   }
 
   bytes signature = 100; // optional, detached
 }
 
-// _________ Context Sync _________
+// ---------- Context-Sync ----------
 message ContextPatch {
-  string context_id     = 1;
-  uint64 base_version   = 2;
-  repeated DeltaOp ops  = 3;
+  string context_id   = 1;
+  uint64 base_version = 2;
+  repeated DeltaOp ops = 3;
 }
 
 message DeltaOp {
   enum OpType { ADD = 0; REPLACE = 1; REMOVE = 2; }
-  OpType op       = 1;
-  string path     = 2; // JSON-pointer-like
-  bytes data      = 3; // gz-compressed payload
+  OpType op   = 1;
+  string path = 2; // JSON-pointer-like
+  bytes data  = 3; // gz-compressed payload
 }
 
-// _________ Capability Negotiation _________
+// ---------- Capability negotiation ----------
+message CapabilityOffer   { CapabilityDescriptor desc   = 1; }
+message CapabilityRequest { repeated string ids         = 1; }
+message CapabilityAck     { repeated string accepted    = 1; }
+
 message CapabilityMessage {
   oneof kind {
     CapabilityOffer   offer   = 1;
@@ -40,21 +44,22 @@ message CapabilityMessage {
   }
 }
 
+// ---------- Capability descriptor ----------
 message CapabilityDescriptor {
-  string id        = 1;  // e.g. "search_query"
-  string version   = 2;  // semantic version
-  repeated string scopes = 3;  // permissions list
+  string id      = 1;   // e.g. "search_query"
+  string version = 2;   // semver
+  repeated string scopes = 3; // permission list
 }
 
-// _________ Routing _________
+// ---------- Routing ----------
 message RoutePolicyMessage {
-  string policy_id     = 1;
-  bytes policy_blob    = 2; // JSON or WASM policy
+  string policy_id  = 1;
+  bytes  policy_blob = 2; // JSON or WASM policy
 }
 
-// _________ Error _________
+// ---------- Error ----------
 message ErrorMessage {
-  uint32 code      = 1;
-  string reason    = 2;
-  bytes diagnostics = 3;
+  uint32 code        = 1;
+  string reason      = 2;
+  bytes  diagnostics = 3;
 }
