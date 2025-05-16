@@ -71,45 +71,87 @@ Termine | Definizione
    4.2 Sequence Overview  
    4.3 Trust & Threat Model
 
-5. Transport Layer  
+   ## 5 – Transport Layer
+
+### 5.1 QUIC Binding
+
+AXCP utilizza **QUIC** come layer di trasporto predefinito, sfruttando:
+- porta **443/udp**
+- supporto per **0-RTT opzionale**
+- protezione integrata con mTLS e handshake veloce
+
+L’uso di QUIC garantisce performance elevate anche in ambienti edge mobili o reti intermittenti.
+
+### 5.2 Protobuf Envelope
+
+Tutti i messaggi sono incapsulati in un oggetto `AxcpEnvelope`, serializzato in formato **Protobuf v3**.  
+La dimensione massima dell’envelope è **4 MiB**, ma può essere suddivisa in più chunk se necessario.
+
+### 5.3 Connection Establishment
+
+```mermaid
+sequenceDiagram
+  participant AXCP Client
+  participant AXCP Gateway
+
+  AXCP Client->>AXCP Gateway: QUIC Initial (ClientHello)
+  AXCP Gateway-->>AXCP Client: QUIC ServerHello
+  AXCP Client->>AXCP Gateway: mTLS handshake + JWT
+  AXCP Gateway-->>AXCP Client: Ack + Envelope ACK
+
+### 5.4 Reliability & Flow Control
+
+La gestione del flusso sfrutta un algoritmo **BDP (Bandwidth-Delay Product)** per ottimizzare throughput e latenza anche su connessioni intermittenti.
+
+### 5.5 Security
+
+Tutti i canali sono protetti tramite:
+- **mutual TLS (mTLS)** per autenticazione reciproca
+- **JWT a breve scadenza** per autorizzazione contestuale
+
+L’integrazione con envelope firmati e tracciabilità dei `trace_id` garantisce auditabilità fine-grained.
+
+
+
+6. Transport Layer  
    5.1 QUIC Binding  
    5.2 Protobuf Envelope  
    5.3 Connection Establishment (0-RTT / 1-RTT)  
    5.4 Reliability & Flow Control  
    5.5 Security (mTLS, JWT)
 
-6. Context-Sync Layer  
+7. Context-Sync Layer  
    6.1 Versioned Context Graph  
    6.2 Delta Patch Format  
    6.3 Subscription / Invalidation  
    6.4 Persistence Requirements
 
-7. Capability-Negotiation Layer  
+8. Capability-Negotiation Layer  
    7.1 DIDComm v2 Handshake  
    7.2 Capability Descriptor  
    7.3 Policy & Access Control  
    7.4 Error Handling
 
-8. Orchestration Layer  
+9. Orchestration Layer  
    8.1 Route Policy Language  
    8.2 Edge / Cloud Decision Matrix  
    8.3 Fallback & Retry
 
-9. Privacy & Confidential-Execution  
+10. Privacy & Confidential-Execution  
    9.1 SGX / Confidential-VM Envelope  
    9.2 Differential-Privacy Filter  
    9.3 Audit & Logging
 
-10. Message Types (IDL reference)  
+11. Message Types (IDL reference)  
     10.1 `AxcpEnvelope`  
     10.2 `ContextPatch`  
     10.3 `CapabilityOffer / Request`  
     10.4 `RoutePolicy`
 
-11. Error Codes  
-12. Security Considerations  
-13. IANA / Registry Considerations (reserved type IDs)  
-14. Change Log  
+12. Error Codes  
+13. Security Considerations  
+14. IANA / Registry Considerations (reserved type IDs)  
+15. Change Log  
 
 ---
 
