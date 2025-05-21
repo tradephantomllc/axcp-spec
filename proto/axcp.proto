@@ -101,3 +101,21 @@ message DeltaPatch {
   repeated DeltaOp ops    = 3;              // Operations in order
 }
 
+// Descriptor for a tool/capability
+message CapabilityDescriptor {
+  string tool_id            = 1;  // Short name of the tool (e.g. "search")
+  string input_schema       = 2;  // JSON schema as string
+  string output_schema      = 3;  // JSON schema as string
+  uint32 timeout_ms         = 4;  // Optional timeout
+  string resource_hint      = 5;  // e.g. "gpu", "secure-env"
+  repeated string auth_scope = 6; // e.g. ["read:user", "admin:tasks"]
+  string descriptor_version = 7;  // Optional version tag
+}
+
+// Policy for routing/tool access
+message RoutePolicyMessage {
+  string policy_id = 1;
+  bytes  wasm_blob = 2;  // WASM-encoded policy logic
+  uint32 ttl_ms    = 3;  // Time-to-live for policy
+}
+
