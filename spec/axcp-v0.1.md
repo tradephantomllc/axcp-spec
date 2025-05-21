@@ -407,6 +407,14 @@ Nodes MAY expose a `LogProof` query to third parties for audit purposes.
 12. Security Considerations  
 13. IANA / Registry Considerations (reserved type IDs)  
 14. Change Log  
+### v0.1-draft – 2025-05-22
+
+- Initial public draft with:
+  - QUIC + protobuf transport framing
+  - Profile-based negotiation (0–3 levels)
+  - Context-sync layer with DeltaOps
+  - Capability descriptors & request model
+  - Enclave & privacy foundations
 
 ---
 
