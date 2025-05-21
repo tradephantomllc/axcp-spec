@@ -297,11 +297,57 @@ journal replay (optional)
 recovery mode on restart
 Gateways MAY cache selected segments or act as authoritative stores for lightweight edge nodes.
 
-7. Capability-Negotiation Layer  
-   7.1 DIDComm v2 Handshake  
-   7.2 Capability Descriptor  
-   7.3 Policy & Access Control  
-   7.4 Error Handling
+## 7. Capability-Negotiation Layer
+
+### 7.1 DIDComm v2 Handshake
+
+Nodes initiate secure capability negotiation using DIDComm v2.  
+Each peer exchanges a signed `CapabilityOffer` listing its available tools, constraints, and supported features.
+
+The handshake includes:
+- Sender’s DID + public key
+- Timestamp and optional session UUID
+- Signed list of supported capabilities
+
+Handshake payloads are encoded as signed JSON-LD and transported via envelope headers.
+
+### 7.2 Capability Descriptor
+
+Each tool/function must be described using a standardized descriptor object.  
+Fields include:
+
+- `tool_id`: short identifier (e.g., `search`, `summarize`)
+- `input_schema`: JSON schema describing expected input
+- `output_schema`: JSON schema for tool responses
+- `timeout_ms`: optional maximum execution time
+- `resource_hint`: (e.g., `low-latency`, `gpu`, `secure-env`)
+- `auth_scope`: access requirements (e.g., `read:user`, `admin:tasks`)
+
+Descriptors MAY be versioned (`descriptor_version`) and signed individually.
+
+### 7.3 Policy & Access Control
+
+Gateways and agents MUST enforce capability access policies.
+
+Supported enforcement methods:
+- ACL-based: static allow/deny lists
+- WASM policy engine: dynamic decision logic
+- Auth tokens: scoped per capability group
+
+Policies are declared using `RoutePolicyMessage` and validated during tool invocation.
+
+### 7.4 Error Handling
+
+If a capability is rejected or not found, the responder MUST reply with an `ErrorMessage`.
+
+Relevant error codes:
+- `TOOL_NOT_FOUND`
+- `UNAUTHORIZED`
+- `TIMEOUT`
+- `MALFORMED_REQUEST`
+
+All responses MUST include a structured `ErrorCode` enum and optional human-readable message.
+
 
 8. Orchestration Layer  
    8.1 Route Policy Language  
