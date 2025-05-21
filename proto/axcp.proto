@@ -65,3 +65,18 @@ message ErrorMessage {
   string reason      = 2;
   bytes  diagnostics = 3;
 }
+// Error codes used in AxcpEnvelope error messages and system responses
+enum ErrorCode {
+  UNKNOWN               = 0;  // unspecified failure
+  INVALID_CONTEXT       = 1;  // context graph inconsistent or missing
+  UNAUTHORIZED          = 2;  // missing or invalid credentials
+  TOOL_NOT_FOUND        = 3;  // requested tool/capability unavailable
+  TIMEOUT               = 4;  // operation timeout
+  UNSUPPORTED_VERSION   = 5;  // protocol version mismatch
+  BAD_DELTA             = 6;  // delta patch invalid or unprocessable
+  PAYLOAD_TOO_LARGE     = 7;  // envelope exceeds size limit
+  MALFORMED_REQUEST     = 8;  // bad structure or required field missing
+  TOO_MANY_REQUESTS     = 9;  // rate-limited or quota exceeded
+  PROFILE_MISMATCH      = 12; // sender envelope > negotiated
+  PROFILE_UNSUPPORTED   = 13; // requested profile not in supported mask
+}
