@@ -127,3 +127,50 @@ _(To be compiled after first pass)_
 ---
 
 © 2025 TradePhantom LLC – All Rights Reserved
+
+---
+
+## 6. Context-Sync Layer
+
+### 6.1 Versioned Context Graph
+(TODO: Define how versioning of context segments is tracked, including timestamped updates, segment IDs, and reconciliation logic)
+
+### 6.2 Delta Patch Format
+(TODO: Describe DeltaOp {ADD | REPLACE | REMOVE}, segment targeting, and protobuf representation)
+
+### 6.3 Subscription / Invalidation
+(TODO: Describe how agents subscribe to segments, and how invalidations are propagated in peer topologies)
+
+### 6.4 Persistence Requirements
+(TODO: Define minimal persistence rules for edge nodes and optional caching at gateways)
+
+---
+
+## 7. Capability-Negotiation Layer
+
+### 7.1 DIDComm v2 Handshake
+(TODO: Specify fields used in initial capability handshake, including auth, encryption, and mutual features)
+
+### 7.2 Capability Descriptor
+(TODO: Define schema used to declare exposed functionality, parameters, and types)
+
+### 7.3 Policy & Access Control
+(TODO: Describe WASM policies applied at gateways to accept/reject invocation requests)
+
+### 7.4 Error Handling
+(TODO: Provide error codes and handling procedures for invalid offers, failed negotiation, or policy rejection)
+
+---
+
+## 9. Privacy & Confidential-Execution
+
+### 9.1 SGX / Confidential-VM Envelope
+(TODO: Define envelope fields for attestation reports, measurement hashes, and enclave identity)
+
+### 9.2 Differential-Privacy Filter
+(TODO: Specify filter schemas, privacy budgets, and token-based access)
+
+### 9.3 Audit & Logging
+(TODO: Describe tamper-resistant audit trails for envelope usage, including log formats and retention)
+
+---
