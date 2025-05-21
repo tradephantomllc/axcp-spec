@@ -4,6 +4,8 @@ package axcp.v0_1;
 
 // ---------- Envelope ----------
 message AxcpEnvelope {
+  // ... existing fields ...
+  optional bytes attestation_proof = 101; // Attestation proof for secure enclave (SGX/SEV/etc)
   uint32 version  = 1;  // presently 1
   string trace_id = 2;
   // Static operational profile: 0 = Basic … 3 = Enterprise-Privacy
@@ -118,4 +120,15 @@ message RoutePolicyMessage {
   bytes  wasm_blob = 2;  // WASM-encoded policy logic
   uint32 ttl_ms    = 3;  // Time-to-live for policy
 }
+
+// Audit proof for envelope execution/logging
+message LogProof {
+  string envelope_hash = 1; // SHA-256
+  string sender_id     = 2;
+  string receiver_id   = 3;
+  uint64 timestamp     = 4;
+  string outcome       = 5; // e.g. "ok", "timeout", "fail"
+  ErrorCode error_code = 6; // optional
+}
+
 
