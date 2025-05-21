@@ -189,18 +189,20 @@ Each AXCP envelope carries a 2-bit `profile` field (values 0–3). Nodes **MUST*
 ---
 
 ## 3. Terminology
-Termine | Definizione
-------- | -----------
-**Node** | Processo che parla AXCP (edge, cloud, gateway)  
-**Agent** | Modulo logico che esegue un task (p.es. “QA-bot”)  
-**Tool** | Funzione invocabile dall’agente (p.es. HTTP GET)  
-**Context Segment** | Oggetto JSON versione-ato contenente stato/dati  
-**Delta Patch** | Serie di `DeltaOp {ADD | REPLACE | REMOVE}`  
-**Capability** | Funzionalità dichiarata da un nodo (“search”)  
-**Envelope** | Struttura Protobuf di trasporto (`AxcpEnvelope`)  
-**Gateway** | Nodo che fa routing edge/cloud e policy
 
-*(Glossary esteso a fine documento)*
+| Term             | Definition                                                |
+|------------------|-----------------------------------------------------------|
+| Node             | Process speaking AXCP (edge, cloud, gateway)              |
+| Agent            | Logical module that executes a task (e.g., “QA-bot”)      |
+| Tool             | Function invocable by the agent (e.g., HTTP GET)          |
+| Context Segment  | Versioned JSON object containing state/data               |
+| Delta Patch      | Series of DeltaOps {ADD, REPLACE, REMOVE}                 |
+| Capability       | Feature declared by a node (e.g., “search”)               |
+| Envelope         | Transport Protobuf structure (`AxcpEnvelope`)             |
+| Gateway          | Node that handles edge/cloud routing and policy           |
+
+_(Extended glossary at end of document)_
+
 
 
 4. Reference Architecture  
