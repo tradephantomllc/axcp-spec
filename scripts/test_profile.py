@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Very small sanity-check: validate envelope-vs-session profile rules.
+Sanity-check: validate envelope-vs-session profile rules.
 Run:  python scripts/test_profile.py
 """
 from dataclasses import dataclass
@@ -9,15 +9,25 @@ from dataclasses import dataclass
 class Envelope:
     profile: int
 
-def validate(envelope: Envelope, session_profile: int) -> bool:
-    """Return True if envelope allowed under session_profile."""
-    return envelope.profile <= session_profile
+def validate(envelope: Envelope, session_profile: int, supported_mask: int) -> int:
+    """
+    Return error code:
+    0 = ok
+    12 = PROFILE_MISMATCH
+    13 = PROFILE_UNSUPPORTED
+    """
+    if envelope.profile > session_profile:
+        return 12  # PROFILE_MISMATCH
+    if not (1 << envelope.profile) & supported_mask:
+        return 13  # PROFILE_UNSUPPORTED
+    return 0
 
 def test():
-    assert validate(Envelope(0), 2) is True
-    assert validate(Envelope(2), 2) is True
-    assert validate(Envelope(3), 2) is False  # should raise PROFILE_MISMATCH
-    print("All profile tests passed.")
+    supported_mask = 0b0111  # supports profiles 0–2
+    assert validate(Envelope(1), 2, supported_mask) == 0
+    assert validate(Envelope(3), 2, supported_mask) == 12  # mismatch
+    assert validate(Envelope(2), 2, 0b0011) == 13  # unsupported
+    print("✅ All profile validation tests passed.")
 
 if __name__ == "__main__":
     test()
