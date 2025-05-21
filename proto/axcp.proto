@@ -6,12 +6,14 @@ package axcp.v0_1;
 message AxcpEnvelope {
   uint32 version  = 1;  // presently 1
   string trace_id = 2;
+  // Static operational profile: 0 = Basic … 3 = Enterprise-Privacy
+  uint32 profile = 3;
 
-  oneof payload {
-    ContextPatch       context_patch  = 10;
-    CapabilityMessage  capability_msg = 11;
-    RoutePolicyMessage route_msg      = 12;
-    ErrorMessage       error          = 13;
+    oneof payload {
+    ContextPatch       context_patch  = 4;
+    CapabilityMessage  capability_msg = 5;
+    RoutePolicyMessage route_msg      = 6;
+    ErrorMessage       error          = 7;
   }
 
   bytes signature = 100; // optional, detached

@@ -49,6 +49,143 @@ Protocollo | Limite attuale | Come AXCP lo supera
 * Streaming audio/video nativo  
 * Multi-tenant quota enforcement
 
+### 2.3 Operational Profiles
+
+AXCP supports four progressive profiles that balance security, functionality and runtime overhead.
+
+|
+ Feature / Layer                     
+|
+ Profile-0 
+**
+Basic
+**
+|
+ Profile-1 
+**
+Secure-Lite
+**
+|
+ Profile-2 
+**
+Secure + Sync
+**
+|
+ Profile-3 
+**
+Enterprise-Privacy
+**
+|
+|
+------------------------------------
+|
+:-------------------:
+|
+:-------------------------:
+|
+:---------------------------:
+|
+:--------------------------------:
+|
+|
+ Transport (QUIC + Protobuf)        
+|
+ ✓ 
+|
+ ✓ 
+|
+ ✓ 
+|
+ ✓ 
+|
+|
+ TLS 1.3                            
+|
+ ✓ 
+|
+ ✓ 
+|
+ ✓ 
+|
+ ✓ 
+|
+|
+ DID mutual auth (ECDH)             
+|
+ ✗ 
+|
+ ✓ 
+|
+ ✓ 
+|
+ ✓ 
+|
+|
+ Context-Sync deltas                
+|
+ ✗ 
+|
+ ✗ 
+|
+ ✓ 
+|
+ ✓ 
+|
+|
+ Enclave execution (SGX / SEV)      
+|
+ ✗ 
+|
+ ✗ 
+|
+ ✓* 
+|
+ ✓ 
+|
+|
+ Differential-Privacy module        
+|
+ ✗ 
+|
+ ✗ 
+|
+ optional 
+|
+ ✓ 
+|
+|
+ Advanced metadata anonymisation    
+|
+ ✗ 
+|
+ ✗ 
+|
+ ✗ 
+|
+ ✓ 
+|
+|
+ ZK-Proof payloads (future)         
+|
+ ✗ 
+|
+ ✗ 
+|
+ ✗ 
+|
+ roadmap 
+|
+
+\* If enclave hardware absent, nodes MAY fall back to standard execution while retaining other Profile-2 guarantees.
+
+**Rationale.**  
+Profiles allow adopters to start with a lightweight core and progressively enable advanced layers as their threat-model or regulatory requirements grow.
+
+**Header signalling.**  
+Each AXCP envelope carries a 2-bit `profile` field (values 0–3). Nodes **MUST** refuse payloads that request a higher profile than they support.
+
+*Future work*: runtime negotiation (capability handshake) will appear in v0.2; see Appendix D.
+
 ---
 
 ## 3. Terminology
