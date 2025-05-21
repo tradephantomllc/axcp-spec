@@ -80,3 +80,24 @@ enum ErrorCode {
   PROFILE_MISMATCH      = 12; // sender envelope > negotiated
   PROFILE_UNSUPPORTED   = 13; // requested profile not in supported mask
 }
+
+// Single delta operation applied to a context path
+message DeltaOp {
+  enum OpType {
+    ADD = 0;
+    REPLACE = 1;
+    REMOVE = 2;
+  }
+
+  OpType op         = 1;  // Operation type
+  string path       = 2;  // JSON pointer or segment path
+  bytes  value      = 3;  // Optional new value (CBOR/JSON/protobuf)
+}
+
+// Patch consisting of multiple DeltaOps
+message DeltaPatch {
+  string segment_id       = 1;              // Target segment
+  uint64 context_version  = 2;              // New version ID after patch
+  repeated DeltaOp ops    = 3;              // Operations in order
+}
+
