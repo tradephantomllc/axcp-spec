@@ -28,12 +28,6 @@ message ContextPatch {
   repeated DeltaOp ops = 3;
 }
 
-message DeltaOp {
-  enum OpType { ADD = 0; REPLACE = 1; REMOVE = 2; }
-  OpType op   = 1;
-  string path = 2; // JSON-pointer-like
-  bytes data  = 3; // gz-compressed payload
-}
 
 // ---------- Capability negotiation ----------
 message CapabilityOffer   { CapabilityDescriptor desc   = 1; }
@@ -49,17 +43,9 @@ message CapabilityMessage {
 }
 
 // ---------- Capability descriptor ----------
-message CapabilityDescriptor {
-  string id      = 1;   // e.g. "search_query"
-  string version = 2;   // semver
-  repeated string scopes = 3; // permission list
-}
 
 // ---------- Routing ----------
-message RoutePolicyMessage {
-  string policy_id  = 1;
-  bytes  policy_blob = 2; // JSON or WASM policy
-}
+
 
 // ---------- Error ----------
 message ErrorMessage {
