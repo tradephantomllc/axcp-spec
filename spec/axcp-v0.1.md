@@ -252,11 +252,50 @@ sequenceDiagram
     Edge->>Cloud: AxcpEnvelope(profile=2,…)
     Cloud->>Edge: AxcpEnvelope(profile=1,…)
 
-6. Context-Sync Layer  
-   6.1 Versioned Context Graph  
-   6.2 Delta Patch Format  
-   6.3 Subscription / Invalidation  
-   6.4 Persistence Requirements
+## 6. Context-Sync Layer
+
+### 6.1 Versioned Context Graph
+
+Each AXCP node maintains a directed acyclic graph (DAG) of context segments.  
+Each segment is uniquely identified by its `segment_id` and versioned via `context_version` fields.
+
+Nodes MUST implement a versioning model that supports:
+- Linear history per segment (e.g., `/user/status`)
+- Optional DAG lineage for merged updates (e.g., `/shared/intent`)
+
+Version IDs are strictly monotonic and MUST include a timestamp and author node hash.
+
+### 6.2 Delta Patch Format
+
+Updates between peers are exchanged as `DeltaPatch` messages, which contain a list of atomic `DeltaOp` entries.
+
+Each operation follows this schema:
+
+```json
+{ "op": "replace", "path": "/user/intent", "value": "translate" }
+
+Supported operations:
+
+add (insert field or object)
+replace (overwrite existing field)
+remove (delete path)
+Fields MAY be compressed using aliases and encoded as CBOR or binary protobuf in constrained environments.
+
+6.3 Subscription & Invalidation
+Agents MAY subscribe to segments using filter queries. Supported filter types include:
+
+prefix=/user/ → all personal context
+tag=intent → semantic category
+timestamp > T → updates after T
+Invalidated segments (e.g. revoked or expired) MUST trigger a ContextInvalidation event.
+
+6.4 Persistence Requirements
+Every AXCP node MUST persist its active context graph between sessions. Minimal persistence features:
+
+snapshot export (JSON or protobuf)
+journal replay (optional)
+recovery mode on restart
+Gateways MAY cache selected segments or act as authoritative stores for lightweight edge nodes.
 
 7. Capability-Negotiation Layer  
    7.1 DIDComm v2 Handshake  
@@ -302,21 +341,6 @@ _(To be compiled after first pass)_
 
 © 2025 TradePhantom LLC – All Rights Reserved
 
----
-
-## 6. Context-Sync Layer
-
-### 6.1 Versioned Context Graph
-(TODO: Define how versioning of context segments is tracked, including timestamped updates, segment IDs, and reconciliation logic)
-
-### 6.2 Delta Patch Format
-(TODO: Describe DeltaOp {ADD | REPLACE | REMOVE}, segment targeting, and protobuf representation)
-
-### 6.3 Subscription / Invalidation
-(TODO: Describe how agents subscribe to segments, and how invalidations are propagated in peer topologies)
-
-### 6.4 Persistence Requirements
-(TODO: Define minimal persistence rules for edge nodes and optional caching at gateways)
 
 ---
 
