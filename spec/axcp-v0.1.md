@@ -12,29 +12,34 @@ _Work in progress – structure auto-generated._
 ## Table of Contents
 
 ## 1. Preface
-AXCP (Adaptive eXchange Context Protocol) nasce dall’esigenza di orchestrare agenti AI distribuiti che devono:
 
-* scambiarsi contesto in modo **delta-efficiente**, riducendo il token-overhead
-* negoziare capacità e tool in maniera **decentralizzata** (zero vendor-lock-in)
-* preservare **privacy** e fornire **verificabilità** del calcolo (enclave, attestazione)
+AXCP (Adaptive eXchange Context Protocol) was born out of the need to orchestrate distributed AI agents that must:
 
-AXCP v0.1 è una **Draft Exploratory**: fissa lessico, formati wire e flussi minimi per un Proof-of-Concept interoperabile.
+- Exchange context in a **delta-efficient** way, reducing token overhead
+- Negotiate capabilities and tools in a **decentralized** manner (zero vendor-lock-in)
+- Preserve **privacy** and enable **verifiability** of computation (enclaves, attestations)
+
+AXCP v0.1 is an **Exploratory Draft**: it defines lexicon, wire formats, and minimal flows for a Proof-of-Concept interoperability framework.
 
 ### 1.1 Motivation
-Protocollo | Limite attuale | Come AXCP lo supera
------------|----------------|---------------------
-**MCP** (Anthropic) | Single-vendor stack | Multi-vendor & edge-aware  
-**A2A** (OpenAI) | Niente delta-context | Delta-synced cache  
-**ACP** | JSON verboso | QUIC + Protobuf binario  
+
+| Protocol       | Current Limitation         | How AXCP Overcomes It         |
+|----------------|----------------------------|-------------------------------|
+| MCP (Anthropic)| Single-vendor stack        | Multi-vendor & edge-aware     |
+| A2A (OpenAI)   | No delta-context support   | Delta-synced cache            |
+| ACP            | Verbose JSON               | QUIC + binary Protobuf        |
 
 ### 1.2 Status of This Document
-* **v0.1 Draft** – NON usare in produzione.  
-* Cambiamenti sostanziali possibili fino alla tag `v0.1-rc`.
+
+- **v0.1 Draft** – NOT production-ready  
+- Significant changes expected until tag `v0.1-rc`
 
 ### 1.3 Conventions Used
-* “MUST/SHOULD/MAY” secondo [RFC 2119].  
-* Diagrammi sequenza in **mermaid**.  
-* Tipi Protobuf in `CamelCase`, campi in `snake_case`.
+
+- “**MUST/SHOULD/MAY**” follow [RFC 2119]
+- Sequence diagrams use **Mermaid**
+- Protobuf types in `CamelCase`, fields in `snake_case`
+
 
 ---
 
