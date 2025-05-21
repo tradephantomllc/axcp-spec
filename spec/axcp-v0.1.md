@@ -354,10 +354,48 @@ All responses MUST include a structured `ErrorCode` enum and optional human-read
    8.2 Edge / Cloud Decision Matrix  
    8.3 Fallback & Retry
 
-9. Privacy & Confidential-Execution  
-   9.1 SGX / Confidential-VM Envelope  
-   9.2 Differential-Privacy Filter  
-   9.3 Audit & Logging
+## 9. Privacy & Confidential Execution
+
+### 9.1 SGX / Confidential-VM Envelope
+
+AXCP supports optional secure execution environments (SEE), including:
+
+- Intel SGX
+- AMD SEV
+- GCP Confidential VM
+- AWS Nitro Enclaves
+
+Nodes MAY wrap tool execution in a secure enclave. Enclaves MUST support:
+
+- Code attestation (e.g., quote signed by Intel/AWS)
+- Encrypted input/output buffers
+- Remote verification of identity and integrity
+
+The `AxcpEnvelope` may include an `attestation_proof` field for runtime validation.
+
+### 9.2 Differential Privacy Filter
+
+Nodes MAY enable differential privacy (DP) when handling context data.  
+The filter operates on outbound payloads and applies randomized noise based on:
+
+- `ε` (epsilon): privacy budget
+- `δ` (delta): confidence threshold
+- Output sensitivity class (e.g., exact count vs. mean estimate)
+
+The DP module MUST be declared in capability metadata and MUST be tunable per session.
+
+### 9.3 Audit & Logging
+
+AXCP nodes MAY log tool executions, errors, and envelope flow. Logs MAY include:
+
+- Timestamp, sender/receiver IDs
+- Envelope hash (SHA-256)
+- Tool invoked and outcome (e.g., `ok`, `timeout`, `fail`)
+- Error codes if applicable
+
+Logs MUST be append-only and verifiable (Merkle tree or hash chain).  
+Nodes MAY expose a `LogProof` query to third parties for audit purposes.
+
 
 10. Message Types (IDL reference)  
     10.1 `AxcpEnvelope`  
