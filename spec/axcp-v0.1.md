@@ -221,6 +221,36 @@ _(Extended glossary at end of document)_
    5.3 Connection Establishment (0-RTT / 1-RTT)  
    5.4 Reliability & Flow Control  
    5.5 Security (mTLS, JWT)
+   5.6 Profile negotiation & downgrade rules
+
+1. **Capability announcement**  
+   Every node sends two QUIC header fields in the first 1-RTT packet:  
+
+   | Header                       | Type  | Meaning                              |
+   |------------------------------|-------|--------------------------------------|
+   | `axcp-supported-profiles`    | u8    | Bit-mask of profiles this node can **accept** (bit 0 = Profile-0 … bit 3 = Profile-3). |
+   | `axcp-required-profile`      | u8    | Single value (0-3) the sender **requests** for this session. |
+
+2. **Agreement algorithm**
+
+   * If `required` ∉ `supported` of the peer ⇒ connection **fails** (QUIC error `axcp.profile.unsupported`).  
+   * Else the session profile = `max( required_A , required_B )`.  
+   * Nodes MAY **downgrade** later (e.g. to save battery). A `ProfileDowngrade` frame is exchanged; the lower level must still be ≥ both nodes’ *minimum*.
+
+3. **Envelope validation**
+
+   Each `AxcpEnvelope.profile` **MUST** ≤ session-profile.  
+   *If higher* → reply with `ErrorMessage{ code = PROFILE_MISMATCH }`.
+
+```mermaid
+sequenceDiagram
+    participant Edge
+    participant Cloud
+    Edge->>Cloud: QUIC Initial  (supported=0b1111, required=2)
+    Cloud-->>Edge: QUIC Accept  (session-profile = 2)
+    Note over Edge,Cloud: encrypted 1-RTT traffic
+    Edge->>Cloud: AxcpEnvelope(profile=2,…)
+    Cloud->>Edge: AxcpEnvelope(profile=1,…)
 
 6. Context-Sync Layer  
    6.1 Versioned Context Graph  
