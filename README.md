@@ -1,4 +1,7 @@
 # axcp-spec
+
+© 2025 TradePhantom LLC – BSL 1.1 / Apache-2.0 fallback
+
 AXCP – Adaptive eXchange Context Protocol. An open specification for ultra-efficient, privacy-preserving AI agent orchestration.
 It improves on existing agent communication protocols (like MCP, A2A, and ACP) by integrating:
 
