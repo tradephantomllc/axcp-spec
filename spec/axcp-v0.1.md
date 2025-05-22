@@ -1,5 +1,7 @@
 # AXCP v0.1 – Adaptive eXchange Context Protocol
 
+© 2025 TradePhantom LLC – BSL 1.1 / Apache-2.0 fallback
+
 _Work in progress – structure auto-generated._
 
 > This document defines the initial AXCP protocol specification.  
