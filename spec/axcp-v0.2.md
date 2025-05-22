@@ -287,6 +287,40 @@ sequenceDiagram
   B-->>A: CapabilityAck(2)
   A-->>B: CapabilityAck(2)
 
+  ## 5.8 QUIC DATAGRAM Telemetry (optional)
+
+Certain AXCP payloads are *loss-tolerant* (e.g. heartbeat, CPU temp, token-usage
+counters).  For these the reliability of STREAM frames is wasteful.
+
+AXCP therefore reserves QUIC DATAGRAM ID `0xA0` for **TelemetryDatagram**.
+
+### 5.8.1 Encoding
+
++---------+------------+--------------+
+| 1 byte | 2 bytes | … N bytes |
+| type | seq (u16) | protobuf TLV |
++---------+------------+--------------+
+
+
+* **type** – fixed `0xA0`  
+* **seq**  – wrap-around sequence; receiver MAY ignore gaps  
+* **body** – `TelemetryDatagram` (see proto)
+
+### 5.8.2 Send rules
+
+* MUST fit in a single QUIC DATAGRAM (max 1350 B typical).  
+* Sender does **not** retransmit; receiver treats missing seq as normal loss.  
+* Congestion control follows QUIC DATAGRAM RFC 9221.
+
+### 5.8.3 Examples
+
+```mermaid
+sequenceDiagram
+  Edge->>Cloud: DATAGRAM(type=A0, seq=17, cpu=42%, mem=310MB)
+  Cloud--x Edge: (lost seq 18)
+  Edge->>Cloud: DATAGRAM(seq=19, tokens=1500)
+
+
 
 ## 6. Context-Sync Layer
 
