@@ -69,6 +69,8 @@ enum ErrorCode {
   TOO_MANY_REQUESTS     = 9;  // rate-limited or quota exceeded
   PROFILE_MISMATCH      = 12; // sender envelope > negotiated
   PROFILE_UNSUPPORTED   = 13; // requested profile not in supported mask
+  PROFILE_NEGOTIATION_FAILED = 14;
+
 }
 
 // Single delta operation applied to a context path
@@ -119,4 +121,13 @@ message LogProof {
   ErrorCode error_code = 6; // optional
 }
 
+// ---- Negotiation messages ----
+message CapabilityNegotiate {
+  uint32 supported_mask = 1;   // bit-mask, 0b0001 = Profile-0 etc.
+  uint32 min_required   = 2;   // 0-3
+}
+
+message CapabilityAck {
+  uint32 agreed_profile = 1;   // final session profile
+}
 
