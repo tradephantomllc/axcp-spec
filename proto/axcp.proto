@@ -131,3 +131,27 @@ message CapabilityAck {
   uint32 agreed_profile = 1;   // final session profile
 }
 
+```proto
+// -------- Context graph version & sync ---------------
+message ContextGraphVersion {
+  string  context_id = 1;
+  uint64  version     = 2;
+}
+
+message SyncSubscribe {
+  ContextGraphVersion from = 1; // start version
+}
+
+message SyncRequest {
+  ContextGraphVersion missing_from = 1;
+  uint64 to_version                = 2;
+}
+
+message RetryEnvelope {
+  repeated ContextPatch buffered_patches = 1;
+  uint32 ttl_ms                          = 2;
+}
+
+// Enum update (aggiungi nella sezione ErrorCode enum)
+PROFILE_NEGOTIATION_FAILED = 14;
+MISSING_PATCH_RANGE        = 15;
