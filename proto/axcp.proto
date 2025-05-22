@@ -131,7 +131,7 @@ message CapabilityAck {
   uint32 agreed_profile = 1;   // final session profile
 }
 
-```proto
+
 // -------- Context graph version & sync ---------------
 message ContextGraphVersion {
   string  context_id = 1;
@@ -155,3 +155,23 @@ message RetryEnvelope {
 // Enum update (aggiungi nella sezione ErrorCode enum)
 PROFILE_NEGOTIATION_FAILED = 14;
 MISSING_PATCH_RANGE        = 15;
+
+// -------- Telemetry datagram ----------
+message TelemetryDatagram {
+  uint64 timestamp_ms = 1;
+  oneof payload {
+    SystemStats  system = 10;
+    TokenUsage   tokens = 11;
+  }
+}
+
+message SystemStats {
+  uint32 cpu_percent = 1;   // 0-100
+  uint64 mem_bytes   = 2;
+  uint32 temperature_c = 3; // optional
+}
+
+message TokenUsage {
+  uint32 prompt_tokens  = 1;
+  uint32 completion_tokens = 2;
+}
