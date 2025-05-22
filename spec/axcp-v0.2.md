@@ -13,6 +13,12 @@ _Work in progress – structure auto-generated._
 
 ## Table of Contents
 
+- [1. Preface](#1-preface)
+- ...
+- [Appendix A – Example Edge → Cloud Flow](#appendix-a-example-edge--cloud-flow)
+- [Appendix B – Comparison with MCP / A2A / ACP](#appendix-b-comparison-with-mcp--a2a--acp)
+- [Appendix C – Interop Profiles](appendix_c_interop.md)
+
 ## 1. Preface
 
 AXCP (Adaptive eXchange Context Protocol) was born out of the need to orchestrate distributed AI agents that must:
@@ -566,7 +572,8 @@ _(To be compiled after first pass)_
 ## Appendix
 
 **A. Example Edge → Cloud Flow**  
-**B. Comparison with MCP / A2A / ACP**
+**B. Comparison with MCP / A2A / ACP**  
+- [Appendix C – Interop Profiles](appendix_c_interop.md)
 
 ---
 
