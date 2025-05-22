@@ -1,3 +1,5 @@
+© 2025 TradePhantom LLC – BSL 1.1 / Apache-2.0 fallback
+
 # Privacy Enclaves and Confidential Execution
 
 AXCP supports execution in trusted computing environments such as Intel SGX or confidential VMs.
