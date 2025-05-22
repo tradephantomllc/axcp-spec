@@ -292,6 +292,48 @@ sequenceDiagram
 
 ### 6.1 Versioned Context Graph
 
+### 6.1 Versioned Context Graph
+
+AXCP models shared knowledge as a directed **Context Graph**.  
+Each node is a *Context Segment* (JSON object, max 64 KiB).  
+Edges are causal links (`parent_id`).  A graph version is identified by
+`<context_id>:<uint64 version>`.
+
+### 6.2 Delta Patch Format (CRDT-inspired)
+
+A patch is an **ordered list of `DeltaOp`**:
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `op`      | enum {ADD, REPLACE, REMOVE, MERGE} | `MERGE` is new: CRDT LWW merge |
+| `path`    | JSON-Pointer | segment/key affected |
+| `data`    | bytes (gz)   | payload or CRDT payload |
+| `ts`      | uint64 micros | Lamport timestamp |
+
+Conflict resolution: **last-writer-wins** by `(ts, node_id)`.
+
+### 6.3 Subscription / Invalidation
+
+Nodes send `SyncSubscribe{context_id, from_version}` once per session.  
+Updates flow as `ContextPatch`.  
+Missing ranges → receiver sends `SyncRequest{missing_from, to}`.
+
+### 6.4 Store-and-Forward (offline edge)
+
+If a peer is offline, patches are buffered in **RetryEnvelope**
+(see §8.3) with `ttl_ms`. Upon reconnection, buffered patches replay
+in order; expired TTL patches are dropped.
+
+```mermaid
+sequenceDiagram
+  Edge->>Cloud: SyncSubscribe(ctx=chat, v=42)
+  Cloud-->>Edge: ContextPatch(v=43..45)
+  Edge--x Cloud: offline
+  Cloud--)Cloud: buffer patches 46..48
+  Edge-)Cloud: reconnect
+  Cloud-->>Edge: RetryEnvelope{patch46..48, ttl_ok}
+
+
 Each AXCP node maintains a directed acyclic graph (DAG) of context segments.  
 Each segment is uniquely identified by its `segment_id` and versioned via `context_version` fields.
 
