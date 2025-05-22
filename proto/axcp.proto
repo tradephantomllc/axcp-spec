@@ -70,6 +70,8 @@ enum ErrorCode {
   PROFILE_MISMATCH      = 12; // sender envelope > negotiated
   PROFILE_UNSUPPORTED   = 13; // requested profile not in supported mask
   PROFILE_NEGOTIATION_FAILED = 14;
+  DP_POLICY_CONFLICT = 16;
+
 
 }
 
@@ -102,6 +104,8 @@ message CapabilityDescriptor {
   string resource_hint      = 5;  // e.g. "gpu", "secure-env"
   repeated string auth_scope = 6; // e.g. ["read:user", "admin:tasks"]
   string descriptor_version = 7;  // Optional version tag
+  DpParams dp = 4;   // present only if profile ≥ 3
+
 }
 
 // Policy for routing/tool access
@@ -174,4 +178,19 @@ message SystemStats {
 message TokenUsage {
   uint32 prompt_tokens  = 1;
   uint32 completion_tokens = 2;
+}
+
+// ---------- Differential-Privacy ----------
+enum DpMechanism {
+  LAPLACE  = 0;
+  GAUSSIAN = 1;
+}
+
+message DpParams {
+  double epsilon     = 1;
+  double delta       = 2;
+  DpMechanism mech   = 3;
+  double clip_norm   = 4;   // 0 = disabled
+  enum Granularity { RECORD = 0; BATCH = 1; TOKEN = 2; }
+  Granularity gran   = 5;
 }

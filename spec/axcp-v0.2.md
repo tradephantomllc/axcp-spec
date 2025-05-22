@@ -496,6 +496,33 @@ The filter operates on outbound payloads and applies randomized noise based on:
 
 The DP module MUST be declared in capability metadata and MUST be tunable per session.
 
+### 9.2.1 Differential-Privacy Parameter Block
+
+Each node MAY advertise a **DP parameter set** that governs how noise is added
+before sharing aggregated results.
+
+| Field | Description | Range / Notes |
+|-------|-------------|---------------|
+| `epsilon`  | Privacy budget (ε) | 0.1 – 10.0 (lower = stronger privacy) |
+| `delta`    | Failure prob (δ)   | ≤ 1 e-5 |
+| `mechanism`| `LAPLACE` \| `GAUSSIAN` | MUST be identical both sides |
+| `clip_norm`| L2 clipping bound | 0 = no clipping |
+| `granularity` | Unit applied (RECORD, BATCH, TOKEN) | affects noise scale |
+
+Nodes embed this block in `CapabilityOffer` → receiver **MUST** echo in the
+`CapabilityAck`.  If two nodes disagree on ε/δ they MUST down-shift to the
+higher privacy (min ε, min δ) or abort with `ErrorCode.DP_POLICY_CONFLICT`.
+
+```mermaid
+sequenceDiagram
+  Edge->>Cloud: CapabilityOffer{dp: ε=1.0,δ=1e-5}
+  Cloud-->>Edge: CapabilityAck same ε/δ
+  Edge->>Cloud: AxcpEnvelope{profile=3, dp=true}
+
+  Implementation note: noise scale = clip_norm / ε (Laplace) or
+σ = sqrt(2*ln(1.25/δ)) * clip_norm / ε (Gaussian).
+
+
 ### 9.3 Audit & Logging
 
 AXCP nodes MAY log tool executions, errors, and envelope flow. Logs MAY include:
