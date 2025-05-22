@@ -1,3 +1,5 @@
+// © 2025 TradePhantom LLC – BSL 1.1 / Apache-2.0 fallback
+
 syntax = "proto3";
 
 package axcp.v0_1;
