@@ -194,3 +194,7 @@ message DpParams {
   enum Granularity { RECORD = 0; BATCH = 1; TOKEN = 2; }
   Granularity gran   = 5;
 }
+
+// -------- Legacy wrappers (optional) ----------
+message McpJsonBlob  { bytes json = 1; }   // raw MCP JSON
+message A2AJsonBlob  { bytes json = 1; }   // raw AgentCard JSON
