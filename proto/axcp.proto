@@ -4,37 +4,65 @@ syntax = "proto3";
 
 package axcp.v0_1;
 
-// ---------- Envelope ----------
-message AxcpEnvelope {
-  // ... existing fields ...
-  optional bytes attestation_proof = 101; // Attestation proof for secure enclave (SGX/SEV/etc)
-  uint32 version  = 1;  // presently 1
-  string trace_id = 2;
-  // Static operational profile: 0 = Basic … 3 = Enterprise-Privacy
-  uint32 profile = 3;
+/* ─────────────  ENVELOPE  ─────────────────────────────────────────── */
 
-    oneof payload {
-    ContextPatch       context_patch  = 4;
-    CapabilityMessage  capability_msg = 5;
-    RoutePolicyMessage route_msg      = 6;
-    ErrorMessage       error          = 7;
+message AxcpEnvelope {
+  uint32 version       = 1;   // protocol version (currently 1)
+  string trace_id      = 2;   // request / conversation correlation
+  uint32 profile       = 3;   // 0 = Basic … 3 = Enterprise-Privacy
+
+  oneof payload {                 // main frame types
+    ContextPatch        context_patch  = 4;
+    CapabilityMessage   capability_msg = 5;
+    RoutePolicyMessage  route_msg      = 6;
+    ErrorMessage        error          = 7;
+    ProfileNegotiate    profile_neg    = 8;  // QUIC capability handshake
+    ProfileAck          profile_ack    = 9;
+    RetryEnvelope       retry_env      = 10; // store-and-forward batch
+    TelemetryDatagram   telemetry      = 11; // QUIC DATAGRAM
   }
 
-  bytes signature = 100; // optional, detached
+  bytes  signature          = 100; // detached sig (profile ≥1)
+  bytes  attestation_proof  = 101; // SGX / SEV quote (profile ≥2)
 }
 
-// ---------- Context-Sync ----------
+/* ─────────────  CONTEXT-SYNC  ─────────────────────────────────────── */
+
+message DeltaOp {
+  enum OpType { ADD = 0; REPLACE = 1; REMOVE = 2; MERGE = 3; }
+  OpType op   = 1;
+  string path = 2;         // JSON Pointer
+  bytes  data = 3;         // gz-compressed payload
+  uint64 ts   = 4;         // lamport / microseconds
+}
+
 message ContextPatch {
-  string context_id   = 1;
-  uint64 base_version = 2;
-  repeated DeltaOp ops = 3;
+  string         context_id   = 1;
+  uint64         base_version = 2;
+  repeated DeltaOp ops        = 3;
 }
 
+message ContextGraphVersion {
+  string context_id = 1;
+  uint64 version    = 2;
+}
 
-// ---------- Capability negotiation ----------
-message CapabilityOffer   { CapabilityDescriptor desc   = 1; }
-message CapabilityRequest { repeated string ids         = 1; }
-message CapabilityAck     { repeated string accepted    = 1; }
+message SyncSubscribe { ContextGraphVersion from = 1; }
+message SyncRequest   {
+  ContextGraphVersion missing_from = 1;
+  uint64              to_version   = 2;
+}
+
+message RetryEnvelope {
+  repeated ContextPatch buffered_patches = 1;
+  uint32                ttl_ms           = 2;
+}
+
+/* ─────────────  CAPABILITY NEGOTIATION (TOOLS)  ───────────────────── */
+
+message CapabilityOffer   { CapabilityDescriptor desc    = 1; }
+message CapabilityRequest { repeated string ids          = 1; }
+message CapabilityAck     { repeated string accepted     = 1; } // ***tool list ack***
 
 message CapabilityMessage {
   oneof kind {
@@ -44,153 +72,97 @@ message CapabilityMessage {
   }
 }
 
-// ---------- Capability descriptor ----------
-
-// ---------- Routing ----------
-
-
-// ---------- Error ----------
-message ErrorMessage {
-  uint32 code        = 1;
-  string reason      = 2;
-  bytes  diagnostics = 3;
-}
-// Error codes used in AxcpEnvelope error messages and system responses
-enum ErrorCode {
-  UNKNOWN               = 0;  // unspecified failure
-  INVALID_CONTEXT       = 1;  // context graph inconsistent or missing
-  UNAUTHORIZED          = 2;  // missing or invalid credentials
-  TOOL_NOT_FOUND        = 3;  // requested tool/capability unavailable
-  TIMEOUT               = 4;  // operation timeout
-  UNSUPPORTED_VERSION   = 5;  // protocol version mismatch
-  BAD_DELTA             = 6;  // delta patch invalid or unprocessable
-  PAYLOAD_TOO_LARGE     = 7;  // envelope exceeds size limit
-  MALFORMED_REQUEST     = 8;  // bad structure or required field missing
-  TOO_MANY_REQUESTS     = 9;  // rate-limited or quota exceeded
-  PROFILE_MISMATCH      = 12; // sender envelope > negotiated
-  PROFILE_UNSUPPORTED   = 13; // requested profile not in supported mask
-  PROFILE_NEGOTIATION_FAILED = 14;
-  DP_POLICY_CONFLICT = 16;
-
-
-}
-
-// Single delta operation applied to a context path
-message DeltaOp {
-  enum OpType {
-    ADD = 0;
-    REPLACE = 1;
-    REMOVE = 2;
-  }
-
-  OpType op         = 1;  // Operation type
-  string path       = 2;  // JSON pointer or segment path
-  bytes  value      = 3;  // Optional new value (CBOR/JSON/protobuf)
-}
-
-// Patch consisting of multiple DeltaOps
-message DeltaPatch {
-  string segment_id       = 1;              // Target segment
-  uint64 context_version  = 2;              // New version ID after patch
-  repeated DeltaOp ops    = 3;              // Operations in order
-}
-
-// Descriptor for a tool/capability
 message CapabilityDescriptor {
-  string tool_id            = 1;  // Short name of the tool (e.g. "search")
-  string input_schema       = 2;  // JSON schema as string
-  string output_schema      = 3;  // JSON schema as string
-  uint32 timeout_ms         = 4;  // Optional timeout
-  string resource_hint      = 5;  // e.g. "gpu", "secure-env"
-  repeated string auth_scope = 6; // e.g. ["read:user", "admin:tasks"]
-  string descriptor_version = 7;  // Optional version tag
-  DpParams dp = 4;   // present only if profile ≥ 3
-
+  string  tool_id           = 1;
+  string  input_schema      = 2;
+  string  output_schema     = 3;
+  uint32  timeout_ms        = 4;
+  string  resource_hint     = 5;
+  repeated string auth_scope = 6;
+  string  descriptor_version = 7;
+  DpParams dp               = 8;   // profile ≥3
 }
 
-// Policy for routing/tool access
+/* ─────────────  PROFILE HANDSHAKE (dynamic)  ──────────────────────── */
+
+message ProfileNegotiate {
+  uint32 supported_mask = 1;   // bitmask; bit0=Profile-0 …
+  uint32 min_required   = 2;   // lowest acceptable profile
+}
+
+message ProfileAck {            // ⬅︎ renamed to avoid clash
+  uint32 agreed_profile = 1;
+}
+
+/* ─────────────  ROUTING POLICY  ───────────────────────────────────── */
+
 message RoutePolicyMessage {
-  string policy_id = 1;
-  bytes  wasm_blob = 2;  // WASM-encoded policy logic
-  uint32 ttl_ms    = 3;  // Time-to-live for policy
+  string policy_id  = 1;
+  bytes  wasm_blob  = 2;
+  uint32 ttl_ms     = 3;
 }
 
-// Audit proof for envelope execution/logging
-message LogProof {
-  string envelope_hash = 1; // SHA-256
-  string sender_id     = 2;
-  string receiver_id   = 3;
-  uint64 timestamp     = 4;
-  string outcome       = 5; // e.g. "ok", "timeout", "fail"
-  ErrorCode error_code = 6; // optional
-}
-
-// ---- Negotiation messages ----
-message CapabilityNegotiate {
-  uint32 supported_mask = 1;   // bit-mask, 0b0001 = Profile-0 etc.
-  uint32 min_required   = 2;   // 0-3
-}
-
-message CapabilityAck {
-  uint32 agreed_profile = 1;   // final session profile
-}
-
-
-// -------- Context graph version & sync ---------------
-message ContextGraphVersion {
-  string  context_id = 1;
-  uint64  version     = 2;
-}
-
-message SyncSubscribe {
-  ContextGraphVersion from = 1; // start version
-}
-
-message SyncRequest {
-  ContextGraphVersion missing_from = 1;
-  uint64 to_version                = 2;
-}
-
-message RetryEnvelope {
-  repeated ContextPatch buffered_patches = 1;
-  uint32 ttl_ms                          = 2;
-}
-
-// Enum update (aggiungi nella sezione ErrorCode enum)
-PROFILE_NEGOTIATION_FAILED = 14;
-MISSING_PATCH_RANGE        = 15;
-
-// -------- Telemetry datagram ----------
-message TelemetryDatagram {
-  uint64 timestamp_ms = 1;
-  oneof payload {
-    SystemStats  system = 10;
-    TokenUsage   tokens = 11;
-  }
-}
+/* ─────────────  TELEMETRY (QUIC DATAGRAM)  ────────────────────────── */
 
 message SystemStats {
-  uint32 cpu_percent = 1;   // 0-100
-  uint64 mem_bytes   = 2;
-  uint32 temperature_c = 3; // optional
+  uint32 cpu_percent    = 1;
+  uint64 mem_bytes      = 2;
+  uint32 temperature_c  = 3;
 }
 
 message TokenUsage {
-  uint32 prompt_tokens  = 1;
-  uint32 completion_tokens = 2;
+  uint32 prompt_tokens      = 1;
+  uint32 completion_tokens  = 2;
 }
 
-// ---------- Differential-Privacy ----------
-enum DpMechanism {
-  LAPLACE  = 0;
-  GAUSSIAN = 1;
+message TelemetryDatagram {
+  uint64 timestamp_ms = 1;
+  oneof payload {
+    SystemStats system = 10;
+    TokenUsage  tokens = 11;
+  }
 }
+
+/* ─────────────  DIFFERENTIAL-PRIVACY  ─────────────────────────────── */
+
+enum DpMechanism { LAPLACE = 0; GAUSSIAN = 1; }
 
 message DpParams {
-  double epsilon     = 1;
-  double delta       = 2;
-  DpMechanism mech   = 3;
-  double clip_norm   = 4;   // 0 = disabled
+  double        epsilon   = 1;
+  double        delta     = 2;
+  DpMechanism   mech      = 3;
+  double        clip_norm = 4;
   enum Granularity { RECORD = 0; BATCH = 1; TOKEN = 2; }
-  Granularity gran   = 5;
+  Granularity   gran      = 5;
 }
+
+/* ─────────────  ERROR HANDLING  ───────────────────────────────────── */
+
+enum ErrorCode {
+  UNKNOWN                     = 0;
+  INVALID_CONTEXT             = 1;
+  UNAUTHORIZED                = 2;
+  TOOL_NOT_FOUND              = 3;
+  TIMEOUT                     = 4;
+  UNSUPPORTED_VERSION         = 5;
+  BAD_DELTA                   = 6;
+  PAYLOAD_TOO_LARGE           = 7;
+  MALFORMED_REQUEST           = 8;
+  TOO_MANY_REQUESTS           = 9;
+  PROFILE_MISMATCH            = 12;
+  PROFILE_UNSUPPORTED         = 13;
+  PROFILE_NEGOTIATION_FAILED  = 14;
+  MISSING_PATCH_RANGE         = 15;
+  DP_POLICY_CONFLICT          = 16;
+}
+
+message ErrorMessage {
+  uint32     code        = 1;
+  string     reason      = 2;
+  bytes      diagnostics = 3;
+}
+
+/* ─────────────  LEGACY WRAPPERS (optional logging)  ──────────────── */
+
+message McpJsonBlob { bytes json = 1; }
+message A2AJsonBlob { bytes json = 1; }
