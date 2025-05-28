@@ -70,8 +70,7 @@ jobs:
 
       # 8️⃣ Benchmarks
       - name: Run codec benchmarks (short)
-        working-directory: sdk/go
-        run: go test ./bench/... -bench=Encode -benchtime=100x -benchmem
+        run: cd sdk/go && go test ./... -bench=Encode -benchtime=100x -benchmem
 
       - name: Install Python benchmark deps
         run: |
