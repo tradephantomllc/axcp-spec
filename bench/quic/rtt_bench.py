@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-import asyncio, sys, time, uuid, os
+import sys
+import os
 
-# Aggiungi il percorso alla radice del progetto e alla directory proto
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../proto')))
+# Add the root directory and proto directory to sys.path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..', 'proto')))
+
+import asyncio, time, uuid
 
 from aioquic.asyncio import serve, connect
 import proto.axcp_pb2 as pb
