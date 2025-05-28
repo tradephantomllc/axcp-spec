@@ -15,8 +15,8 @@ def mcp_to_axcp(mcp_json: dict) -> axcp.AxcpEnvelope:
     )
     offer = axcp.CapabilityOffer(
         desc = axcp.CapabilityDescriptor(
-            id = mcp_json["tool"]["name"],
-            version = mcp_json["tool"].get("version", "0")
+            tool_id = mcp_json["tool"]["name"],
+            descriptor_version = mcp_json["tool"].get("version", "0")
         )
     )
     env.capability_msg.offer.CopyFrom(offer)
