@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
-import json, base64
+import sys
+import os
+
+# Add the root directory and proto directory to sys.path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../proto')))
+
+import json
+import base64
 from google.protobuf import json_format
 import proto.axcp_pb2 as axcp
 from gateway.mcp_bridge import mcp_to_axcp, axcp_to_mcp
