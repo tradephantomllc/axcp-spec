@@ -1,0 +1,63 @@
+name: AXCP CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      actions: read
+
+    steps:
+      # 1️⃣ Checkout
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # 2️⃣ Go setup
+      - name: Set up Go 1.22
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.7'
+          cache: true
+
+      # 3️⃣ Python setup
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install grpcio-tools pytest
+
+      # 4️⃣ Install protoc + Go plugin
+      - name: Install protoc (v25.x)
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y protobuf-compiler
+
+      - name: Install protoc-gen-go
+        run: go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+
+      # 5️⃣ Generate Go stubs
+      - name: Generate axcp.pb.go
+        run: |
+          protoc -I proto \
+            --go_out=sdk/go/internal/pb --go_opt=paths=source_relative \
+            proto/axcp.proto
+
+      # 6️⃣ Go unit tests
+      - name: Run Go tests
+        run: go test ./sdk/go/...
+
+      # 7️⃣ Python unit tests
+      - name: Run Python tests
+        run: pytest -q scripts gateway
