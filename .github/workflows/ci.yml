@@ -74,7 +74,7 @@ jobs:
 
       - name: Install Python benchmark deps
         run: |
-          pip install aioquic google-protobuf
+          pip install aioquic protobuf
 
       - name: Run QUIC RTT micro-bench
         run: python bench/quic/rtt_bench.py 200
