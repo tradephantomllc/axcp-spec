@@ -3,14 +3,18 @@ import sys
 import os
 
 # Add the root directory and proto directory to sys.path
-# Go up 4 levels from bench/quic/ to reach the root of the repo
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..', 'proto')))
+# Go up 3 levels from bench/quic/ to reach the root of the repo
+root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..'))
+proto_path = os.path.join(root_path, 'proto')
+sys.path.insert(0, root_path)
+sys.path.insert(0, proto_path)
 
-import asyncio, time, uuid
+import asyncio
+import time
+import uuid
 
 from aioquic.asyncio import serve, connect
-import proto.axcp_pb2 as pb
+import axcp_pb2 as pb
 
 COUNT = int(sys.argv[1]) if len(sys.argv) > 1 else 1000
 

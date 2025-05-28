@@ -54,6 +54,11 @@ jobs:
             --go_out=internal/pb --go_opt=paths=source_relative \
             ../../proto/axcp.proto
 
+      # 5.1 Generate Python stubs
+      - name: Generate axcp_pb2.py
+        run: |
+          python -m grpc_tools.protoc -I=proto --python_out=proto proto/axcp.proto
+
       # 6️⃣ Go modules
       - name: Tidy Go modules
         working-directory: sdk/go
