@@ -14,7 +14,7 @@ import time
 import uuid
 
 from aioquic.asyncio import serve, connect
-import axcp_pb2 as pb
+from proto import axcp_pb2 as pb
 
 COUNT = int(sys.argv[1]) if len(sys.argv) > 1 else 1000
 
