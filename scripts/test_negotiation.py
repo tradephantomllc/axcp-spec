@@ -15,7 +15,7 @@ def negotiate(a: Neg, b: Neg) -> int | None:
 def test():
     assert negotiate(Neg(0b1111, 1), Neg(0b1011, 0)) == 3  # Highest common profile is 3 (0b1000)
     assert negotiate(Neg(0b0001, 0), Neg(0b0100, 0)) is None  # No common profiles
-    assert negotiate(Neg(0b0011, 2), Neg(0b0110, 1)) == 2  # Highest common profile is 2 (0b0100)
+    assert negotiate(Neg(0b0011, 2), Neg(0b0110, 1)) is None  # No common profile satisfies minimum requirements
     print("negotiation tests passed")
 
 if __name__ == "__main__":
