@@ -48,14 +48,18 @@ jobs:
 
       # 5️⃣ Generate Go stubs
       - name: Generate axcp.pb.go
-        working-directory: .
+        working-directory: sdk/go
         run: |
-          cd sdk/go
           protoc -I ../../proto \
             --go_out=internal/pb --go_opt=paths=source_relative \
             ../../proto/axcp.proto
 
-      # 6️⃣ Go unit tests
+      # 6️⃣ Go modules
+      - name: Tidy Go modules
+        working-directory: sdk/go
+        run: go mod tidy
+
+      # 7️⃣ Go unit tests
       - name: Run Go tests
         working-directory: sdk/go
         run: go test ./...
