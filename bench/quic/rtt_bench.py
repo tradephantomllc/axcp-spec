@@ -3,6 +3,7 @@ import sys
 import os
 
 # Add the root directory and proto directory to sys.path
+# Go up 4 levels from bench/quic/ to reach the root of the repo
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..', 'proto')))
 
