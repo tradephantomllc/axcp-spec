@@ -4,6 +4,8 @@ syntax = "proto3";
 
 package axcp.v0_1;
 
+option go_package = "github.com/tradephantom/axcp-spec/sdk/go/internal/pb";
+
 /* ─────────────  ENVELOPE  ─────────────────────────────────────────── */
 
 message AxcpEnvelope {
