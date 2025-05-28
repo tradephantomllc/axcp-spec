@@ -67,3 +67,15 @@ jobs:
       # 7️⃣ Python unit tests
       - name: Run Python tests
         run: pytest -q scripts gateway
+
+      # 8️⃣ Benchmarks
+      - name: Run codec benchmarks (short)
+        working-directory: sdk/go
+        run: go test ./bench/... -bench=Encode -benchtime=100x -benchmem
+
+      - name: Install Python benchmark deps
+        run: |
+          pip install aioquic google-protobuf
+
+      - name: Run QUIC RTT micro-bench
+        run: python bench/quic/rtt_bench.py 200
