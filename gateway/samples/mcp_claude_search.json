@@ -1,0 +1,15 @@
+{
+  "id": "req_123",
+  "tool": {
+    "name": "web_search",
+    "description": "Search the web for information",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "query": {"type": "string"}
+      },
+      "required": ["query"]
+    }
+  },
+  "context_delta": ""
+}
