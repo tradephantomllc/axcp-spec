@@ -19,5 +19,10 @@ It improves on existing agent communication protocols (like MCP, A2A, and ACP) b
 - Benchmark simulations and performance tests  
 - License: BSL 1.1 (converts to Apache 2.0 on 2029-01-01)
 
+## 🔐 Branch Protection
+
+The `main` branch is protected by a ruleset that enforces CI testing, disallows direct pushes or deletions, and requires pull requests for all merges.  
+Protection enforcement is pending until repository visibility is changed to public or upgraded to GitHub Team.
+
 > Developed by [TradePhantom LLC](https://tradephantom.com) (New Mexico, US)  
 > AI-native infrastructure for autonomous agents.
