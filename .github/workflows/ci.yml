@@ -54,6 +54,11 @@ jobs:
             --go_out=internal/pb --go_opt=paths=source_relative \
             ../../proto/axcp.proto
 
+      # 5.1 Generate Python stubs
+      - name: Generate axcp_pb2.py
+        run: |
+          python -m grpc_tools.protoc -I=proto --python_out=proto proto/axcp.proto
+
       # 6️⃣ Go modules
       - name: Tidy Go modules
         working-directory: sdk/go
@@ -67,3 +72,15 @@ jobs:
       # 7️⃣ Python unit tests
       - name: Run Python tests
         run: pytest -q scripts gateway
+
+      # 8️⃣ Benchmarks
+      - name: Run codec benchmarks (short)
+        working-directory: sdk/go
+        run: go test ./bench/... -bench=. -benchtime=100x -benchmem
+
+      - name: Install Python benchmark deps
+        run: |
+          pip install aioquic protobuf
+
+      - name: Run QUIC RTT micro-bench
+        run: python bench/quic/rtt_bench.py 200
