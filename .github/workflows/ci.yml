@@ -75,6 +75,8 @@ jobs:
 
       # 7.1 Gateway hard tests
       - name: Gateway hard-test
+        env:
+          PYTHONPATH: ${{ github.workspace }}
         run: pytest -q scripts/test_gateway_hard.py
 
       # 8️⃣ Benchmarks
