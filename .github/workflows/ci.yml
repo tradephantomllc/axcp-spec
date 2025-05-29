@@ -6,39 +6,26 @@ on:
   pull_request:
     branches: [ main ]
 
+# Cache per le dipendenze
+env:
+  GO_VERSION: '1.22.7'
+  PYTHON_VERSION: '3.11'
+  PROTOC_VERSION: '25.1'
+
 jobs:
-  build-test:
+  test-go:
+    name: Test Go
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-      actions: read
-
     steps:
-      # 1️⃣ Checkout
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      # 2️⃣ Go setup
-      - name: Set up Go 1.22
+      - name: Set up Go ${{ env.GO_VERSION }}
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22.7'
+          go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      # 3️⃣ Python setup
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install Python deps
-        run: |
-          python -m pip install --upgrade pip
-          pip install grpcio-tools pytest
-
-      # 4️⃣ Install protoc + Go plugin
-      - name: Install protoc (v25.x)
+      - name: Install protoc
         run: |
           sudo apt-get update -y
           sudo apt-get install -y protobuf-compiler
@@ -46,47 +33,69 @@ jobs:
       - name: Install protoc-gen-go
         run: go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 
-      # 5️⃣ Generate Go stubs
-      - name: Generate axcp.pb.go
+      - name: Generate Go stubs
         working-directory: sdk/go
         run: |
           protoc -I ../../proto \
             --go_out=internal/pb --go_opt=paths=source_relative \
             ../../proto/axcp.proto
 
-      # 5.1 Generate Python stubs
-      - name: Generate axcp_pb2.py
-        run: |
-          python -m grpc_tools.protoc -I=proto --python_out=proto proto/axcp.proto
-
-      # 6️⃣ Go modules
       - name: Tidy Go modules
         working-directory: sdk/go
         run: go mod tidy
 
-      # 7️⃣ Go unit tests
       - name: Run Go tests
         working-directory: sdk/go
-        run: go test ./...
+        run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
 
-      # 7️⃣ Python unit tests
-      - name: Run Python tests
-        run: pytest -q scripts gateway
-
-      # 7.1 Gateway hard tests
-      - name: Gateway hard-test
-        env:
-          PYTHONPATH: ${{ github.workspace }}
-        run: pytest -q scripts/test_gateway_hard.py
-
-      # 8️⃣ Benchmarks
-      - name: Run codec benchmarks (short)
+      - name: Run codec benchmarks (quick)
         working-directory: sdk/go
-        run: go test ./bench/... -bench=. -benchtime=100x -benchmem
+        run: go test ./bench/... -bench=. -benchtime=1x -benchmem
 
-      - name: Install Python benchmark deps
+  test-python:
+    name: Test Python
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Python deps
         run: |
-          pip install aioquic protobuf
+          python -m pip install --upgrade pip
+          pip install grpcio-tools pytest aioquic protobuf
+
+      - name: Generate Python stubs
+        run: |
+          python -m grpc_tools.protoc -I=proto --python_out=proto proto/axcp.proto
+
+      - name: Run Python tests
+        run: |
+          export PYTHONPATH=$GITHUB_WORKSPACE
+          pytest -q scripts gateway
 
       - name: Run QUIC RTT micro-bench
-        run: python bench/quic/rtt_bench.py 200
+        run: python bench/quic/rtt_bench.py 20  # Ridotto da 200 a 20 iterazioni
+
+  check-examples:
+    name: Check Examples
+    needs: [test-go]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go ${{ env.GO_VERSION }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Check examples build
+        working-directory: examples/go/simple_chat
+        run: |
+          go mod init example/simple_chat 2>/dev/null || true
+          go mod tidy
+          go vet .
