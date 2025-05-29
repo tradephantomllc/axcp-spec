@@ -79,6 +79,11 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}
         run: pytest -q scripts/test_gateway_hard.py
 
+      # 7.2 Check Go examples
+      - name: Check examples build
+        working-directory: sdk/go
+        run: go vet ../../examples/...
+
       # 8️⃣ Benchmarks
       - name: Run codec benchmarks (short)
         working-directory: sdk/go
