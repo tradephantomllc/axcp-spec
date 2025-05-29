@@ -1,51 +1,100 @@
 #!/usr/bin/env python3
-import sys
-import os
-
-# Add the root directory and proto directory to sys.path
-# Go up 3 levels from bench/quic/ to reach the root of the repo
-root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..'))
-proto_path = os.path.join(root_path, 'proto')
-sys.path.insert(0, root_path)
-sys.path.insert(0, proto_path)
-
 import asyncio
+import socket
 import time
 import uuid
+import sys
 
-from aioquic.asyncio import serve, connect
-from proto import axcp_pb2 as pb
+# Simple UDP echo server and client for RTT measurement
 
+HOST = '127.0.0.1'
+PORT = 61235
 COUNT = int(sys.argv[1]) if len(sys.argv) > 1 else 1000
 
-def sample_env():
-    env = pb.AxcpEnvelope(version=1, trace_id=str(uuid.uuid4()), profile=0)
-    return env.SerializeToString()
-
-async def echo_server(reader, writer):
+async def udp_echo_server():
+    loop = asyncio.get_running_loop()
+    
+    class EchoServerProtocol:
+        def connection_made(self, transport):
+            self.transport = transport
+            
+        def datagram_received(self, data, addr):
+            # Echo back the received data
+            self.transport.sendto(data, addr)
+            
+        def connection_lost(self, exc):
+            # Handle connection lost
+            pass
+    
+    # Create datagram endpoint
+    transport, _ = await loop.create_datagram_endpoint(
+        lambda: EchoServerProtocol(),
+        local_addr=(HOST, PORT)
+    )
+    
     try:
+        # Keep the server running
         while True:
-            size = int.from_bytes(await reader.readexactly(4), "little")
-            buf  = await reader.readexactly(size)
-            writer.write(size.to_bytes(4,"little") + buf)
-            await writer.drain()
-    except asyncio.IncompleteReadError:
+            await asyncio.sleep(3600)  # Sleep for 1 hour
+    except asyncio.CancelledError:
         pass
+    finally:
+        transport.close()
 
-async def bench():
-    server = await serve("127.0.0.1", 61235, configuration=None, stream_handler=echo_server)
-    async with connect("127.0.0.1", 61235, configuration=None) as client:
-        stream = await client.create_stream()
-        send = sample_env()
-        t0 = time.perf_counter()
-        for _ in range(COUNT):
-            stream.write(len(send).to_bytes(4,"little") + send)
-            size = int.from_bytes(await stream.readexactly(4), "little")
-            await stream.readexactly(size)
-        rtt = (time.perf_counter() - t0) / COUNT * 1_000_000
-        print(f"{COUNT} pkts  avg RTT = {rtt:.1f} μs")
-    server.close()
-    await server.wait_closed()
+async def udp_echo_client(count):
+    loop = asyncio.get_running_loop()
+    
+    # Create a UDP socket
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.setblocking(False)
+    
+    # Generate some test data
+    test_data = b'test_packet'
+    
+    # Warm-up
+    sock.sendto(test_data, (HOST, PORT))
+    await loop.sock_recv(sock, 1024)
+    
+    # Measure RTT
+    times = []
+    for _ in range(count):
+        start = time.perf_counter()
+        sock.sendto(test_data, (HOST, PORT))
+        await loop.sock_recv(sock, 1024)
+        end = time.perf_counter()
+        times.append((end - start) * 1_000_000)  # convert to microseconds
+    
+    sock.close()
+    return times
+
+async def main():
+    # Start server task
+    server_task = asyncio.create_task(udp_echo_server())
+    
+    # Give server time to start
+    await asyncio.sleep(1)
+    
+    try:
+        # Run client
+        times = await udp_echo_client(COUNT)
+        
+        # Calculate statistics
+        avg_rtt = sum(times) / len(times)
+        min_rtt = min(times)
+        max_rtt = max(times)
+        
+        print(f"Packets sent: {COUNT}")
+        print(f"Average RTT: {avg_rtt:.2f} μs")
+        print(f"Minimum RTT: {min_rtt:.2f} μs")
+        print(f"Maximum RTT: {max_rtt:.2f} μs")
+        
+    finally:
+        # Clean up
+        server_task.cancel()
+        try:
+            await server_task
+        except asyncio.CancelledError:
+            pass
 
 if __name__ == "__main__":
-    asyncio.run(bench())
+    asyncio.run(main())
