@@ -1,5 +1,6 @@
 {
   "id": "req_123",
+  "trace_id": "trace_123",
   "tool": {
     "name": "web_search",
     "description": "Search the web for information",

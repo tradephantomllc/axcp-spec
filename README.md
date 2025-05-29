@@ -1,5 +1,10 @@
 # axcp-spec
 
+[![CI](https://github.com/tradephantom/axcp-spec/actions/workflows/ci.yml/badge.svg)](https://github.com/tradephantom/axcp-spec/actions/workflows/ci.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/tradephantom/axcp-spec/sdk/go.svg)](https://pkg.go.dev/github.com/tradephantom/axcp-spec/sdk/go)
+
+> **Quick Start**: see [`examples/go/simple_chat`](examples/go/simple_chat)
+
 © 2025 TradePhantom LLC – BSL 1.1 / Apache-2.0 fallback
 
 AXCP – Adaptive eXchange Context Protocol. An open specification for ultra-efficient, privacy-preserving AI agent orchestration.
