@@ -73,6 +73,10 @@ jobs:
       - name: Run Python tests
         run: pytest -q scripts gateway
 
+      # 7.1 Gateway hard tests
+      - name: Gateway hard-test
+        run: pytest -q scripts/test_gateway_hard.py
+
       # 8️⃣ Benchmarks
       - name: Run codec benchmarks (short)
         working-directory: sdk/go

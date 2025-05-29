@@ -1,0 +1,13 @@
+{
+  "task_id": "gemini_task_456",
+  "action": "generate_content",
+  "parameters": {
+    "model": "gemini-pro",
+    "contents": [{"text": "Explain quantum computing"}],
+    "generation_config": {
+      "temperature": 0.7,
+      "top_p": 0.9,
+      "top_k": 40
+    }
+  }
+}
