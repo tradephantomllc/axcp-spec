@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-import json, base64
+import sys
+import os
+import json
+import base64
+
+# Add the project root to Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 import proto.axcp_pb2 as pb
 from gateway.mcp_bridge import mcp_to_axcp, axcp_to_mcp
 
