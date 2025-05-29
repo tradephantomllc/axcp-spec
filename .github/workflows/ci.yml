@@ -82,7 +82,11 @@ jobs:
       # 7.2 Check Go examples
       - name: Check examples build
         working-directory: sdk/go
-        run: go vet ../../examples/...
+        run: |
+          cd ../../examples/go/simple_chat
+          go mod init example/simple_chat
+          go mod tidy
+          go vet .
 
       # 8️⃣ Benchmarks
       - name: Run codec benchmarks (short)
