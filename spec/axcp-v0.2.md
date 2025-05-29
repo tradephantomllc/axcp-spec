@@ -1,13 +1,13 @@
-# AXCP v0.1 – Adaptive eXchange Context Protocol
+# AXCP v0.2-alpha – Adaptive eXchange Context Protocol
 
 © 2025 TradePhantom LLC – BSL 1.1 / Apache-2.0 fallback
 
 _Work in progress – structure auto-generated._
 
-> This document defines the initial AXCP protocol specification.  
-> Version: **v0.1 Draft**  
-> Status: **Exploratory Draft (Do not implement)**  
-> Last updated: {{INSERT_DATE}}
+> This document defines the initial AXCP protocol specification.
+> Version: **v0.2-alpha**
+> Status: **Alpha**
+> Last updated: 2025-05-30
 
 ---
 
@@ -554,6 +554,15 @@ Nodes MAY expose a `LogProof` query to third parties for audit purposes.
 12. Security Considerations  
 13. IANA / Registry Considerations (reserved type IDs)  
 14. Change Log  
+### v0.2-alpha – 2025-05-30
+
+- Feature-complete transport, sync, telemetry, gateway, and Go SDK
+- Added QUIC DATAGRAM telemetry support
+- Implemented CRDT context-sync & store-forward
+- Added capability framework with DP parameters
+- Integrated Gateway MCP ⇆ AXCP ⇆ A2A
+- Added full CI pipeline (proto, Go, Python, benchmarks)
+
 ### v0.1-draft – 2025-05-22
 
 - Initial public draft with:
