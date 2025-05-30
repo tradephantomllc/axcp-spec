@@ -4,5 +4,4 @@ use (
 	./edge/gateway
 	./examples/go/simple_chat
 	./sdk/go
-	./test
 )
