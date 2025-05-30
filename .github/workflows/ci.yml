@@ -48,6 +48,10 @@ jobs:
         working-directory: sdk/go
         run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
 
+      - name: Run DP unit tests
+        working-directory: sdk/go
+        run: go test -v ./dp
+
       - name: Run codec benchmarks (quick)
         working-directory: sdk/go
         run: go test ./bench/... -bench=. -benchtime=1x -benchmem
