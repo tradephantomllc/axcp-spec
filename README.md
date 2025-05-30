@@ -20,9 +20,46 @@ It improves on existing agent communication protocols (like MCP, A2A, and ACP) b
 ## What's New in v0.3
 
 - **Telemetry Datagrams**: Low-latency telemetry data collection with QUIC DATAGRAM extension
-- **Differential Privacy**: Built-in support for privacy-preserving metrics collection
+- **Differential Privacy**: Built-in support for privacy-preserving metrics collection with configurable privacy budgets
 - **Edge Gateway**: Enhanced gateway with telemetry support for edge computing scenarios
 - **Improved Testing**: Comprehensive test suite for differential privacy and telemetry features
+
+## Telemetry and Differential Privacy
+
+AXCP v0.3 introduces a novel approach to telemetry data collection that prioritizes both performance and privacy:
+
+### QUIC DATAGRAM Transport
+
+Telemetry data is transmitted using QUIC's unreliable DATAGRAM frames, providing:
+- Ultra-low latency (no head-of-line blocking)
+- Zero connection setup overhead for frequent metrics
+- Minimal impact on application traffic
+- Automatic coalescing of telemetry points during network congestion
+
+### Privacy-Preserving Metrics
+
+Built-in differential privacy mechanisms protect sensitive telemetry data:
+
+- **Profile-Based Privacy**: Privacy guarantees increase with profile level
+  - Profile 1-2: Basic telemetry with minimal noise
+  - Profile 3+: Strong differential privacy guarantees
+  
+- **Configurable Noise Mechanisms**:
+  - Laplace noise for discrete metrics (counters, percentages)
+  - Gaussian noise for continuous metrics (timing, memory usage)
+  
+- **Adaptive Privacy Budget**: Each gateway maintains a privacy budget that adapts based on:
+  - Query sensitivity
+  - Data volume
+  - Time-based budget replenishment
+
+### Implementation Status
+
+The current implementation provides a solid foundation while maintaining simplicity:
+
+- Basic UDP benchmarks for initial round-trip validation
+- Progressive enhancement toward full QUIC+SSL implementation
+- Privacy mechanisms with configurable parameters
 
 ## Contents
 
