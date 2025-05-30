@@ -1,8 +1,8 @@
 import json, os
 import pytest
 
-ROOT = os.path.abspath(os.path.join(__file__, "..", ".."))
-GOLD = os.path.join(ROOT, "tests", "dp", "golden")
+ROOT = os.path.abspath(os.path.join(__file__, ".."))
+GOLD = os.path.join(ROOT, "golden")
 
 def load(name):
     return json.load(open(os.path.join(GOLD, name)))
