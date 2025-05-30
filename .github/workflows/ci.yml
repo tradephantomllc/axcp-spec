@@ -44,27 +44,17 @@ jobs:
         working-directory: sdk/go
         run: go mod tidy
 
-      - name: Run Go tests
+      - name: Run Go tests (per-module)
+        run: |
+          set -e
+          for m in sdk/go gateway/go examples/go/simple_chat; do
+            echo "› go test $m/..."
+            (cd $m && go test -v -race ./...)
+          done
+
+      - name: Run code coverage
         working-directory: sdk/go
         run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
-
-      - name: Run DP unit tests
-        working-directory: sdk/go/dp
-        run: go test -v -race ./...
-
-      - name: Test simple_chat example
-        working-directory: examples/go/simple_chat
-        run: |
-          go mod tidy
-          go build -v .
-          # Test server and client functionality
-          ./simple_chat -server &
-          SERVER_PID=$!
-          sleep 2  # Give server time to start
-          ./simple_chat &
-          CLIENT_PID=$!
-          sleep 5  # Let them communicate
-          kill $SERVER_PID $CLIENT_PID || true
 
   test-python:
     name: Test Python
