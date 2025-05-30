@@ -52,6 +52,20 @@ jobs:
         working-directory: sdk/go/dp
         run: go test -v -race ./...
 
+      - name: Test simple_chat example
+        working-directory: examples/go/simple_chat
+        run: |
+          go mod tidy
+          go build -v .
+          # Test server and client functionality
+          ./simple_chat -server &
+          SERVER_PID=$!
+          sleep 2  # Give server time to start
+          ./simple_chat &
+          CLIENT_PID=$!
+          sleep 5  # Let them communicate
+          kill $SERVER_PID $CLIENT_PID || true
+
   test-python:
     name: Test Python
     runs-on: ubuntu-latest
