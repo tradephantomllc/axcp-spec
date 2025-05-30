@@ -18,7 +18,7 @@ It improves on existing agent communication protocols (like MCP, A2A, and ACP) b
 
 ## Contents
 
-- AXCP v0.1 specification (RFC-style)  
+- AXCP v0.2-alpha specification (RFC-style)  
 - Transport schema and Protobuf IDL  
 - No-code PoC orchestration workflows (Make, n8n)  
 - Benchmark simulations and performance tests  
