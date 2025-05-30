@@ -15,10 +15,18 @@ It improves on existing agent communication protocols (like MCP, A2A, and ACP) b
 - DIDComm v2 for decentralized capability negotiation and secure identity  
 - SGX enclaves and differential privacy for confidential and auditable execution  
 - Smart routing between cloud and edge nodes  
+- Telemetry datagrams for real-time monitoring with built-in differential privacy
+
+## What's New in v0.3
+
+- **Telemetry Datagrams**: Low-latency telemetry data collection with QUIC DATAGRAM extension
+- **Differential Privacy**: Built-in support for privacy-preserving metrics collection
+- **Edge Gateway**: Enhanced gateway with telemetry support for edge computing scenarios
+- **Improved Testing**: Comprehensive test suite for differential privacy and telemetry features
 
 ## Contents
 
-- AXCP v0.2-alpha specification (RFC-style)  
+- AXCP v0.3-draft specification (RFC-style)  
 - Transport schema and Protobuf IDL  
 - No-code PoC orchestration workflows (Make, n8n)  
 - Benchmark simulations and performance tests  
