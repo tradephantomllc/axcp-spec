@@ -49,10 +49,17 @@ jobs:
       - name: Run Go tests (per-module)
         run: |
           set -e
-          for m in sdk/go gateway/go examples/go/simple_chat; do
-            echo "› go test $m/..."
-            (cd $m && go test -v -race ./...)
-          done
+          # Test SDK
+          echo "› Testing SDK..."
+          (cd sdk/go && go test -v -race ./...)
+          
+          # Test Gateway
+          echo "\n› Testing Gateway..."
+          (cd edge/gateway && go test -v -race ./...)
+          
+          # Test simple_chat example
+          echo "\n› Testing simple_chat example..."
+          (cd examples/go/simple_chat && go test -v -race ./...)
 
       - name: Run code coverage
         working-directory: sdk/go
@@ -122,13 +129,12 @@ jobs:
         working-directory: sdk/go
         run: go mod tidy
 
-      - name: Run Go tests
-        working-directory: sdk/go
-        run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
-
       - name: Run Gateway Telemetry tests
-        working-directory: edge/gateway
-        run: go test -v -race ./...
+        run: |
+          set -e
+          # Test Gateway telemetry
+          echo "› Testing Gateway telemetry..."
+          (cd edge/gateway && go test -v -race ./...)
 
   check-examples:
     name: Check Examples
