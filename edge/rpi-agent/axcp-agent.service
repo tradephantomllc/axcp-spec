@@ -1,0 +1,12 @@
+[Unit]
+Description=AXCP Edge Agent
+After=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/axcp-agent -config /etc/axcp/config.yaml
+Restart=always
+User=axcp
+Environment=GOTRACEBACK=crash
+
+[Install]
+WantedBy=multi-user.target
