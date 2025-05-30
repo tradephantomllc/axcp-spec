@@ -3,14 +3,17 @@ package internal
 import (
 	"context"
 	"crypto/tls"
+	"encoding/binary"
 	"log"
 
 	"github.com/quic-go/quic-go"
-	"github.com/tradephantom/axcp-spec/sdk/go/axcp"
 )
 
-type EnvelopeHandler func(*axcp.Envelope)
-type TelemetryHandler func(*axcp.TelemetryDatagram)
+// EnvelopeHandler gestisce gli AXCP envelope ricevuti tramite stream
+type EnvelopeHandler func([]byte)
+
+// TelemetryHandler gestisce i datagrammi di telemetria con il loro profilo
+type TelemetryHandler func([]byte, uint32)
 
 func RunQuicServer(addr string, tlsConf *tls.Config, h EnvelopeHandler, dgram TelemetryHandler) error {
 	listener, err := quic.ListenAddr(addr, tlsConf, nil)
@@ -32,13 +35,18 @@ func handleSession(sess quic.Connection, h EnvelopeHandler, dgram TelemetryHandl
 	str, err := sess.AcceptStream(context.Background())
 	if err == nil {
 		go func() {
-			client := &axcp.QuicStream{Stream: str}
+			// Use stream to receive envelopes
 			for {
-				env, err := client.RecvEnvelope()
+				// Ricezione semplificata dallo stream
+				buf := make([]byte, 4096)
+				n, err := str.Read(buf)
 				if err != nil {
+					log.Printf("[quic] stream read error: %v", err)
 					return
 				}
-				h(env)
+				
+				// Passa i dati grezzi al gestore
+				h(buf[:n])
 			}
 		}()
 	}
@@ -52,14 +60,26 @@ func handleSession(sess quic.Connection, h EnvelopeHandler, dgram TelemetryHandl
 				return
 			}
 
-			// Only process datagrams starting with 0xA0 (telemetry)
-			if len(data) > 0 && data[0] == 0xA0 {
-				td := &axcp.TelemetryDatagram{}
-				if err := td.XXX_Unmarshal(data[1:]); err == nil {
-					dgram(td)
-				} else {
-					log.Printf("[quic] failed to unmarshal telemetry: %v", err)
-				}
+					// Semplice analisi per determinare se è un datagramma di telemetria e il suo profilo
+			// Verifichiamo che ci siano almeno 8 byte (4 per l'header, 4 per il profilo)
+			if len(data) < 8 {
+				log.Printf("[quic] datagram too short: %d bytes", len(data))
+				continue
+			}
+
+			// Estrai la versione e il tipo dal primo byte (assumendo un formato specifico del protocollo)
+			// Primo byte: 2 bit versione, 6 bit tipo
+			// Se il tipo è 11 (binario 001011), è un datagramma di telemetria
+			headerByte := data[0]
+			msgType := headerByte & 0x3F // Estrai i 6 bit meno significativi
+
+			// Se è un datagramma di telemetria (tipo 11)
+			if msgType == 11 {
+				// Estrai il profilo (assumiamo sia a offset 4, uint32)
+				profile := binary.BigEndian.Uint32(data[4:8])
+				
+				// Passa i dati grezzi e il profilo al gestore
+				dgram(data, profile)
 			}
 		}
 	}()

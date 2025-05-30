@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package axcp;
+
+// TelemetryDatagram represents a single telemetry data point
+message TelemetryDatagram {
+  string trace_id = 1;  // Unique identifier for tracing
+  string metric = 2;    // Name of the metric (e.g., "cpu.usage", "memory.used")
+  double value = 3;    // Numeric value of the metric
+  int64 timestamp = 4;  // Unix timestamp in nanoseconds
+  int32 profile = 5;    // Privacy profile level (1-5)
+  map<string, string> tags = 6;  // Additional key-value pairs for context
+}

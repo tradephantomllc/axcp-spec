@@ -3,7 +3,6 @@ module github.com/tradephantom/axcp-spec
 go 1.22.7
 
 require (
-	github.com/google/uuid v1.3.0
 	github.com/quic-go/quic-go v0.38.1
 	google.golang.org/protobuf v1.31.0
 )
