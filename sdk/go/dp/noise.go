@@ -4,7 +4,6 @@ import (
 	"math"
 	"math/rand"
 	"time"
-	"gonum.org/v1/gonum/stat/distuv"
 )
 
 func init() { rand.Seed(time.Now().UnixNano()) }
@@ -14,6 +13,12 @@ func LaplaceNoise(scale float64) float64 {
 	return -scale * math.Copysign(1, u) * math.Log(1-2*math.Abs(u))
 }
 
+// GaussianNoise generates Gaussian noise with mean 0 and standard deviation sigma
+// using the Box-Muller transform
 func GaussianNoise(sigma float64) float64 {
-	return distuv.UnitNormal.Rand() * sigma
+	u1 := rand.Float64()
+	u2 := rand.Float64()
+	// Box-Muller transform
+	z0 := math.Sqrt(-2.0*math.Log(u1)) * math.Cos(2*math.Pi*u2)
+	return z0 * sigma
 }
