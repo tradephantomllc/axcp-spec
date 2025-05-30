@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: Apache-2.0
+# Placeholder – v0.3 structure only
+[package]
+name = "axcp-rs"
+version = "0.3.0"
+authors = ["AXCP Team"]
+edition = "2021"
+description = "Rust implementation of AXCP protocol"
+license = "Apache-2.0"
+repository = "https://github.com/tradephantom/axcp-spec"
+
+[dependencies]
+# Core dependencies
+tokio = { version = "1.0", features = ["full"] }
+quinn = "0.10.0"
+prost = "0.11.0"
+tonic = { version = "0.8.0", features = ["tls"] }
+thiserror = "1.0.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Async runtime
+tokio-util = { version = "0.7.0", features = ["codec"] }
+
+# Logging
+tracing = "0.1.0"
+tracing-subscriber = { version = "0.3.0", features = ["env-filter"] }
+
+# Configuration
+config = "0.13.0"
+
+[dev-dependencies]
+# Test dependencies
+proptest = "1.0.0"
+tokio-test = "0.4.0"
+
+[build-dependencies]
+prost-build = "0.11.0"
