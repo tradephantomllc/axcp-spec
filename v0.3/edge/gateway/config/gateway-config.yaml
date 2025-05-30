@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: Apache-2.0
+# Placeholder – v0.3 structure only
+
+# Gateway configuration
+gateway:
+  port: 7143
+  tls:
+    enabled: true
+    cert: /certs/cert.pem
+    key: /certs/key.pem
+
+# MQTT broker settings
+mqtt:
+  broker: mqtt://mosquitto:1883
+  client_id: axcp-gateway
+  topics:
+    - axcp/+/up
+    - axcp/+/down
+
+# Persistence
+persistence:
+  enabled: true
+  path: /data/offline
+  max_size_mb: 100
+
+# Telemetry
+telemetry:
+  otlp_endpoint: otel-collector:4317
+  metrics_enabled: true
+  traces_enabled: true
