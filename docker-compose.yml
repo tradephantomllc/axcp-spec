@@ -1,0 +1,23 @@
+version: "3.8"
+
+services:
+  gateway:
+    build: ./edge/gateway
+    ports: 
+      - "7143:7143/udp"
+    depends_on: 
+      - mosquitto
+
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    ports:
+      - "1883:1883"
+    healthcheck:
+      test: ["CMD", "mosquitto_sub", "-h", "localhost", "-t", "foo", "-C", "1"]
+      interval: 5s
+      retries: 3
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.55
+    ports:
+      - "16686:16686"
