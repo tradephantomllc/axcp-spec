@@ -4,8 +4,9 @@ import os, pathlib
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 def test_budget_go():
-    # run the nested Go module under sdk/go
+    # Run the test in the dp package directory
+    dp_dir = os.path.join(ROOT, "sdk", "go", "dp")
     subprocess.check_call(
-        ["go", "test", "-run", "TestBudget", "./dp"],
-        cwd=os.path.join(ROOT, "sdk", "go")
+        ["go", "test", "-run", "TestBudget"],
+        cwd=dp_dir
     )
