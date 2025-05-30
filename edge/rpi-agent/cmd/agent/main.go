@@ -1,14 +1,18 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/shirou/gopsutil/v4/cpu"
-	"github.com/shirou/gopsutil/v4/mem"
-	"github.com/tradephantom/axcp-spec/sdk/go/axcp"
-	"github.com/tradephantom/axcp-spec/sdk/go/netquic"
+	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/mem"
+	pb "github.com/tradephantom/axcp-spec/edge/rpi-agent/internal/pb"
+	"google.golang.org/protobuf/proto"
 )
 
 var cfg = struct {
@@ -19,47 +23,97 @@ var cfg = struct {
 	Profile: 0,
 }
 
-func sendTelemetry(client *netquic.Client) error {
+// getCPUPercent returns the current CPU usage percentage
+func getCPUPercent() uint32 {
 	cpuP, _ := cpu.Percent(0, false)
-	vmem, _ := mem.VirtualMemory()
-	td := &axcp.TelemetryDatagram{
-		TimestampMs: uint64(time.Now().UnixMilli()),
-		Payload: &axcp.TelemetryDatagram_System{
-			System: &axcp.SystemStats{
-				CpuPercent:   uint32(cpuP[0]),
-				MemBytes:     vmem.Used,
-				TemperatureC: 0,
+	return uint32(cpuP[0])
+}
+
+// getCPUTemperature returns the current CPU temperature in Celsius
+// Note: This is a placeholder implementation that should be replaced with actual hardware-specific code
+func getCPUTemperature() uint32 {
+	// TODO: Implement actual temperature reading for your hardware
+	// For Raspberry Pi, you might read from /sys/class/thermal/thermal_zone0/temp
+	return 0
+}
+
+// sendTelemetry collects and logs system telemetry data (for UDP benchmarking)
+func sendTelemetry() error {
+	// Get system stats
+	vmStat, err := mem.VirtualMemory()
+	if err != nil {
+		return fmt.Errorf("error getting memory stats: %v", err)
+	}
+
+	// Create telemetry datagram
+	tel := &pb.TelemetryDatagram{
+		TimestampMs: uint64(time.Now().UnixNano() / int64(time.Millisecond)),
+		Payload: &pb.TelemetryDatagram_System{
+			System: &pb.SystemStats{
+				CpuPercent:   getCPUPercent(),
+				MemBytes:     vmStat.Used,
+				TemperatureC: getCPUTemperature(),
 			},
 		},
 	}
-	return client.SendTelemetry(td)
-}
 
-func sendHello(client *netquic.Client) error {
-	env := axcp.NewEnvelope(uuid.NewString(), cfg.Profile)
-	env.Payload = &axcp.Envelope_ContextPatch{
-		ContextPatch: &axcp.ContextPatch{
-			ContextId:   "hello",
-			BaseVersion: 0,
+	// Wrap in envelope
+	env := &pb.AxcpEnvelope{
+		Version: 1,
+		TraceId: uuid.New().String(),
+		Profile: cfg.Profile, // Use configured profile
+		Payload: &pb.AxcpEnvelope_Telemetry{
+			Telemetry: tel,
 		},
 	}
-	return client.SendEnvelope(env)
+
+	// Serialize the envelope
+	data, err := proto.Marshal(env)
+	if err != nil {
+		return fmt.Errorf("error marshaling telemetry: %v", err)
+	}
+
+	log.Printf("Collected telemetry: %d bytes (would send in non-benchmark mode)", len(data))
+	return nil
+}
+
+// sendHello simulates sending a hello message (for UDP benchmarking)
+func sendHello() error {
+	log.Printf("Would send hello message in UDP benchmark mode")
+	return nil
 }
 
 func main() {
-	tlsConf := netquic.InsecureTLSConfig()
-	client, err := netquic.Dial(cfg.Gateway, tlsConf)
-	if err != nil { log.Fatal(err) }
-	defer client.Close()
+	log.Println("AXCP Agent starting in UDP benchmark mode...")
 
-	if err := sendHello(client); err != nil {
-		log.Printf("hello failed: %v", err)
+	// Set up signal handling for graceful shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	// Send initial hello message
+	if err := sendHello(); err != nil {
+		log.Printf("Warning: Failed to send hello: %v", err)
 	}
 
+	// Main loop - collect telemetry periodically
 	ticker := time.NewTicker(5 * time.Second)
-	for range ticker.C {
-		if err := sendTelemetry(client); err != nil {
-			log.Printf("telemetry error: %v", err)
+	defer ticker.Stop()
+
+	log.Println("AXCP Agent started in UDP benchmark mode")
+	log.Println("Press Ctrl+C to exit")
+
+	for {
+		select {
+		case <-ticker.C:
+			if err := sendTelemetry(); err != nil {
+				log.Printf("Error collecting telemetry: %v", err)
+			} else {
+				log.Printf("Telemetry collected successfully")
+			}
+
+		case sig := <-sigChan:
+			log.Printf("Received signal %v, shutting down...", sig)
+			return
 		}
 	}
 }
