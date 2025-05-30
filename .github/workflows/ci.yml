@@ -135,7 +135,7 @@ jobs:
         run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
 
       - name: Run Gateway Telemetry tests
-        working-directory: gateway
+        working-directory: edge/gateway
         run: go test -v -race ./...
 
   check-examples:
