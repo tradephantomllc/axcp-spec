@@ -3,8 +3,27 @@ import asyncio
 import subprocess
 import os
 import time
+import sys
 import proto.axcp_pb2 as pb
 from aioquic.asyncio import connect
+
+# Try to find mosquitto_sub in common locations
+MOSQUITTO_PATHS = [
+    os.path.join("C:\\", "Program Files", "mosquitto", "mosquitto_sub.exe"),
+    os.path.join("C:\\", "Program Files (x86)", "mosquitto", "mosquitto_sub.exe"),
+    "mosquitto_sub"  # Fallback to PATH
+]
+
+# Find the first valid mosquitto_sub path
+MOSQUITTO_SUB = None
+for path in MOSQUITTO_PATHS:
+    if os.path.exists(path) or path == "mosquitto_sub":
+        MOSQUITTO_SUB = path
+        break
+
+if not MOSQUITTO_SUB:
+    print("Error: mosquitto_sub not found. Please install Mosquitto MQTT broker.")
+    sys.exit(1)
 
 def send_td(count=1, profile=3):
     """Create a telemetry datagram with the specified profile."""
@@ -31,10 +50,16 @@ async def run():
 def test_noise():
     """Test the telemetry datagram with noise application."""
     # Start mosquitto_sub in the background to capture the published telemetry
-    process = subprocess.Popen(
-        ["mosquitto_sub", "-t", "telemetry/#", "-C", "1", "-h", "localhost"],
-        stdout=subprocess.PIPE
-    )
+    try:
+        process = subprocess.Popen(
+            [MOSQUITTO_SUB, "-t", "telemetry/#", "-C", "1", "-h", "localhost"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+    except FileNotFoundError:
+        print(f"Error: Could not find mosquitto_sub at {MOSQUITTO_SUB}")
+        print("Please ensure Mosquitto MQTT broker is installed and in your PATH")
+        sys.exit(1)
     
     # Give mosquitto_sub a moment to start
     time.sleep(1)

@@ -1,18 +1,24 @@
 #!/usr/bin/env python3
-import asyncio, base64, os, uuid
+import asyncio, base64, os, uuid, struct
 import paho.mqtt.client as mqtt
-from aioquic.asyncio import connect
 import proto.axcp_pb2 as pb
 import pytest
 pytest.importorskip("paho.mqtt.client")
 
 async def send():
     env = pb.AxcpEnvelope(version=1, trace_id=str(uuid.uuid4()), profile=0)
-    async with connect("localhost", 7143, configuration=None) as client:
-        stream = await client.create_stream()
+    reader, writer = await asyncio.open_connection("localhost", 7143)
+    try:
         raw = env.SerializeToString()
-        stream.write(len(raw).to_bytes(4, "little") + raw)
-        await stream.drain()
+        # Send 4-byte length prefix followed by serialized protobuf, same as before
+        writer.write(len(raw).to_bytes(4, "little") + raw)
+        await writer.drain()
+        print(f"Sent envelope with trace_id: {env.trace_id}")
+    except Exception as e:
+        print(f"Error sending message: {e}")
+    finally:
+        writer.close()
+        await writer.wait_closed()
 
 def on_msg(_, __, msg):
     env = pb.AxcpEnvelope()

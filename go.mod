@@ -20,3 +20,7 @@ require (
 	golang.org/x/sys v0.23.0 // indirect
 	golang.org/x/tools v0.22.0 // indirect
 )
+
+replace github.com/tradephantom/axcp-spec/sdk/go/axcp => ./sdk/go/axcp
+
+replace github.com/tradephantom/axcp-spec/sdk/go/netquic => ./sdk/go/netquic
