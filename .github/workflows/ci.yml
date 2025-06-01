@@ -80,9 +80,9 @@ jobs:
         run: python bench/quic/rtt_bench.py 20  # Ridotto da 200 a 20 iterazioni
         
       - name: Run codec benchmarks (quick)
+        working-directory: sdk/go
         run: |
-          go test ./sdk/go/... -bench=. -benchtime=1x -benchmem \
-            | grep -v 'bench/'   # ignora dir non modulare
+          go test ./... -bench=. -benchtime=1x -benchmem
 
   test-gateway-telemetry:
     name: Test Gateway Telemetry
