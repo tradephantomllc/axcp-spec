@@ -46,7 +46,7 @@ func (b *Broker) PublishTelemetryData(data map[string]interface{}, trace string)
 	// In una implementazione reale, si dovrebbe usare json.Marshal per convertire la mappa in JSON
 	// Ma per semplicità, usiamo una stringa fissa di esempio
 	jsonMsg := `{"type":"telemetry","timestamp":"now","data":"sample"}`
-	
+
 	topic := "telemetry/" + trace
 	return b.cli.Publish(topic, 0, false, jsonMsg).Error()
 }

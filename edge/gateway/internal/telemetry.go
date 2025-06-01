@@ -41,7 +41,7 @@ type LatencyStats struct {
 func ExtractTelemetry(data []byte, profile uint32) (*TelemetryData, error) {
 	// Implementazione semplificata: nella pratica useresti proto.Unmarshal
 	// con le strutture generate da protobuf
-	
+
 	// Per questa dimostrazione, creiamo dati fittizi
 	td := &TelemetryData{
 		TimestampMs: uint64(time.Now().UnixNano() / int64(time.Millisecond)),
@@ -53,7 +53,7 @@ func ExtractTelemetry(data []byte, profile uint32) (*TelemetryData, error) {
 		DifferentialDP: profile >= 3,
 		TraceID:        "edge",
 	}
-	
+
 	return td, nil
 }
 
@@ -62,7 +62,7 @@ func ExtractTelemetry(data []byte, profile uint32) (*TelemetryData, error) {
 func ApplyNoiseToProtobuf(td *axcp.TelemetryDatagram) {
 	// In una implementazione completa, deleghiamo alla funzione esistente
 	log.Printf("[dp] Applying differential privacy noise to telemetry protobuf data")
-	
+
 	// Delega alla funzione esistente in dp_noise.go
 	// ApplyNoise(td)
 }
@@ -72,9 +72,9 @@ func ApplyNoiseToData(td *TelemetryData) {
 	if !td.DifferentialDP {
 		return
 	}
-	
+
 	log.Printf("[dp] Applying differential privacy noise to telemetry data")
-	
+
 	// Esempio: aggiungi rumore gaussiano alle statistiche di sistema
 	if td.SystemStats != nil {
 		// Aggiungi rumore ±5% al CPU
@@ -82,21 +82,21 @@ func ApplyNoiseToData(td *TelemetryData) {
 		if td.SystemStats.CPUPercent+noise <= 100 {
 			td.SystemStats.CPUPercent += noise
 		}
-		
+
 		// Aggiungi rumore ±2% alla memoria
 		memNoise := uint64(float64(td.SystemStats.MemBytes) * (float64(rand.Intn(5)-2) / 100.0))
 		td.SystemStats.MemBytes += memNoise
-		
+
 		// Aggiungi rumore ±1°C alla temperatura
-		tempNoise := rand.Uint32() % 3 - 1
+		tempNoise := rand.Uint32()%3 - 1
 		td.SystemStats.TemperatureC += tempNoise
 	}
-	
+
 	// Esempio: aggiungi rumore ai token
 	if td.TokenUsage != nil {
 		promptNoise := rand.Uint32() % 5
 		td.TokenUsage.PromptTokens += promptNoise
-		
+
 		completionNoise := rand.Uint32() % 10
 		td.TokenUsage.CompletionTokens += completionNoise
 	}

@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package axcp;
 
+option go_package = "github.com/tradephantom/axcp-spec/sdk/go/axcp";
+
 // TelemetryDatagram represents a single telemetry data point
 message TelemetryDatagram {
   string trace_id = 1;  // Unique identifier for tracing
