@@ -3,6 +3,8 @@ import asyncio, base64, os, uuid
 import paho.mqtt.client as mqtt
 from aioquic.asyncio import connect
 import proto.axcp_pb2 as pb
+import pytest
+pytest.importorskip("paho.mqtt.client")
 
 async def send():
     env = pb.AxcpEnvelope(version=1, trace_id=str(uuid.uuid4()), profile=0)
