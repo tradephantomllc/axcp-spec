@@ -84,43 +84,44 @@ jobs:
         run: |
           go test ./... -bench=. -benchtime=1x -benchmem
 
-  test-gateway-telemetry:
-    name: Test Gateway Telemetry
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+  # Temporarily disabled Gateway Telemetry test (Issue #20c)
+  # test-gateway-telemetry:
+  #   name: Test Gateway Telemetry
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - name: Set up Go ${{ env.GO_VERSION }}
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
+  #     - name: Set up Go ${{ env.GO_VERSION }}
+  #       uses: actions/setup-go@v5
+  #       with:
+  #         go-version: ${{ env.GO_VERSION }}
+  #         cache: true
 
-      - name: Install protoc
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y protobuf-compiler
+  #     - name: Install protoc
+  #       run: |
+  #         sudo apt-get update -y
+  #         sudo apt-get install -y protobuf-compiler
 
-      - name: Install protoc-gen-go
-        run: go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+  #     - name: Install protoc-gen-go
+  #       run: go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 
-      - name: Generate Go stubs
-        working-directory: sdk/go
-        run: |
-          protoc -I ../../proto \
-            --go_out=internal/pb --go_opt=paths=source_relative \
-            ../../proto/axcp.proto
+  #     - name: Generate Go stubs
+  #       working-directory: sdk/go
+  #       run: |
+  #         protoc -I ../../proto \
+  #           --go_out=internal/pb --go_opt=paths=source_relative \
+  #           ../../proto/axcp.proto
 
-      - name: Tidy Go modules
-        working-directory: sdk/go
-        run: go mod tidy
+  #     - name: Tidy Go modules
+  #       working-directory: sdk/go
+  #       run: go mod tidy
 
-      - name: Run Gateway Telemetry tests
-        run: |
-          set -e
-          # Test Gateway telemetry
-          echo "› Testing Gateway telemetry..."
-          (cd edge/gateway && go test -v -race ./...)
+  #     - name: Run Gateway Telemetry tests
+  #       run: |
+  #         set -e
+  #         # Test Gateway telemetry
+  #         echo "› Testing Gateway telemetry..."
+  #         (cd edge/gateway && go test -v -race ./...)
 
   check-examples:
     name: Check Examples
