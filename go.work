@@ -1,7 +1,0 @@
-go 1.22.7
-
-use (
-	./edge/gateway
-	./examples/go/simple_chat
-	./sdk/go
-)

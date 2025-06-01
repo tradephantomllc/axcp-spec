@@ -40,7 +40,7 @@ func Dial(addr string, tlsConf *tls.Config) (*Client, error) {
 
 	// Configure QUIC transport with datagram support
 	config := &quic.Config{
-		EnableDatagrams: true, // Enable QUIC datagram support
+		EnableDatagrams: true,             // Enable QUIC datagram support
 		KeepAlivePeriod: 30 * time.Second, // Send a PING every 30 seconds
 	}
 

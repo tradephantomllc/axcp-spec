@@ -12,7 +12,7 @@ import (
 func TestPing(t *testing.T) {
 	// Crea un messaggio di test
 	orig := axcp.NewEnvelope(uuid.NewString(), 0)
-	
+
 	// In un'implementazione reale, qui andrebbe il codice per inviare/ricevere tramite UDP
 	// Per ora, simuliamo una risposta identica al messaggio inviato
 	got := orig

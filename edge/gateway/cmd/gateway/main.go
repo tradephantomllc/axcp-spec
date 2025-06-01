@@ -13,67 +13,39 @@ func main() {
 	tlsConf := netquic.InsecureTLSConfig()
 
 	broker := internal.NewBroker("tcp://mosquitto:1883")
-	
+
 	// Handler for AXCP envelopes over streams
-	handler := func(data []byte) {
-		// In una implementazione reale, deserializzeremmo i dati
-		// Per ora, creiamo un envelope semplice usando il costruttore appropriato
-		env := axcp.NewEnvelope("stream", 1) // Trace ID "stream", profilo base 1
-		
+	handler := func(env *axcp.Envelope) {
 		if err := broker.Publish(env); err != nil {
 			log.Printf("[mqtt] pub failed: %v", err)
 		}
 	}
 
-	// Handler for telemetry datagrams with profile information
-	telemetryHandler := func(rawData []byte, profile uint32) {
-		// Estrae i dati di telemetria dal payload grezzo
-		td, err := internal.ExtractTelemetry(rawData, profile)
-		if err != nil {
-			log.Printf("[telemetry] failed to extract telemetry data: %v", err)
-			return
+	// Handler per i datagrammi di telemetria
+	telemetryHandler := func(td *axcp.TelemetryDatagram) {
+		// Estrai il profilo dal datagramma
+		profile := td.GetProfile()
+
+		// Applica il rumore differenzialmente privato se il profilo è >= 3
+		if profile >= 3 {
+			log.Printf("Applicazione rumore DP al profilo %d", profile)
+			internal.ApplyNoise(td)
 		}
 
-		// Abilita la privacy differenziale solo per profilo >= 3
-		td.DifferentialDP = profile >= 3
-		
-		// Applica la privacy differenziale se il profilo >= 3
-		internal.ApplyNoiseToTelemetryData(td)
-		
-		// Pubblica i dati di telemetria con il trace ID come parte del topic
-		traceID := td.TraceID
-		if traceID == "" {
-			traceID = "edge"
-		}
-		
-		// Crea una versione semplificata del messaggio per il broker
-		message := map[string]interface{}{
-			"timestamp_ms": td.TimestampMs,
-			"trace_id": traceID,
-			"profile": profile,
-		}
-		
-		if td.SystemStats != nil {
-			message["system"] = map[string]interface{}{
-				"cpu_percent": td.SystemStats.CPUPercent,
-				"mem_bytes": td.SystemStats.MemBytes,
-				"temperature_c": td.SystemStats.TemperatureC,
+		// Inoltra al broker MQTT
+		if broker != nil {
+			traceID := td.GetTraceId()
+			if traceID == "" {
+				traceID = "unknown"
 			}
-		}
-		
-		if td.TokenUsage != nil {
-			message["tokens"] = map[string]interface{}{
-				"prompt": td.TokenUsage.PromptTokens,
-				"completion": td.TokenUsage.CompletionTokens,
+
+			if err := broker.PublishTelemetry(td, traceID); err != nil {
+				log.Printf("Errore pubblicazione telemetria: %v", err)
 			}
-		}
-		
-		if err := broker.PublishTelemetryData(message, traceID); err != nil {
-			log.Printf("[mqtt] telemetry publish failed: %v", err)
 		}
 	}
 
-	// Start the QUIC server with both stream and datagram handlers
+	// Avvia il server QUIC con gestione di stream e datagrammi
 	if err := internal.RunQuicServer(addr, tlsConf, handler, telemetryHandler); err != nil {
 		log.Fatal(err)
 	}
