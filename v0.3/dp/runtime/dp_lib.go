@@ -10,10 +10,10 @@ import (
 
 // Config holds differential privacy parameters
 type Config struct {
-	Epsilon    float64 `yaml:"epsilon"`
-	Delta      float64 `yaml:"delta"`
-	Mechanism  string  `yaml:"mechanism"`
-	ClipNorm   float64 `yaml:"clip_norm"`
+	Epsilon   float64 `yaml:"epsilon"`
+	Delta     float64 `yaml:"delta"`
+	Mechanism string  `yaml:"mechanism"`
+	ClipNorm  float64 `yaml:"clip_norm"`
 }
 
 // DPNoiseGenerator interface for different noise mechanisms
@@ -42,7 +42,7 @@ type LaplaceNoise struct {
 
 func (l *LaplaceNoise) AddNoise(value float64) float64 {
 	// TODO: Implement actual Laplace noise
-	return value + (rand.Float64() - 0.5) * l.Scale
+	return value + (rand.Float64()-0.5)*l.Scale
 }
 
 // GaussianNoise implements DP with Gaussian mechanism
@@ -52,7 +52,7 @@ type GaussianNoise struct {
 
 func (g *GaussianNoise) AddNoise(value float64) float64 {
 	// TODO: Implement actual Gaussian noise
-	return value + rand.NormFloat64() * g.StdDev
+	return value + rand.NormFloat64()*g.StdDev
 }
 
 func calcGaussianNoiseScale(epsilon, delta, clipNorm float64) float64 {
