@@ -11,11 +11,11 @@ require (
 )
 
 replace (
-	github.com/tradephantom/axcp-spec => C:\Users\Julio\Documents\GitHub\axcp-spec
-	github.com/tradephantom/axcp-spec/sdk/go/axcp => C:\Users\Julio\Documents\GitHub\axcp-spec\sdk\go\axcp
-	github.com/tradephantom/axcp-spec/sdk/go/internal/pb => C:\Users\Julio\Documents\GitHub\axcp-spec\sdk\go\internal\pb
-	github.com/tradephantom/axcp-spec/sdk/go/netquic => C:\Users\Julio\Documents\GitHub\axcp-spec\sdk\go\netquic
-	github.com/tradephantom/axcp-spec/sdk/go/pb => C:\Users\Julio\Documents\GitHub\axcp-spec\sdk\go\pb
+	github.com/tradephantom/axcp-spec => ../../
+	github.com/tradephantom/axcp-spec/sdk/go/axcp => ../../sdk/go/axcp
+	github.com/tradephantom/axcp-spec/sdk/go/internal/pb => ../../sdk/go/internal/pb
+	github.com/tradephantom/axcp-spec/sdk/go/netquic => ../../sdk/go/netquic
+	github.com/tradephantom/axcp-spec/sdk/go/pb => ../../sdk/go/pb
 )
 
 require (

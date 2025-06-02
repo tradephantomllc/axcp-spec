@@ -1,10 +1,10 @@
 go 1.22
 
 use (
-	C:\Users\Julio\Documents\GitHub\axcp-spec
-	C:\Users\Julio\Documents\GitHub\axcp-spec\edge\rpi-agent
-	C:\Users\Julio\Documents\GitHub\axcp-spec\sdk\go\axcp
-	C:\Users\Julio\Documents\GitHub\axcp-spec\sdk\go\internal\pb
-	C:\Users\Julio\Documents\GitHub\axcp-spec\sdk\go\netquic
-	C:\Users\Julio\Documents\GitHub\axcp-spec\sdk\go\pb
+	.
+	./edge/rpi-agent
+	./sdk/go/axcp
+	./sdk/go/internal/pb
+	./sdk/go/netquic
+	./sdk/go/pb
 )
