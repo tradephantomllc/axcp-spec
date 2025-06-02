@@ -150,8 +150,11 @@ jobs:
             ../../proto/axcp.proto
 
       - name: Run rpi-agent tests
-        working-directory: edge/rpi-agent/cmd/agent
-        run: go test -v -race ./...
+        working-directory: edge/rpi-agent
+        run: |
+          go mod tidy
+          cd cmd/agent
+          go test -v -race ./...
 
   check-examples:
     name: Check Examples

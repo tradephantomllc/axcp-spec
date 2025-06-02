@@ -1,11 +1,14 @@
-module github.com/tradephantom/axcp-spec
+module github.com/tradephantom/axcp-spec/sdk/go/netquic
 
 go 1.22
 
 require (
 	github.com/quic-go/quic-go v0.49.0
+	github.com/tradephantom/axcp-spec/sdk/go/pb v0.0.0
 	google.golang.org/protobuf v1.33.0
 )
+
+replace github.com/tradephantom/axcp-spec/sdk/go/pb => ../pb
 
 require (
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect

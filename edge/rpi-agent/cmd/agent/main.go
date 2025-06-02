@@ -6,11 +6,11 @@ import (
 	"log"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/shirou/gopsutil/v4/cpu"
-	"github.com/shirou/gopsutil/v4/mem"
+	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/mem"
 	"github.com/tradephantom/axcp-spec/sdk/go/axcp"
 	"github.com/tradephantom/axcp-spec/sdk/go/netquic"
+	pb "github.com/tradephantom/axcp-spec/sdk/go/pb"
 )
 
 type Config struct {
@@ -29,23 +29,32 @@ func loadConfig(path string) Config {
 }
 
 func sendHello(c *netquic.Client, profile uint32) error {
-	env := axcp.NewEnvelope(uuid.NewString(), profile)
+	traceID := "rpi-agent-hello-" + time.Now().Format("20060102-150405.000")
+	env := &axcp.Envelope{
+		AxcpEnvelope: pb.AxcpEnvelope{
+			Version: 1,
+			TraceId: traceID,
+			Profile: profile,
+		},
+	}
 	return c.SendEnvelope(env)
 }
 
-func buildTelemetry(profile uint32) *axcp.TelemetryDatagram {
+func buildTelemetry(profile uint32) *pb.TelemetryDatagram {
 	cpuP, _ := cpu.Percent(0, false)
 	vmem, _ := mem.VirtualMemory()
-	return &axcp.TelemetryDatagram{
-		TimestampMs: uint64(time.Now().UnixMilli()),
-		Profile:     profile,
-		Payload: &axcp.TelemetryDatagram_System{
-			System: &axcp.SystemStats{
-				CpuPercent: uint32(cpuP[0]),
-				MemBytes:   vmem.Used,
+	
+	td := &pb.TelemetryDatagram{
+		TimestampMs: uint64(time.Now().UnixNano() / int64(time.Millisecond)),
+		Payload: &pb.TelemetryDatagram_System{
+			System: &pb.SystemStats{
+				CpuPercent:   uint32(cpuP[0]),
+				MemBytes:     vmem.Used,
+				TemperatureC: 0, // Not available
 			},
 		},
 	}
+	return td
 }
 
 func main() {
