@@ -2,26 +2,41 @@ name: AXCP CI
 
 on:
   push:
-    branches: 
+    branches:
       - main
       - 'chore/ci-go-workspaces'
       - 'fix/ci-*'
       - 'feature/20c-recovery'
   pull_request:
-    branches: [ main, 'feature/20c-recovery' ]
+    branches:
+      - main
+      - 'feature/20c-recovery'
 
-# Cache per le dipendenze
 env:
   GO_VERSION: '1.23.4'
   PYTHON_VERSION: '3.11'
   PROTOC_VERSION: '25.1'
 
+# ---------------------------------------------------------------------------
+#  Reusable step: checkout + clean root module + make a temporary go.work
+# ---------------------------------------------------------------------------
+defaults:
+  run:
+    shell: bash
+
 jobs:
+# ---------------------------------------------------------------------------
+#  🟢 1. GO UNIT TESTS
+# ---------------------------------------------------------------------------
   test-go:
     name: Test Go
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+
+      - name: CI hygiene – remove stray root go.mod / go.sum
+        run: rm -f go.mod go.sum || true
 
       - name: Set up Go ${{ env.GO_VERSION }}
         uses: actions/setup-go@v5
@@ -29,33 +44,50 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      - name: Install protoc
+      - name: Install protoc + plugin
         run: |
           sudo apt-get update -y
           sudo apt-get install -y protobuf-compiler
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 
-      - name: Install protoc-gen-go
-        run: go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+      - name: Create temporary Go workspace
+        run: |
+          go work init ./sdk/go || true
+          go work use ./sdk/go ./edge/gateway ./edge/rpi-agent
 
       - name: Generate Go stubs
         working-directory: sdk/go
         run: |
+          mkdir -p internal/pb
           protoc -I ../../proto \
             --go_out=internal/pb --go_opt=paths=source_relative \
             ../../proto/axcp.proto
 
-      - name: Run Go tests
+      - name: Run Go unit tests
         run: go test -v -race ./...
 
-      - name: Run code coverage
+      - name: Code coverage (sdk/go)
         working-directory: sdk/go
         run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
 
+# ---------------------------------------------------------------------------
+#  🟠 2. PYTHON TESTS (+ Go benchmark & helpers)
+# ---------------------------------------------------------------------------
   test-python:
     name: Test Python
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+
+      - name: CI hygiene – remove stray root go.mod / go.sum
+        run: rm -f go.mod go.sum || true
+
+      - name: Set up Go ${{ env.GO_VERSION }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
 
       - name: Set up Python ${{ env.PYTHON_VERSION }}
         uses: actions/setup-python@v5
@@ -69,29 +101,39 @@ jobs:
           python -m pip install -r requirements.txt
           pip install grpcio-tools aioquic protobuf pytest-cov
 
-      - name: Generate Python stubs
+      - name: Create temporary Go workspace
         run: |
-          python -m grpc_tools.protoc -I=proto --python_out=proto proto/axcp.proto
+          go work init ./sdk/go || true
+          go work use ./sdk/go ./edge/gateway ./edge/rpi-agent
+
+      - name: Generate Python stubs
+        run: python -m grpc_tools.protoc -I=proto --python_out=proto proto/axcp.proto
 
       - name: Run Python tests
-        run: |
-          export PYTHONPATH=$GITHUB_WORKSPACE
-          pytest -q scripts gateway tests/dp
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: pytest -q scripts gateway tests/dp
 
-      - name: Run QUIC RTT micro-bench
-        run: python bench/quic/rtt_bench.py 20  # Ridotto da 200 a 20 iterazioni
-        
-      - name: Run codec benchmarks (quick)
+      - name: QUIC RTT micro-bench (quick)
+        run: python bench/quic/rtt_bench.py 20
+
+      - name: Codec benchmarks (quick)
         working-directory: sdk/go
-        run: |
-          go test ./... -bench=. -benchtime=1x -benchmem
+        run: go test ./... -bench=. -benchtime=1x -benchmem
 
-    test-gateway-telemetry:
+# ---------------------------------------------------------------------------
+#  🔵 3. GATEWAY TELEMETRY (INTEGRATION)
+# ---------------------------------------------------------------------------
+  test-gateway-telemetry:
     name: Test Gateway Telemetry
-    runs-on: ubuntu-latest
     needs: [test-go]
+    runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+
+      - name: CI hygiene – remove stray root go.mod / go.sum
+        run: rm -f go.mod go.sum || true
 
       - name: Set up Go ${{ env.GO_VERSION }}
         uses: actions/setup-go@v5
@@ -99,13 +141,16 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      - name: Install protoc
+      - name: Install protoc + plugin
         run: |
           sudo apt-get update -y
           sudo apt-get install -y protobuf-compiler
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 
-      - name: Install protoc-gen-go
-        run: go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+      - name: Create temporary Go workspace
+        run: |
+          go work init ./sdk/go || true
+          go work use ./sdk/go ./edge/gateway ./edge/rpi-agent
 
       - name: Generate Go stubs
         working-directory: sdk/go
@@ -115,33 +160,43 @@ jobs:
             --go_out=internal/pb --go_opt=paths=source_relative \
             ../../proto/axcp.proto
 
-      - name: Tidy Go modules
+      - name: Tidy all Go modules
         run: |
-          cd sdk/go && go mod tidy
-          cd ../../edge/gateway && go mod tidy
-          cd ../..
+          (cd sdk/go && go mod tidy)
+          (cd edge/gateway && go mod tidy)
 
       - name: Run Gateway Telemetry tests
         run: |
           set -e
-          echo "› Running edge/gateway tests..."
-          cd edge/gateway && go test -v -race ./...)
-          
-          echo "› Running telemetry-specific tests..."
+          echo "› go test (edge/gateway)"
+          (cd edge/gateway && go test -v -race ./...)
+          echo "› Telemetry unit tests (sdk/go)"
           (cd sdk/go/axcp && go test -v -run Test.*Telemetry)
 
+# ---------------------------------------------------------------------------
+#  🟣 4. EXAMPLES BUILD-CHECK
+# ---------------------------------------------------------------------------
   check-examples:
     name: Check Examples
     needs: [test-go]
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+
+      - name: CI hygiene – remove stray root go.mod / go.sum
+        run: rm -f go.mod go.sum || true
 
       - name: Set up Go ${{ env.GO_VERSION }}
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
+
+      - name: Create temporary Go workspace
+        run: |
+          go work init ./sdk/go || true
+          go work use ./sdk/go ./edge/gateway ./edge/rpi-agent
 
       - name: Check examples build
         working-directory: examples/go/simple_chat
