@@ -17,26 +17,15 @@ env:
   PYTHON_VERSION: '3.11'
   PROTOC_VERSION: '25.1'
 
-# ---------------------------------------------------------------------------
-#  Reusable step: checkout + clean root module + make a temporary go.work
-# ---------------------------------------------------------------------------
-defaults:
-  run:
-    shell: bash
-
+# -------------------------------------------------------------------
+# 1) GO UNIT TESTS
+# -------------------------------------------------------------------
 jobs:
-# ---------------------------------------------------------------------------
-#  🟢 1. GO UNIT TESTS
-# ---------------------------------------------------------------------------
   test-go:
     name: Test Go
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: CI hygiene – remove stray root go.mod / go.sum
-        run: rm -f go.mod go.sum || true
 
       - name: Set up Go ${{ env.GO_VERSION }}
         uses: actions/setup-go@v5
@@ -44,17 +33,13 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      - name: Install protoc + plugin
+      - name: Install protoc & plugin
         run: |
           sudo apt-get update -y
           sudo apt-get install -y protobuf-compiler
           go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 
-      - name: Create temporary Go workspace
-        run: |
-          go work init ./sdk/go || true
-          go work use ./sdk/go ./edge/gateway ./edge/rpi-agent
-
+      # ── Stub protobuf (Go) ─────────────────────────────────────────
       - name: Generate Go stubs
         working-directory: sdk/go
         run: |
@@ -63,25 +48,21 @@ jobs:
             --go_out=internal/pb --go_opt=paths=source_relative \
             ../../proto/axcp.proto
 
-      - name: Run Go unit tests
+      # ── Test & coverage ───────────────────────────────────────────
+      - name: Run Go tests
         run: go test -v -race ./...
-
       - name: Code coverage (sdk/go)
         working-directory: sdk/go
         run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
 
-# ---------------------------------------------------------------------------
-#  🟠 2. PYTHON TESTS (+ Go benchmark & helpers)
-# ---------------------------------------------------------------------------
+# -------------------------------------------------------------------
+# 2) PYTHON TESTS  (richiedono Go, perché invocano `go test`)
+# -------------------------------------------------------------------
   test-python:
     name: Test Python
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: CI hygiene – remove stray root go.mod / go.sum
-        run: rm -f go.mod go.sum || true
 
       - name: Set up Go ${{ env.GO_VERSION }}
         uses: actions/setup-go@v5
@@ -101,39 +82,30 @@ jobs:
           python -m pip install -r requirements.txt
           pip install grpcio-tools aioquic protobuf pytest-cov
 
-      - name: Create temporary Go workspace
-        run: |
-          go work init ./sdk/go || true
-          go work use ./sdk/go ./edge/gateway ./edge/rpi-agent
-
+      # ── Stub protobuf (Py) ────────────────────────────────────────
       - name: Generate Python stubs
         run: python -m grpc_tools.protoc -I=proto --python_out=proto proto/axcp.proto
 
+      # ── Test & micro-bench ────────────────────────────────────────
       - name: Run Python tests
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: pytest -q scripts gateway tests/dp
-
-      - name: QUIC RTT micro-bench (quick)
+      - name: QUIC RTT micro-bench
         run: python bench/quic/rtt_bench.py 20
-
-      - name: Codec benchmarks (quick)
+      - name: Codec benchmarks (Go quick)
         working-directory: sdk/go
         run: go test ./... -bench=. -benchtime=1x -benchmem
 
-# ---------------------------------------------------------------------------
-#  🔵 3. GATEWAY TELEMETRY (INTEGRATION)
-# ---------------------------------------------------------------------------
+# -------------------------------------------------------------------
+# 3) GATEWAY TELEMETRY  (integrazione mirata)
+# -------------------------------------------------------------------
   test-gateway-telemetry:
     name: Test Gateway Telemetry
     needs: [test-go]
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: CI hygiene – remove stray root go.mod / go.sum
-        run: rm -f go.mod go.sum || true
 
       - name: Set up Go ${{ env.GO_VERSION }}
         uses: actions/setup-go@v5
@@ -141,17 +113,13 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      - name: Install protoc + plugin
+      - name: Install protoc & plugin
         run: |
           sudo apt-get update -y
           sudo apt-get install -y protobuf-compiler
           go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 
-      - name: Create temporary Go workspace
-        run: |
-          go work init ./sdk/go || true
-          go work use ./sdk/go ./edge/gateway ./edge/rpi-agent
-
+      # ── Stub protobuf (Go) ─────────────────────────────────────────
       - name: Generate Go stubs
         working-directory: sdk/go
         run: |
@@ -160,32 +128,29 @@ jobs:
             --go_out=internal/pb --go_opt=paths=source_relative \
             ../../proto/axcp.proto
 
-      - name: Tidy all Go modules
+      - name: Tidy sub-modules
         run: |
           (cd sdk/go && go mod tidy)
           (cd edge/gateway && go mod tidy)
 
-      - name: Run Gateway Telemetry tests
+      # ── Run telemetry tests ───────────────────────────────────────
+      - name: Run Gateway telemetry tests
         run: |
           set -e
           echo "› go test (edge/gateway)"
           (cd edge/gateway && go test -v -race ./...)
-          echo "› Telemetry unit tests (sdk/go)"
+          echo "› telemetry-specific unit tests"
           (cd sdk/go/axcp && go test -v -run Test.*Telemetry)
 
-# ---------------------------------------------------------------------------
-#  🟣 4. EXAMPLES BUILD-CHECK
-# ---------------------------------------------------------------------------
+# -------------------------------------------------------------------
+# 4) EXAMPLES BUILD CHECK
+# -------------------------------------------------------------------
   check-examples:
     name: Check Examples
     needs: [test-go]
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: CI hygiene – remove stray root go.mod / go.sum
-        run: rm -f go.mod go.sum || true
 
       - name: Set up Go ${{ env.GO_VERSION }}
         uses: actions/setup-go@v5
@@ -193,12 +158,7 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      - name: Create temporary Go workspace
-        run: |
-          go work init ./sdk/go || true
-          go work use ./sdk/go ./edge/gateway ./edge/rpi-agent
-
-      - name: Check examples build
+      - name: Build simple_chat example
         working-directory: examples/go/simple_chat
         run: |
           go mod init example/simple_chat 2>/dev/null || true
