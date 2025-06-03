@@ -6,8 +6,9 @@ on:
       - main
       - 'chore/ci-go-workspaces'
       - 'feature/20c-recovery'
+      - 'fix/ci-workflow'
   pull_request:
-    branches: [ main, 'feature/20c-recovery' ]
+    branches: [ main, 'feature/20c-recovery', 'fix/ci-workflow' ]
 
 # Cache per le dipendenze
 env:
