@@ -1,7 +1,10 @@
 go 1.23.4
 
 use (
+	.
 	./edge/gateway
 	./edge/rpi-agent
 	./sdk/go
+	./sdk/go/axcp
+	./sdk/go/netquic
 )
