@@ -1,6 +1,6 @@
 module github.com/tradephantom/axcp-spec/edge/gateway
 
-go 1.22.7
+go 1.23.4
 
 require (
 	github.com/eclipse/paho.mqtt.golang v1.4.3
