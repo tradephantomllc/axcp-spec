@@ -6,6 +6,7 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/tradephantom/axcp-spec/sdk/go/axcp"
+	"github.com/tradephantom/axcp-spec/sdk/go/pb"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -31,7 +32,7 @@ func (b *Broker) Publish(env *axcp.Envelope) error {
 }
 
 // PublishTelemetry publishes telemetry data to MQTT with the given trace ID
-func (b *Broker) PublishTelemetry(td *axcp.TelemetryDatagram, trace string) error {
+func (b *Broker) PublishTelemetry(td *pb.TelemetryDatagram, trace string) error {
 	// Utilizziamo il pacchetto protobuf standard per la serializzazione
 	raw, err := proto.Marshal(td)
 	if err != nil {

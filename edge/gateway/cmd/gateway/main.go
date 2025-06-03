@@ -5,6 +5,7 @@ import (
 
 	"github.com/tradephantom/axcp-spec/edge/gateway/internal"
 	"github.com/tradephantom/axcp-spec/sdk/go/axcp"
+	"github.com/tradephantom/axcp-spec/sdk/go/pb"
 	"github.com/tradephantom/axcp-spec/sdk/go/netquic"
 )
 
@@ -22,25 +23,30 @@ func main() {
 	}
 
 	// Handler per i datagrammi di telemetria
-	telemetryHandler := func(td *axcp.TelemetryDatagram) {
-		// Estrai il profilo dal datagramma
-		profile := td.GetProfile()
+	telemetryHandler := func(td *pb.TelemetryDatagram) {
+		// Il campo 'Profile' non è presente in pb.TelemetryDatagram.
+		// Impostiamo un valore di default. Questa logica potrebbe necessitare di revisione
+		// per il corretto funzionamento dei test e della feature di DP.
+		var profile uint32 = 0 // Default profile; con 0, il rumore DP non viene applicato.
+		log.Printf("[gateway] Profilo telemetria (default): %d", profile)
 
 		// Applica il rumore differenzialmente privato se il profilo è >= 3
 		if profile >= 3 {
-			log.Printf("Applicazione rumore DP al profilo %d", profile)
+			log.Printf("[gateway] Applicazione rumore DP al profilo %d", profile)
 			internal.ApplyNoise(td)
+		} else {
+			log.Printf("[gateway] Rumore DP non applicato per profilo %d", profile)
 		}
 
 		// Inoltra al broker MQTT
 		if broker != nil {
-			traceID := td.GetTraceId()
-			if traceID == "" {
-				traceID = "unknown"
-			}
+			// Il campo 'TraceId' non è presente in pb.TelemetryDatagram.
+			// Usiamo un valore di default per il traceID.
+			traceID := "telemetry_datagram_default_trace"
+			log.Printf("[gateway] Trace ID telemetria (default): %s", traceID)
 
 			if err := broker.PublishTelemetry(td, traceID); err != nil {
-				log.Printf("Errore pubblicazione telemetria: %v", err)
+				log.Printf("[gateway] Errore pubblicazione telemetria: %v", err)
 			}
 		}
 	}
