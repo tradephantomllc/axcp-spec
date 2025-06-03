@@ -5,12 +5,13 @@ on:
     branches: 
       - main
       - 'chore/ci-go-workspaces'
+      - 'fix/ci-workflow'
   pull_request:
     branches: [ main ]
 
 # Cache per le dipendenze
 env:
-  GO_VERSION: '1.22.7'
+  GO_VERSION: '1.23.4'
   PYTHON_VERSION: '3.11'
   PROTOC_VERSION: '25.1'
 
