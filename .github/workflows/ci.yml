@@ -175,3 +175,67 @@ jobs:
           go mod init example/simple_chat 2>/dev/null || true
           go mod tidy
           go vet .
+
+  # ---------------------------------------------------------------
+  #  🛰️  Integration job per il test QUIC > MQTT (Issue 20c)
+  # ---------------------------------------------------------------
+  integration-test:
+    name: Integration – QUIC Gateway Telemetry
+    needs: [test-go]  # parte solo se i test Go di base passano
+    runs-on: ubuntu-latest
+
+    # Mosquitto side-car per avere localhost:1883 raggiungibile
+    services:
+      mosquitto:
+        image: eclipse-mosquitto:2
+        options: >-
+          --health-cmd "mosquitto -c /mosquitto-no-auth.conf -p 1883 -v"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 3
+        ports:
+          - 1883:1883/tcp
+          - 1883:1883/udp
+
+    env:
+      QUIC_GO_LOG_LEVEL: debug   # log verbosi per quic-go
+      ACTIONS_STEP_DEBUG: 'true' # log verbosi di GitHub Actions
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install protoc
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y protobuf-compiler
+
+      - name: Install protoc-gen-go
+        run: go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+
+      - name: Generate Go stubs
+        working-directory: sdk/go
+        run: |
+          protoc -I ../../proto \
+            --go_out=internal/pb --go_opt=paths=source_relative \
+            ../../proto/axcp.proto
+
+      # Esegue solo il test incriminato (3 run per intercettare flaky)
+      - name: Run Gateway Telemetry tests
+        working-directory: edge/gateway
+        run: |
+          go test -v -count=3 -run ^TestGatewayTelemetry$ ./...
+
+      # (Facoltativo) colleziona artefatti log, se utili a debug
+      - name: Upload quic-go logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quic-logs
+          path: /home/runner/work/**/quic-*.log
