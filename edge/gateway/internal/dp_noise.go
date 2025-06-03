@@ -57,7 +57,7 @@ func ApplyNoise(td *pb.TelemetryDatagram) {
 			// Converte CPU percent da uint32 a float per calcoli e poi torna a uint32
 			cpuWithNoise := math.Max(0, math.Min(100, 
 				float64(systemStats.GetCpuPercent()) + LaplaceNoise(sensitivity/epsilon)*10.0))
-			systemStats.CpuPercent = uint32(cpuWithNoise)
+			systemStats.CpuPercent = uint32(cpuWithNoise) // Valore impostato tramite campo generato
 		}
 
 		// Applica rumore a Memory usage (con rumore Gaussiano)
@@ -65,10 +65,10 @@ func ApplyNoise(td *pb.TelemetryDatagram) {
 			// Converte la memoria con rumore in uint64
 			memWithNoise := math.Max(0,
 				float64(systemStats.GetMemBytes()) + GaussianNoise(sensitivity)*float64(systemStats.GetMemBytes()))
-			systemStats.MemBytes = uint64(memWithNoise)
+			systemStats.MemBytes = uint64(memWithNoise) // Valore impostato tramite campo generato
 		}
 
-	case *pb.TelemetryDatagram_TokenUsage:
+	case *pb.TelemetryDatagram_Tokens:
 		// Per i token non applichiamo rumore per ora
 		return
 	}
