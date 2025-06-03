@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/tradephantom/axcp-spec/sdk/go/axcp"
+	"github.com/tradephantom/axcp-spec/sdk/go/pb"
 )
 
 const (
@@ -36,43 +36,40 @@ func GaussianNoise(stdDev float64) float64 {
 
 // ApplyNoise applica rumore differenzialmente privato al datagramma di telemetria
 // secondo il profilo specificato
-func ApplyNoise(td *axcp.TelemetryDatagram) {
+func ApplyNoise(td *pb.TelemetryDatagram) {
 	if td == nil {
 		return
 	}
 
-	// Ottieni i valori attuali
-	metric := td.GetMetric()
-	value := td.GetValue()
+	// Non eseguiamo il controllo del profilo qui, assumiamo che il chiamante
+	// abbia già verificato se è necessario applicare il rumore
 
-	// Applica rumore in base al tipo di metrica
-	switch metric {
-	case "cpu.usage":
-		// Rumore di Laplace per le percentuali di CPU
-		td.Value = math.Max(0, math.Min(100,
-			value+LaplaceNoise(sensitivity/epsilon)*100.0))
+	// Accediamo al campo Payload che è un oneof in pb.TelemetryDatagram
+	switch payload := td.GetPayload().(type) {
+	case *pb.TelemetryDatagram_System:
+		systemStats := payload.System
+		if systemStats == nil {
+			return
+		}
+		
+		// Applica rumore a CPU usage (con rumore Laplace)
+		if systemStats.GetCpuPercent() > 0 {
+			// Converte CPU percent da uint32 a float per calcoli e poi torna a uint32
+			cpuWithNoise := math.Max(0, math.Min(100, 
+				float64(systemStats.GetCpuPercent()) + LaplaceNoise(sensitivity/epsilon)*10.0))
+			systemStats.CpuPercent = uint32(cpuWithNoise)
+		}
 
-	case "memory.used", "memory.total":
-		// Rumore Gaussiano per i byte di memoria (5% di deviazione standard)
-		td.Value = math.Max(0,
-			value+GaussianNoise(value*0.05))
+		// Applica rumore a Memory usage (con rumore Gaussiano)
+		if systemStats.GetMemBytes() > 0 {
+			// Converte la memoria con rumore in uint64
+			memWithNoise := math.Max(0,
+				float64(systemStats.GetMemBytes()) + GaussianNoise(sensitivity)*float64(systemStats.GetMemBytes()))
+			systemStats.MemBytes = uint64(memWithNoise)
+		}
 
-	// Aggiungi altri casi per altre metriche se necessario
-	default:
-		// Per le metriche non specificate, applica un rumore ridotto
-		td.Value = value + GaussianNoise(1.0)
-	}
-}
-
-func applySystemNoise(sys *axcp.SystemTelemetry) {
-	if sys == nil {
+	case *pb.TelemetryDatagram_TokenUsage:
+		// Per i token non applichiamo rumore per ora
 		return
 	}
-
-}
-
-// applyGaussianNoise applica rumore Gaussiano a un valore
-func applyGaussianNoise(value float64, stdDev float64) float64 {
-	// Genera rumore Gaussiano con media 0 e deviazione standard data
-	return rand.NormFloat64() * stdDev
 }

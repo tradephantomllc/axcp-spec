@@ -1,11 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/tradephantom/axcp-spec/edge/gateway/internal"
-	"github.com/tradephantom/axcp-spec/sdk/go/axcp"
 	"github.com/tradephantom/axcp-spec/sdk/go/netquic"
+	"github.com/tradephantom/axcp-spec/sdk/go/pb"
 )
 
 func main() {
@@ -15,29 +16,23 @@ func main() {
 	broker := internal.NewBroker("tcp://mosquitto:1883")
 
 	// Handler for AXCP envelopes over streams
-	handler := func(env *axcp.Envelope) {
+	handler := func(env *pb.Envelope) {
 		if err := broker.Publish(env); err != nil {
 			log.Printf("[mqtt] pub failed: %v", err)
 		}
 	}
 
 	// Handler per i datagrammi di telemetria
-	telemetryHandler := func(td *axcp.TelemetryDatagram) {
-		// Estrai il profilo dal datagramma
-		profile := td.GetProfile()
-
-		// Applica il rumore differenzialmente privato se il profilo è >= 3
-		if profile >= 3 {
-			log.Printf("Applicazione rumore DP al profilo %d", profile)
-			internal.ApplyNoise(td)
-		}
+	telemetryHandler := func(td *pb.TelemetryDatagram) {
+		// In questa versione del protobuf, applichiamo sempre il rumore DP
+		// poiché il campo Profile non è più disponibile nel protobuf
+		log.Printf("Applicazione rumore DP al datagramma di telemetria")
+		internal.ApplyNoise(td)
 
 		// Inoltra al broker MQTT
 		if broker != nil {
-			traceID := td.GetTraceId()
-			if traceID == "" {
-				traceID = "unknown"
-			}
+			// Usiamo il timestamp come identificatore in assenza del campo TraceId
+			traceID := fmt.Sprintf("telemetry-%d", td.GetTimestampMs())
 
 			if err := broker.PublishTelemetry(td, traceID); err != nil {
 				log.Printf("Errore pubblicazione telemetria: %v", err)
