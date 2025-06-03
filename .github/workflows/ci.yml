@@ -5,9 +5,10 @@ on:
     branches: 
       - main
       - 'chore/ci-go-workspaces'
-      - 'fix/ci-workflow'
+      - 'fix/ci-*'
+      - 'feature/20c-recovery'
   pull_request:
-    branches: [ main ]
+    branches: [ main, 'feature/20c-recovery' ]
 
 # Cache per le dipendenze
 env:
@@ -88,7 +89,7 @@ jobs:
   test-gateway-telemetry:
     name: Test Gateway Telemetry
     runs-on: ubuntu-latest
-    needs: [test-go]
+    needs: [test-go]  # Aggiungiamo la dipendenza da test-go
     steps:
       - uses: actions/checkout@v4
 
@@ -102,27 +103,31 @@ jobs:
         run: |
           sudo apt-get update -y
           sudo apt-get install -y protobuf-compiler
-
       - name: Install protoc-gen-go
         run: go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 
       - name: Generate Go stubs
         working-directory: sdk/go
         run: |
+          mkdir -p internal/pb
           protoc -I ../../proto \
             --go_out=internal/pb --go_opt=paths=source_relative \
             ../../proto/axcp.proto
-
-      - name: Tidy Go modules
-        working-directory: sdk/go
-        run: go mod tidy
+            
+      - name: Tidy all Go modules
+        run: |
+          cd sdk/go && go mod tidy
+          cd ../../edge/gateway && go mod tidy
+          cd ../../
 
       - name: Run Gateway Telemetry tests
         run: |
           set -e
-          # Test Gateway telemetry
           echo "› Testing Gateway telemetry..."
           (cd edge/gateway && go test -v -race ./...)
+          
+          echo "› Running telemetry-specific tests..."
+          (cd sdk/go/axcp && go test -v -run Test.*Telemetry)
 
   check-examples:
     name: Check Examples
