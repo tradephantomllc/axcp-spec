@@ -13,33 +13,34 @@ on:
       - 'feature/20c-recovery'
 
 env:
-  GO_VERSION: '1.23.4'
+  GO_VERSION:  '1.23.4'
   PYTHON_VERSION: '3.11'
   PROTOC_VERSION: '25.1'
 
-# -------------------------------------------------------------------
-# 1) GO UNIT TESTS
-# -------------------------------------------------------------------
+# ------------------------------------------------------------
+# 1️⃣  GO – unit tests (già funzionante)
+# ------------------------------------------------------------
 jobs:
   test-go:
     name: Test Go
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Go ${{ env.GO_VERSION }}
+      - name: Set-up Go ${{ env.GO_VERSION }}
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      - name: Install protoc & plugin
+      - name: Install protoc + plugin
         run: |
           sudo apt-get update -y
           sudo apt-get install -y protobuf-compiler
           go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 
-      # ── Stub protobuf (Go) ─────────────────────────────────────────
+      # ── Stub protobuf (Go) ───────────────────────────────────
       - name: Generate Go stubs
         working-directory: sdk/go
         run: |
@@ -48,29 +49,30 @@ jobs:
             --go_out=internal/pb --go_opt=paths=source_relative \
             ../../proto/axcp.proto
 
-      # ── Test & coverage ───────────────────────────────────────────
-      - name: Run Go tests
+      - name: Run Go unit tests
         run: go test -v -race ./...
+
       - name: Code coverage (sdk/go)
         working-directory: sdk/go
         run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
 
-# -------------------------------------------------------------------
-# 2) PYTHON TESTS  (richiedono Go, perché invocano `go test`)
-# -------------------------------------------------------------------
+# ------------------------------------------------------------
+# 2️⃣  PYTHON (+ mini-mod dp) 
+# ------------------------------------------------------------
   test-python:
     name: Test Python
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Go ${{ env.GO_VERSION }}
+      - name: Set-up Go ${{ env.GO_VERSION }}
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      - name: Set up Python ${{ env.PYTHON_VERSION }}
+      - name: Set-up Python ${{ env.PYTHON_VERSION }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -82,44 +84,54 @@ jobs:
           python -m pip install -r requirements.txt
           pip install grpcio-tools aioquic protobuf pytest-cov
 
-      # ── Stub protobuf (Py) ────────────────────────────────────────
+      # ── mini-mod per sdk/go/dp (serve a TestBudget) ─────────
+      - name: Init dp module (temp)
+        run: |
+          if [ ! -f sdk/go/dp/go.mod ]; then
+            (cd sdk/go/dp && go mod init github.com/tradephantom/axcp-spec/sdk/go/dp)
+            (cd sdk/go/dp && go mod tidy)
+          fi
+
+      # ── Stub protobuf (Py) ──────────────────────────────────
       - name: Generate Python stubs
         run: python -m grpc_tools.protoc -I=proto --python_out=proto proto/axcp.proto
 
-      # ── Test & micro-bench ────────────────────────────────────────
+      # ── Test & micro-bench ─────────────────────────────────
       - name: Run Python tests
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: pytest -q scripts gateway tests/dp
+
       - name: QUIC RTT micro-bench
         run: python bench/quic/rtt_bench.py 20
+
       - name: Codec benchmarks (Go quick)
         working-directory: sdk/go
         run: go test ./... -bench=. -benchtime=1x -benchmem
 
-# -------------------------------------------------------------------
-# 3) GATEWAY TELEMETRY  (integrazione mirata)
-# -------------------------------------------------------------------
+# ------------------------------------------------------------
+# 3️⃣  GATEWAY TELEMETRY (integrazione)
+# ------------------------------------------------------------
   test-gateway-telemetry:
     name: Test Gateway Telemetry
     needs: [test-go]
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Go ${{ env.GO_VERSION }}
+      - name: Set-up Go ${{ env.GO_VERSION }}
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      - name: Install protoc & plugin
+      - name: Install protoc + plugin
         run: |
           sudo apt-get update -y
           sudo apt-get install -y protobuf-compiler
           go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 
-      # ── Stub protobuf (Go) ─────────────────────────────────────────
       - name: Generate Go stubs
         working-directory: sdk/go
         run: |
@@ -128,12 +140,15 @@ jobs:
             --go_out=internal/pb --go_opt=paths=source_relative \
             ../../proto/axcp.proto
 
-      - name: Tidy sub-modules
+      # ── mini-mod dp (sicurezza) ─────────────────────────────
+      - name: Init dp module (temp)
         run: |
-          (cd sdk/go && go mod tidy)
-          (cd edge/gateway && go mod tidy)
+          if [ ! -f sdk/go/dp/go.mod ]; then
+            (cd sdk/go/dp && go mod init github.com/tradephantom/axcp-spec/sdk/go/dp)
+            (cd sdk/go/dp && go mod tidy)
+          fi
 
-      # ── Run telemetry tests ───────────────────────────────────────
+      # ── Run telemetry tests ────────────────────────────────
       - name: Run Gateway telemetry tests
         run: |
           set -e
@@ -142,25 +157,34 @@ jobs:
           echo "› telemetry-specific unit tests"
           (cd sdk/go/axcp && go test -v -run Test.*Telemetry)
 
-# -------------------------------------------------------------------
-# 4) EXAMPLES BUILD CHECK
-# -------------------------------------------------------------------
+# ------------------------------------------------------------
+# 4️⃣  EXAMPLES – build check
+# ------------------------------------------------------------
   check-examples:
     name: Check Examples
     needs: [test-go]
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Go ${{ env.GO_VERSION }}
+      - name: Set-up Go ${{ env.GO_VERSION }}
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
+      # ── mini-mod dp (serve se l’esempio lo importa indirett.) ──
+      - name: Init dp module (temp)
+        run: |
+          if [ ! -f sdk/go/dp/go.mod ]; then
+            (cd sdk/go/dp && go mod init github.com/tradephantom/axcp-spec/sdk/go/dp)
+            (cd sdk/go/dp && go mod tidy)
+          fi
+
+      # ── Build & vet simple_chat senza go.mod locale ────────────
       - name: Build simple_chat example
         working-directory: examples/go/simple_chat
         run: |
-          go mod init example/simple_chat 2>/dev/null || true
-          go mod tidy
           go vet .
+          go test -c -o /tmp/simple_chat.test   # build-only
