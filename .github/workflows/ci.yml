@@ -110,6 +110,7 @@ jobs:
         working-directory: sdk/go
         run: go test ./... -bench=. -benchtime=1x -benchmem
 
+
 # -------------------------------------------------------------------
 # 3️⃣  GATEWAY TELEMETRY (integrazione)
 # -------------------------------------------------------------------
@@ -153,6 +154,7 @@ jobs:
           set -e
           (cd edge/gateway && go test -v -race ./...)
           (cd sdk/go/axcp  && go test -v -run Test.*Telemetry)
+
 
 # -------------------------------------------------------------------
 # 4️⃣  EXAMPLES – build check
