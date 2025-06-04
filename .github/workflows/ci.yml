@@ -6,21 +6,20 @@ on:
       - main
       - 'chore/ci-go-workspaces'
       - 'fix/ci-*'
-      - 'feature/20c-recovery'
+      - 'feature/21c-*'
   pull_request:
     branches:
       - main
-      - 'feature/20c-recovery'
 
 env:
   GO_VERSION:  '1.23.4'
   PYTHON_VERSION: '3.11'
   PROTOC_VERSION: '25.1'
 
+# ------------------------------------------------------------
+# 1️⃣  GO – unit tests  (verde)
+# ------------------------------------------------------------
 jobs:
-# -------------------------------------------------------------------
-# 1️⃣  GO – unit tests
-# -------------------------------------------------------------------
   test-go:
     name: Test Go
     runs-on: ubuntu-latest
@@ -54,9 +53,9 @@ jobs:
         working-directory: sdk/go
         run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
 
-# -------------------------------------------------------------------
-# 2️⃣  PYTHON (+ Budget Go test)
-# -------------------------------------------------------------------
+# ------------------------------------------------------------ 
+# 2️⃣  PYTHON (Budget Go test)  – workspace + mini-mod dp
+# ------------------------------------------------------------
   test-python:
     name: Test Python
     runs-on: ubuntu-latest
@@ -81,7 +80,7 @@ jobs:
           python -m pip install -r requirements.txt
           pip install grpcio-tools aioquic protobuf pytest-cov
 
-      # --- modulo temporaneo per sdk/go/dp -------------------------
+      # ── mini-mod per sdk/go/dp (serve a TestBudget) ──────────────
       - name: Init dp module (temp)
         run: |
           if [ ! -f sdk/go/dp/go.mod ]; then
@@ -89,7 +88,7 @@ jobs:
             (cd sdk/go/dp && go mod tidy)
           fi
 
-      # --- workspace che unisce sdk/go e dp -----------------------
+      # ── workspace che unisce sdk/go e dp ─────────────────────────
       - name: Create Go workspace for dp tests
         run: |
           go work init ./sdk/go ./sdk/go/dp || true
@@ -110,10 +109,9 @@ jobs:
         working-directory: sdk/go
         run: go test ./... -bench=. -benchtime=1x -benchmem
 
-
-# -------------------------------------------------------------------
-# 3️⃣  GATEWAY TELEMETRY (integrazione)
-# -------------------------------------------------------------------
+# ------------------------------------------------------------ 
+# 3️⃣  GATEWAY TELEMETRY (integrazione) – verde
+# ------------------------------------------------------------
   test-gateway-telemetry:
     name: Test Gateway Telemetry
     needs: [test-go]
@@ -141,24 +139,57 @@ jobs:
             --go_out=internal/pb --go_opt=paths=source_relative \
             ../../proto/axcp.proto
 
-      # --- modulo temporaneo per dp (sicurezza) --------------------
-      - name: Init dp module (temp)
-        run: |
-          if [ ! -f sdk/go/dp/go.mod ]; then
-            (cd sdk/go/dp && go mod init github.com/tradephantom/axcp-spec/sdk/go/dp)
-            (cd sdk/go/dp && go mod tidy)
-          fi
-
       - name: Run Gateway telemetry tests
         run: |
           set -e
           (cd edge/gateway && go test -v -race ./...)
           (cd sdk/go/axcp  && go test -v -run Test.*Telemetry)
 
+# ------------------------------------------------------------ 
+# 4️⃣  RPI AGENT (Issue 21c) – usa stubs rigenerati & workspace
+# ------------------------------------------------------------
+  test-rpi-agent:
+    name: Test RPi Agent
+    needs: [test-go]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-# -------------------------------------------------------------------
-# 4️⃣  EXAMPLES – build check
-# -------------------------------------------------------------------
+      - name: Set-up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install protoc + plugin
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y protobuf-compiler
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+
+      # ── rigenera stubs (assicura campo Profile) ──────────────────
+      - name: Generate Go stubs
+        working-directory: sdk/go
+        run: |
+          mkdir -p internal/pb
+          protoc -I ../../proto \
+            --go_out=internal/pb --go_opt=paths=source_relative \
+            ../../proto/axcp.proto
+
+      # ── workspace per rpi-agent <-> sdk/go -----------------------
+      - name: Create Go workspace for rpi-agent
+        run: |
+          go work init ./sdk/go ./edge/rpi-agent || true
+          go work use  ./sdk/go ./edge/rpi-agent
+
+      # ── Esegui test agent ---------------------------------------
+      - name: Run rpi-agent tests
+        working-directory: edge/rpi-agent/cmd/agent
+        run: go test -v -race ./...
+
+# ------------------------------------------------------------ 
+# 5️⃣  EXAMPLES – build check
+# ------------------------------------------------------------
   check-examples:
     name: Check Examples
     needs: [test-go]
@@ -172,7 +203,7 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      # --- modulo temporaneo per dp -------------------------------
+      # ── mini-mod dp (richiesto in caso di import indiretti) ─────
       - name: Init dp module (temp)
         run: |
           if [ ! -f sdk/go/dp/go.mod ]; then
