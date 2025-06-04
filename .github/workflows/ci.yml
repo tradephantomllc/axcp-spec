@@ -59,10 +59,9 @@ jobs:
 # ------------------------------------------------------------
 # 2️⃣  PYTHON (+ mini-mod dp) 
 # ------------------------------------------------------------
-  test-python:
+    test-python:
     name: Test Python
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
@@ -84,7 +83,7 @@ jobs:
           python -m pip install -r requirements.txt
           pip install grpcio-tools aioquic protobuf pytest-cov
 
-      # ── mini-mod per sdk/go/dp (serve a TestBudget) ─────────
+      # ── temp modulo per dp ─────────────────────────────────────────
       - name: Init dp module (temp)
         run: |
           if [ ! -f sdk/go/dp/go.mod ]; then
@@ -92,19 +91,23 @@ jobs:
             (cd sdk/go/dp && go mod tidy)
           fi
 
-      # ── Stub protobuf (Py) ──────────────────────────────────
+      # 👉 NEW: workspace che collega sdk/go e dp
+      - name: Create Go workspace for dp tests
+        run: |
+          go work init ./sdk/go ./sdk/go/dp || true
+          go work use  ./sdk/go ./sdk/go/dp
+
+      # ── stub protobuf (Py) ─────────────────────────────────────────
       - name: Generate Python stubs
         run: python -m grpc_tools.protoc -I=proto --python_out=proto proto/axcp.proto
 
-      # ── Test & micro-bench ─────────────────────────────────
+      # ── test & bench ──────────────────────────────────────────────
       - name: Run Python tests
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: pytest -q scripts gateway tests/dp
-
       - name: QUIC RTT micro-bench
         run: python bench/quic/rtt_bench.py 20
-
       - name: Codec benchmarks (Go quick)
         working-directory: sdk/go
         run: go test ./... -bench=. -benchtime=1x -benchmem
