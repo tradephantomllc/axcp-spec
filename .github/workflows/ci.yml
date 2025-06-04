@@ -91,7 +91,7 @@ jobs:
             (cd sdk/go/dp && go mod tidy)
           fi
 
-      # 👉 NEW: workspace che collega sdk/go e dp
+      # NEW: workspace che collega sdk/go e dp
       - name: Create Go workspace for dp tests
         run: |
           go work init ./sdk/go ./sdk/go/dp || true
