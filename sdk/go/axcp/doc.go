@@ -1,5 +1,5 @@
 // Package axcp implements the core data structures and functionality for the
-// AXCP (Adaptive eXchange Control Protocol) specification. This includes
+// AXCP (Adaptive eXchange Context Protocol) specification. This includes
 // telemetry data structures, capability negotiation, and other protocol-level
 // components.
 //

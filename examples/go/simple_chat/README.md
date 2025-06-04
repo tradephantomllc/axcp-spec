@@ -1,6 +1,14 @@
 # Simple Chat (loop-back)
 
-Minimal program that:
+A minimal example demonstrating the Adaptive eXchange Context Protocol (AXCP) over QUIC.
+
+## About AXCP
+
+AXCP (Adaptive eXchange Context Protocol) is a protocol designed for efficient, secure communication between distributed AI agents with adaptive behavior based on context and requirements.
+
+## Example Overview
+
+This minimal program demonstrates:
 
 1. spins up an **AXCP echo server** on QUIC/localhost  
 2. dials the server with the Go SDK  
