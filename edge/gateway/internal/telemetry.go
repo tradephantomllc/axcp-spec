@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/tradephantom/axcp-spec/sdk/go/axcp"
+	"github.com/tradephantom/axcp-spec/sdk/go/pb"
 )
 
 // TelemetryData rappresenta i dati essenziali estratti da un datagramma di telemetria
@@ -59,7 +59,7 @@ func ExtractTelemetry(data []byte, profile uint32) (*TelemetryData, error) {
 
 // ApplyNoiseToProtobuf applica rumore differenziale a un datagramma di telemetria nel formato protobuf
 // Nota: questa è una funzione segnaposto che delega alla funzione ApplyNoise nel file dp_noise.go
-func ApplyNoiseToProtobuf(td *axcp.TelemetryDatagram) {
+func ApplyNoiseToProtobuf(td *pb.TelemetryDatagram) {
 	// In una implementazione completa, deleghiamo alla funzione esistente
 	log.Printf("[dp] Applying differential privacy noise to telemetry protobuf data")
 

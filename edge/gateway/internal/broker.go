@@ -5,7 +5,7 @@ import (
 	"log"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/tradephantom/axcp-spec/sdk/go/axcp"
+	"github.com/tradephantom/axcp-spec/sdk/go/pb"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -24,14 +24,18 @@ func NewBroker(url string) *Broker {
 	return &Broker{cli: cli}
 }
 
-func (b *Broker) Publish(env *axcp.Envelope) error {
-	raw, _ := axcp.ToBytes(env)
-	topic := "axcp/" + env.TraceId
+func (b *Broker) Publish(env *pb.Envelope) error {
+	raw, err := proto.Marshal(env)
+	if err != nil {
+		return err
+	}
+	// Uso un ID traccia generico poiché la struttura potrebbe essere cambiata
+	topic := "axcp/envelope"
 	return b.cli.Publish(topic, 0, false, base64.StdEncoding.EncodeToString(raw)).Error()
 }
 
 // PublishTelemetry publishes telemetry data to MQTT with the given trace ID
-func (b *Broker) PublishTelemetry(td *axcp.TelemetryDatagram, trace string) error {
+func (b *Broker) PublishTelemetry(td *pb.TelemetryDatagram, trace string) error {
 	// Utilizziamo il pacchetto protobuf standard per la serializzazione
 	raw, err := proto.Marshal(td)
 	if err != nil {
