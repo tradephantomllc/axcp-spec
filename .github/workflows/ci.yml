@@ -17,18 +17,17 @@ env:
   PYTHON_VERSION: '3.11'
   PROTOC_VERSION: '25.1'
 
-# ------------------------------------------------------------
-# 1️⃣  GO – unit tests (già funzionante)
-# ------------------------------------------------------------
 jobs:
+# -------------------------------------------------------------------
+# 1️⃣  GO – unit tests
+# -------------------------------------------------------------------
   test-go:
     name: Test Go
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set-up Go ${{ env.GO_VERSION }}
+      - name: Set-up Go
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
@@ -40,7 +39,6 @@ jobs:
           sudo apt-get install -y protobuf-compiler
           go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 
-      # ── Stub protobuf (Go) ───────────────────────────────────
       - name: Generate Go stubs
         working-directory: sdk/go
         run: |
@@ -49,29 +47,29 @@ jobs:
             --go_out=internal/pb --go_opt=paths=source_relative \
             ../../proto/axcp.proto
 
-      - name: Run Go unit tests
+      - name: Run Go tests
         run: go test -v -race ./...
 
-      - name: Code coverage (sdk/go)
+      - name: Code coverage
         working-directory: sdk/go
         run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
 
-# ------------------------------------------------------------
-# 2️⃣  PYTHON (+ mini-mod dp) 
-# ------------------------------------------------------------
-    test-python:
+# -------------------------------------------------------------------
+# 2️⃣  PYTHON (+ Budget Go test)
+# -------------------------------------------------------------------
+  test-python:
     name: Test Python
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set-up Go ${{ env.GO_VERSION }}
+      - name: Set-up Go
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      - name: Set-up Python ${{ env.PYTHON_VERSION }}
+      - name: Set-up Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -83,7 +81,7 @@ jobs:
           python -m pip install -r requirements.txt
           pip install grpcio-tools aioquic protobuf pytest-cov
 
-      # ── temp modulo per dp ─────────────────────────────────────────
+      # --- modulo temporaneo per sdk/go/dp -------------------------
       - name: Init dp module (temp)
         run: |
           if [ ! -f sdk/go/dp/go.mod ]; then
@@ -91,39 +89,38 @@ jobs:
             (cd sdk/go/dp && go mod tidy)
           fi
 
-      # NEW: workspace che collega sdk/go e dp
+      # --- workspace che unisce sdk/go e dp -----------------------
       - name: Create Go workspace for dp tests
         run: |
           go work init ./sdk/go ./sdk/go/dp || true
           go work use  ./sdk/go ./sdk/go/dp
 
-      # ── stub protobuf (Py) ─────────────────────────────────────────
       - name: Generate Python stubs
         run: python -m grpc_tools.protoc -I=proto --python_out=proto proto/axcp.proto
 
-      # ── test & bench ──────────────────────────────────────────────
       - name: Run Python tests
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: pytest -q scripts gateway tests/dp
+
       - name: QUIC RTT micro-bench
         run: python bench/quic/rtt_bench.py 20
+
       - name: Codec benchmarks (Go quick)
         working-directory: sdk/go
         run: go test ./... -bench=. -benchtime=1x -benchmem
 
-# ------------------------------------------------------------
+# -------------------------------------------------------------------
 # 3️⃣  GATEWAY TELEMETRY (integrazione)
-# ------------------------------------------------------------
+# -------------------------------------------------------------------
   test-gateway-telemetry:
     name: Test Gateway Telemetry
     needs: [test-go]
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set-up Go ${{ env.GO_VERSION }}
+      - name: Set-up Go
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
@@ -143,7 +140,7 @@ jobs:
             --go_out=internal/pb --go_opt=paths=source_relative \
             ../../proto/axcp.proto
 
-      # ── mini-mod dp (sicurezza) ─────────────────────────────
+      # --- modulo temporaneo per dp (sicurezza) --------------------
       - name: Init dp module (temp)
         run: |
           if [ ! -f sdk/go/dp/go.mod ]; then
@@ -151,33 +148,29 @@ jobs:
             (cd sdk/go/dp && go mod tidy)
           fi
 
-      # ── Run telemetry tests ────────────────────────────────
       - name: Run Gateway telemetry tests
         run: |
           set -e
-          echo "› go test (edge/gateway)"
           (cd edge/gateway && go test -v -race ./...)
-          echo "› telemetry-specific unit tests"
-          (cd sdk/go/axcp && go test -v -run Test.*Telemetry)
+          (cd sdk/go/axcp  && go test -v -run Test.*Telemetry)
 
-# ------------------------------------------------------------
+# -------------------------------------------------------------------
 # 4️⃣  EXAMPLES – build check
-# ------------------------------------------------------------
+# -------------------------------------------------------------------
   check-examples:
     name: Check Examples
     needs: [test-go]
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set-up Go ${{ env.GO_VERSION }}
+      - name: Set-up Go
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      # ── mini-mod dp (serve se l’esempio lo importa indirett.) ──
+      # --- modulo temporaneo per dp -------------------------------
       - name: Init dp module (temp)
         run: |
           if [ ! -f sdk/go/dp/go.mod ]; then
@@ -185,9 +178,8 @@ jobs:
             (cd sdk/go/dp && go mod tidy)
           fi
 
-      # ── Build & vet simple_chat senza go.mod locale ────────────
       - name: Build simple_chat example
         working-directory: examples/go/simple_chat
         run: |
           go vet .
-          go test -c -o /tmp/simple_chat.test   # build-only
+          go test -c -o /tmp/simple_chat.test
