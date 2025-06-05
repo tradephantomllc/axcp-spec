@@ -1,22 +1,43 @@
 # AXCP Rust SDK
 
-A Rust implementation of the AXCP client SDK.
+[![Crates.io](https://img.shields.io/crates/v/axcp-rs.svg)](https://crates.io/crates/axcp-rs)
+[![Documentation](https://docs.rs/axcp-rs/badge.svg)](https://docs.rs/axcp-rs)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Rust](https://github.com/tradephantom/axcp-spec/actions/workflows/rust-ci.yml/badge.svg)](https://github.com/tradephantom/axcp-spec/actions/workflows/rust-ci.yml)
+
+Official Rust implementation of the Advanced eXchange Control Protocol (AXCP) client SDK.
 
 ## Features
 
-- Async/await support
+- Async/await API with `tokio`
 - Telemetry data collection and batching
-- Configurable timeouts and retries
-- Comprehensive error handling
-- Built-in metrics and tracing
+- Configurable timeouts and retry policies
+- Comprehensive error handling with `thiserror`
+- Built-in metrics and tracing with `tracing`
+- Multiple TLS backends (native-tls or rustls)
+- WebSocket support for real-time communication
 
-## Getting Started
+## Installation
 
-Add the following to your `Cargo.toml`:
+Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-axcp-rs = { path = "path/to/axcp-spec/sdk/rust" }
+axcp-rs = "0.1.0-alpha.1"
+
+# For async runtime (if not already in your project)
+tokio = { version = "1.0", features = ["full"] }
+```
+
+### Feature Flags
+
+- `default`: Uses `native-tls` for TLS
+- `rustls`: Use `rustls` instead of `native-tls`
+- `dev`: Include development dependencies for testing
+
+```toml
+[dependencies]
+axcp-rs = { version = "0.1.0-alpha.1", default-features = false, features = ["rustls"] }
 ```
 
 ## Usage
