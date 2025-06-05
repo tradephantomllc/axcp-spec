@@ -22,7 +22,14 @@ func main() {
 	tlsConf := netquic.InsecureTLSConfig()
 
 	// Initialize broker
-	broker := internal.NewBroker("tcp://mosquitto:1883")
+	broker, err := internal.NewBroker(internal.BrokerConfig{
+		URL:       "tcp://mosquitto:1883",
+		DPEnabled: true, // Enable DP by default, config can be loaded from env vars
+		DPConfig:  "",  // Use default config location
+	})
+	if err != nil {
+		log.Fatalf("Failed to initialize broker: %v", err)
+	}
 
 	// Set up context for graceful shutdown
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
