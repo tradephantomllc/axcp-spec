@@ -48,3 +48,12 @@ rustls = ["reqwest/rustls-tls"]
 [lib]
 name = "axcp"
 path = "src/lib.rs"
+doctest = true
+
+exclude = [
+    "/.github/",
+    "/.gitignore",
+    "/target/",
+    "**/.git",
+    "**/.gitignore"
+]
