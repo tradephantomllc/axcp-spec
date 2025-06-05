@@ -19,16 +19,21 @@ pub mod prelude {
     pub use crate::telemetry::TelemetryClient;
 }
 
+use error::Result;
+
 /// Current version of the SDK
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Initialize the SDK with default settings
-pub fn init() -> Result<(), Box<dyn std::error::Error>> {
+///
+/// # Errors
+///
+/// Returns an error if the logger setup fails
+pub fn init() -> Result<()> {
     // Set up default tracing subscriber
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env()
             .add_directive(tracing::Level::INFO.into()))
-        .init();
-    
-    Ok(())
+        .try_init()
+        .map_err(|e| error::Error::Other(e.to_string()))
 }

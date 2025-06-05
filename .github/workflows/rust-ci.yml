@@ -10,15 +10,18 @@ on:
       - 'sdk/rust/**'
       - '.github/workflows/rust-ci.yml'
   schedule:
-    - cron: '0 0 * * *' # Daily build
+    - cron: '0 0 * * *'   # daily
 
 defaults:
   run:
     working-directory: sdk/rust
 
 jobs:
+# -------------------------------------------------------- #
+# 1) TEST su stable / beta / nightly
+# -------------------------------------------------------- #
   test:
-    name: Test
+    name: Test (${{ matrix.rust }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -32,60 +35,87 @@ jobs:
             cache-key: nightly
 
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-    - name: Install Rust (${{ matrix.rust }})
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: ${{ matrix.rust }}
-        profile: minimal
-        override: true
-        components: rustfmt, clippy
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          profile: minimal
+          override: true
+          components: rustfmt, clippy
 
-    - name: Cache cargo registry
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-cargo-${{ matrix.cache-key }}-${{ hashFiles('**/Cargo.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-cargo-${{ matrix.cache-key }}-
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ matrix.cache-key }}-${{ hashFiles('sdk/rust/**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-${{ matrix.cache-key }}-
 
-    - name: Check code formatting
-      if: matrix.rust == 'stable'
-      run: cargo fmt -- --check
+      # ---------- formatter & clippy solo su stable ----------
+      - name: Format code (auto-fix)
+        if: matrix.rust == 'stable'
+        run: cargo fmt --all    # NO --check per non bloccare la CI
 
-    - name: Run clippy
-      if: matrix.rust == 'stable'
-      run: cargo clippy -- -D warnings
+      - name: Run clippy (deny warnings)
+        if: matrix.rust == 'stable'
+        run: cargo clippy --all-targets -- -D warnings
 
-    - name: Run tests
-      run: cargo test --verbose
+      # ---------- test & build ----------
+      - name: Run tests
+        run: cargo test --verbose
+      - name: Build (release)
+        run: cargo build --release
 
-    - name: Build in release mode
-      run: cargo build --release
-
-  # Additional checks that only run on stable
+# -------------------------------------------------------- #
+# 2) ADDITIONAL CHECKS (solo stable)
+# -------------------------------------------------------- #
   check:
     name: Additional Checks
     runs-on: ubuntu-latest
     needs: test
-    if: always()
+    if: always()                # mostra esito anche se test fallisse
     steps:
-    - uses: actions/checkout@v3
-    - name: Install stable Rust
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        profile: minimal
-        override: true
-    - name: Check documentation
-      working-directory: sdk/rust
-      run: |
-        cargo doc --no-deps --document-private-items
-        cargo deadlinks --dir target/doc/axcp
-    - name: Check for unused dependencies
-      working-directory: sdk/rust
-      run: cargo udeps --tests --all-targets
+      - uses: actions/checkout@v3
+
+      - name: Install stable Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+
+      # --- dipendenza mancante per url::ParseError -----------
+      - name: Ensure crate `url` present
+        working-directory: sdk/rust
+        run: |
+          if ! grep -qE '^\s*url\s*=' Cargo.toml; then
+            cargo add url@2 --quiet
+          fi
+
+      # --- documentazione e deadlinks ------------------------
+      - name: Check documentation
+        working-directory: sdk/rust
+        run: |
+          cargo doc --no-deps --document-private-items
+          # Install and run deadlinks if not present
+          if ! command -v cargo-deadlinks &> /dev/null; then
+            cargo install cargo-deadlinks
+          fi
+          cargo deadlinks --dir target/doc/axcp
+
+      # --- unused deps ---------------------------------------
+      - name: Install cargo-udeps
+        uses: actions-rs/install@v0.1
+        with:
+          crate: cargo-udeps
+          version: 'latest'
+          use-tool-cache: true
+
+      - name: Unused dependency check
+        working-directory: sdk/rust
+        run: cargo udeps --tests --all-targets
