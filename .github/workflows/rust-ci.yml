@@ -78,6 +78,7 @@ jobs:
     name: Additional Checks
     needs: test
     runs-on: ubuntu-latest
+    if: always()                # mostra esito anche se test fallisse
 
     steps:
       - uses: actions/checkout@v3
