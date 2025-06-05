@@ -1,0 +1,121 @@
+name: Rust CI
+
+on:
+  push:
+    paths:
+      - 'sdk/rust/**'
+      - '.github/workflows/rust-ci.yml'
+  pull_request:
+    paths:
+      - 'sdk/rust/**'
+      - '.github/workflows/rust-ci.yml'
+  schedule:
+    - cron: '0 0 * * *'   # daily
+
+defaults:
+  run:
+    working-directory: sdk/rust
+
+jobs:
+# -------------------------------------------------------- #
+# 1) TEST su stable / beta / nightly
+# -------------------------------------------------------- #
+  test:
+    name: Test (${{ matrix.rust }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust: [stable, beta, nightly]
+        include:
+          - rust: stable
+            cache-key: stable
+          - rust: beta
+            cache-key: beta
+          - rust: nightly
+            cache-key: nightly
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          profile: minimal
+          override: true
+          components: rustfmt, clippy
+
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ matrix.cache-key }}-${{ hashFiles('sdk/rust/**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-${{ matrix.cache-key }}-
+
+      # ---------- formatter & clippy solo su stable ----------
+      - name: Format code (auto-fix)
+        if: matrix.rust == 'stable'
+        run: cargo fmt --all    # NO --check per non bloccare la CI
+
+      - name: Run clippy (deny warnings)
+        if: matrix.rust == 'stable'
+        run: cargo clippy --all-targets -- -D warnings
+
+      # ---------- test & build ----------
+      - name: Run tests
+        run: cargo test --verbose
+      - name: Build (release)
+        run: cargo build --release
+
+# -------------------------------------------------------- #
+# 2) ADDITIONAL CHECKS (solo stable)
+# -------------------------------------------------------- #
+  check:
+    name: Additional Checks
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install stable Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+
+      # --- dipendenza url mancante -------------------------
+      - name: Ensure crate `url` present
+        run: |
+          if ! grep -qE '^\s*url\s*=' Cargo.toml; then
+            cargo add url@2 --quiet
+          fi
+
+      # --- documentazione e dead-links --------------------
+      - name: Build docs & check links
+        run: |
+          cargo doc --no-deps --document-private-items
+          if ! command -v cargo-deadlinks &>/dev/null; then
+            cargo install cargo-deadlinks
+          fi
+          cargo deadlinks --dir target/doc/axcp
+
+      # --- nightly toolchain per cargo-udeps --------------
+      - name: Install nightly Rust (for udeps)
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          profile: minimal
+          override: false
+
+      - name: Install cargo-udeps
+        run: cargo +nightly install cargo-udeps --quiet --locked
+
+      - name: Unused dependency check
+        continue-on-error: true           # Don't fail the job if unused deps are found
+        run: cargo +nightly udeps --tests --all-targets
