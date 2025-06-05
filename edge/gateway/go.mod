@@ -19,6 +19,7 @@ require (
 	github.com/prometheus/common v0.48.0
 	github.com/prometheus/procfs v0.12.0
 	github.com/quic-go/quic-go v0.42.0
+	github.com/spf13/viper v1.18.2 // indirect
 	github.com/stretchr/testify v1.10.0
 	go.etcd.io/bbolt v1.3.8
 	go.uber.org/mock v0.5.0 // indirect
@@ -30,7 +31,7 @@ require (
 	golang.org/x/sys v0.24.0 // indirect
 	golang.org/x/tools v0.22.0 // indirect
 	google.golang.org/protobuf v1.36.6
-	gopkg.in/yaml.v3 v3.0.1 // indirect
+	gopkg.in/yaml.v3 v3.0.1
 	github.com/tradephantom/axcp-spec/sdk/go v0.0.0-00010101000000-000000000000
 )
 
