@@ -1,6 +1,5 @@
 //! Error handling for the AXCP Rust SDK.
 
-use std::fmt;
 use thiserror::Error;
 
 /// A type alias for `Result<T, Error>`.

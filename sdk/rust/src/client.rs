@@ -120,16 +120,21 @@ impl TelemetryClient {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mockito::{mock, Server};
-    use serde_json::json;
+    use mockito::Server;
 
     #[tokio::test]
     async fn test_send_telemetry() {
-        let mut server = Server::new();
-        let _m = mock("POST", "/api/v1/telemetry")
+        // Start a mock server
+        let mut server = Server::new_async().await;
+        
+        // Create a mock for the telemetry endpoint
+        let _m = server
+            .mock("POST", "/api/v1/telemetry")
             .with_status(200)
-            .create();
+            .create_async()
+            .await;
 
+        // Create client with mock server URL
         let config = ClientConfig {
             base_url: server.url(),
             ..Default::default()
@@ -138,7 +143,11 @@ mod tests {
         let client = Client::new(config).unwrap();
         let batch = TelemetryBatch { points: vec![] };
         
+        // Send telemetry and verify the result
         let result = client.send_telemetry(batch).await;
         assert!(result.is_ok());
+        
+        // Verify the mock was called
+        _m.assert_async().await;
     }
 }
