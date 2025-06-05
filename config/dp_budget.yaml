@@ -1,0 +1,14 @@
+# Default budget values
+version: v1
+budgets:
+  # Default budget for all topics
+  "*":
+    epsilon: 1.0
+    delta: 1e-5
+    clip_norm: 10.0
+
+  # Override for telemetry/edge topics
+  "telemetry/edge":
+    epsilon: 0.5
+    delta: 1e-6
+    clip_norm: 5.0
