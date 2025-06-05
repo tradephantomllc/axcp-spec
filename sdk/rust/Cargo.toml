@@ -1,0 +1,50 @@
+[package]
+name = "axcp-rs"
+version = "0.1.0"
+edition = "2021"
+description = "Rust client SDK for AXCP protocol"
+license = "Apache-2.0"
+authors = ["AXCP Team"]
+repository = "https://github.com/tradephantom/axcp-spec"
+
+[dependencies]
+# Core dependencies
+tokio = { version = "1.0", features = ["full"] }
+thiserror = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+prost = "0.11"
+prost-types = "0.11"
+bytes = "1.0"
+url = "2.5.0"
+# For async HTTP client
+reqwest = { version = "0.11", features = ["json", "stream"] }
+# For WebSocket support
+tokio-tungstenite = { version = "0.19", features = ["native-tls"] }
+# For configuration
+config = "0.13"
+# For logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+# For async runtime features
+futures-util = "0.3"
+
+[dev-dependencies]
+# For testing
+mockall = "0.11"
+mockito = "1.4.0"
+# For property-based testing
+proptest = "1.0"
+# For integration tests
+serial_test = "1.0"
+serde_json = "1.0"
+tokio = { version = "1.0", features = ["full", "rt-multi-thread", "test-util"] }
+
+[features]
+default = ["native-tls"]
+native-tls = ["reqwest/native-tls"]
+rustls = ["reqwest/rustls-tls"]
+
+[lib]
+name = "axcp"
+path = "src/lib.rs"
