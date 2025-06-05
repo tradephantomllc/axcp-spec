@@ -82,7 +82,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      # ---- stable toolchain per doc ------------------------
       - name: Install stable Rust
         uses: actions-rs/toolchain@v1
         with:
@@ -90,16 +89,15 @@ jobs:
           profile: minimal
           override: true
 
-      # ---- dipendenza url mancante -------------------------
+      # --- dipendenza url mancante -------------------------
       - name: Ensure crate `url` present
         run: |
-          if ! grep -qE '^\s*url\s*=' sdk/rust/Cargo.toml; then
-            (cd sdk/rust && cargo add url@2 --quiet)
+          if ! grep -qE '^\s*url\s*=' Cargo.toml; then
+            cargo add url@2 --quiet
           fi
 
-      # ---- documentazione & dead-links ---------------------
+      # --- documentazione e dead-links --------------------
       - name: Build docs & check links
-        working-directory: sdk/rust
         run: |
           cargo doc --no-deps --document-private-items
           if ! command -v cargo-deadlinks &>/dev/null; then
@@ -107,17 +105,16 @@ jobs:
           fi
           cargo deadlinks --dir target/doc/axcp
 
-      # ---- nightly toolchain per cargo-udeps ---------------
+      # --- nightly toolchain per cargo-udeps --------------
       - name: Install nightly Rust (for udeps)
         uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
           profile: minimal
-          override: false          # non sovrascrive stable
+          override: false
 
-      - name: Install cargo-udeps (nightly)
+      - name: Install cargo-udeps
         run: cargo +nightly install cargo-udeps --quiet --locked
 
       - name: Unused dependency check
-        working-directory: sdk/rust
         run: cargo +nightly udeps --tests --all-targets
