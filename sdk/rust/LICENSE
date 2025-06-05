@@ -1,0 +1,20 @@
+Business Source License 1.1
+
+Use of this software is governed by the Business Source License included in the LICENSE file.
+
+As of 2029-01-01 (the "Change Date"), or 4 years after the initial publication date of this file, whichever comes first, the license for this software will be changed to the Apache License, Version 2.0.
+
+Licensor: TradePhantom LLC
+Licensed Work: AXCP – Adaptive eXchange Context Protocol
+Licensor Designation: Proprietary during BSL term
+
+Terms:
+
+- You may use, copy, and modify the Licensed Work for non-commercial purposes.
+- You may not use the Licensed Work, or any derivative works, to provide a commercial service or sell a competing product unless you purchase a commercial license.
+- Commercial use includes usage in SaaS products, proprietary tools, or platforms that generate revenue or are offered for a fee.
+- Redistribution in any form requires retaining this license text and attribution.
+
+After the Change Date, the Licensed Work will be automatically re-licensed under the Apache License, Version 2.0.
+
+For more information, see https://mariadb.com/bsl11/
