@@ -18,17 +18,27 @@ tokio = { version = "1.0", features = ["full"] }
 thiserror = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-prost = "0.11"
-prost-types = "0.11"
+prost = { version = "0.11", optional = true }
+prost-types = { version = "0.11", optional = true }
 bytes = "1.0"
 url = "2.5.0"
 # For async HTTP client
 reqwest = { version = "0.11", features = ["json", "stream"] }
 # For WebSocket support
-tokio-tungstenite = { version = "0.19", features = ["native-tls"] }
+tokio-tungstenite = { version = "0.19", features = ["native-tls"], optional = true }
 # For configuration
-config = "0.13"
+config = { version = "0.13", optional = true }
 # For logging
+
+[features]
+default = []                # SDK minimal
+protobuf = ["prost", "prost-types"]
+realtime-ws = ["tokio-tungstenite"]
+conf     = ["config"]
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["config", "prost", "prost-types", "tokio-tungstenite"]
+dev    = ["mockall", "proptest", "serial_test"]
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # For async runtime features
