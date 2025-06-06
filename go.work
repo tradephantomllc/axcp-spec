@@ -7,4 +7,5 @@ use (
 	./sdk/go
 	./sdk/go/axcp
 	./sdk/go/netquic
+	./tools/dpctl
 )
