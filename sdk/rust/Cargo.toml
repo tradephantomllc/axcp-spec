@@ -1,11 +1,16 @@
 [package]
 name = "axcp-rs"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 edition = "2021"
 description = "Rust client SDK for AXCP protocol"
 license = "Apache-2.0"
 authors = ["AXCP Team"]
 repository = "https://github.com/tradephantom/axcp-spec"
+documentation = "https://docs.rs/axcp-rs"
+readme = "README.md"
+keywords = ["axcp", "network", "protocol", "telemetry", "iot"]
+categories = ["network-programming", "api-bindings"]
+include = ["src/**/*", "Cargo.toml", "README.md", "LICENSE"]
 
 [dependencies]
 # Core dependencies
@@ -50,10 +55,4 @@ name = "axcp"
 path = "src/lib.rs"
 doctest = true
 
-exclude = [
-    "/.github/",
-    "/.gitignore",
-    "/target/",
-    "**/.git",
-    "**/.gitignore"
-]
+
