@@ -33,4 +33,4 @@ jobs:
       - name: Publish to crates.io
         working-directory: sdk/rust
         run: |
-          cargo publish --no-verify
+          cargo publish --no-verify --allow-dirty
