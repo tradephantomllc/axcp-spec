@@ -45,7 +45,7 @@ rustls       = ["reqwest/rustls-tls"]       # Supporto TLS con rustls
 
 [package.metadata.cargo-udeps.ignore]
 normal = ["config", "prost", "prost-types", "tokio-tungstenite"]
-dev    = ["mockall", "proptest", "serial_test"]
+dev    = ["mockall", "mockito", "proptest", "serial_test", "serde_json", "tokio"]
 
 [dev-dependencies]
 # For testing
