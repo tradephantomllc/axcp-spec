@@ -44,8 +44,9 @@ native-tls   = ["reqwest/native-tls"]       # Supporto TLS nativo
 rustls       = ["reqwest/rustls-tls"]       # Supporto TLS con rustls
 
 [package.metadata.cargo-udeps.ignore]
-normal = ["config", "prost", "prost-types", "tokio-tungstenite"]
-dev    = ["mockall", "mockito", "proptest", "serial_test", "serde_json", "tokio"]
+normal = []
+
+dev = ["mockall", "proptest", "serial_test"]
 
 [dev-dependencies]
 # For testing
