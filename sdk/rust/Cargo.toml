@@ -43,6 +43,7 @@ full         = ["protobuf", "realtime-ws", "conf"]
 native-tls   = ["reqwest/native-tls"]       # Supporto TLS nativo
 rustls       = ["reqwest/rustls-tls"]       # Supporto TLS con rustls
 
+# Configuration for cargo-udeps to ignore false positives in dev dependencies
 [package.metadata.cargo-udeps.ignore]
 normal = []
 development = ["mockall", "proptest", "serial_test"]
