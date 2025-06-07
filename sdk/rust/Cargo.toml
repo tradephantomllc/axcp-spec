@@ -1,6 +1,7 @@
 [package]
 name = "axcp-rs"
 version = "0.1.0-alpha.1"
+publish = true
 edition = "2021"
 description = "Rust client SDK for AXCP protocol"
 license = "Apache-2.0"
