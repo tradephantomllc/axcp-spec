@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Rust](https://github.com/tradephantom/axcp-spec/actions/workflows/rust-ci.yml/badge.svg)](https://github.com/tradephantom/axcp-spec/actions/workflows/rust-ci.yml)
 
-Official Rust implementation of the Advanced eXchange Control Protocol (AXCP) client SDK.
+Official Rust implementation of the Adaptive eXchange Context Protocol (AXCP) client SDK.
 
 ## Features
 
