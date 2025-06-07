@@ -1,11 +1,16 @@
 [package]
 name = "axcp-rs"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 edition = "2021"
 description = "Rust client SDK for AXCP protocol"
 license = "Apache-2.0"
 authors = ["AXCP Team"]
 repository = "https://github.com/tradephantom/axcp-spec"
+documentation = "https://docs.rs/axcp-rs"
+readme = "README.md"
+keywords = ["axcp", "network", "protocol", "telemetry", "iot"]
+categories = ["network-programming", "api-bindings"]
+include = ["src/**/*", "Cargo.toml", "README.md", "LICENSE"]
 
 [dependencies]
 # Core dependencies
@@ -13,21 +18,35 @@ tokio = { version = "1.0", features = ["full"] }
 thiserror = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-prost = "0.11"
-prost-types = "0.11"
+prost = { version = "0.11", optional = true }
+prost-types = { version = "0.11", optional = true }
 bytes = "1.0"
 url = "2.5.0"
 # For async HTTP client
 reqwest = { version = "0.11", features = ["json", "stream"] }
 # For WebSocket support
-tokio-tungstenite = { version = "0.19", features = ["native-tls"] }
+tokio-tungstenite = { version = "0.19", features = ["native-tls"], optional = true }
 # For configuration
-config = "0.13"
+config = { version = "0.13", optional = true }
 # For logging
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # For async runtime features
 futures-util = "0.3"
+
+[features]
+default      = ["native-tls"]               # SDK minimale
+protobuf     = ["prost", "prost-types"]     # serializzazione Protobuf
+realtime-ws  = ["tokio-tungstenite"]        # WebSocket live telemetry
+conf         = ["config"]                   # lettura di axcp.toml
+full         = ["protobuf", "realtime-ws", "conf"]
+native-tls   = ["reqwest/native-tls"]       # Supporto TLS nativo
+rustls       = ["reqwest/rustls-tls"]       # Supporto TLS con rustls
+
+[package.metadata.cargo-udeps.ignore]
+normal = []
+development = ["mockall", "proptest", "serial_test"]
+build = []
 
 [dev-dependencies]
 # For testing
@@ -40,20 +59,9 @@ serial_test = "1.0"
 serde_json = "1.0"
 tokio = { version = "1.0", features = ["full", "rt-multi-thread", "test-util"] }
 
-[features]
-default = ["native-tls"]
-native-tls = ["reqwest/native-tls"]
-rustls = ["reqwest/rustls-tls"]
-
 [lib]
 name = "axcp"
 path = "src/lib.rs"
 doctest = true
 
-exclude = [
-    "/.github/",
-    "/.gitignore",
-    "/target/",
-    "**/.git",
-    "**/.gitignore"
-]
+
