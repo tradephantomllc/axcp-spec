@@ -29,20 +29,23 @@ tokio-tungstenite = { version = "0.19", features = ["native-tls"], optional = tr
 # For configuration
 config = { version = "0.13", optional = true }
 # For logging
-
-[features]
-default = []                # SDK minimal
-protobuf = ["prost", "prost-types"]
-realtime-ws = ["tokio-tungstenite"]
-conf     = ["config"]
-
-[package.metadata.cargo-udeps.ignore]
-normal = ["config", "prost", "prost-types", "tokio-tungstenite"]
-dev    = ["mockall", "proptest", "serial_test"]
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # For async runtime features
 futures-util = "0.3"
+
+[features]
+default      = ["native-tls"]               # SDK minimale
+protobuf     = ["prost", "prost-types"]     # serializzazione Protobuf
+realtime-ws  = ["tokio-tungstenite"]        # WebSocket live telemetry
+conf         = ["config"]                   # lettura di axcp.toml
+full         = ["protobuf", "realtime-ws", "conf"]
+native-tls   = ["reqwest/native-tls"]       # Supporto TLS nativo
+rustls       = ["reqwest/rustls-tls"]       # Supporto TLS con rustls
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["config", "prost", "prost-types", "tokio-tungstenite"]
+dev    = ["mockall", "proptest", "serial_test"]
 
 [dev-dependencies]
 # For testing
@@ -54,11 +57,6 @@ proptest = "1.0"
 serial_test = "1.0"
 serde_json = "1.0"
 tokio = { version = "1.0", features = ["full", "rt-multi-thread", "test-util"] }
-
-[features]
-default = ["native-tls"]
-native-tls = ["reqwest/native-tls"]
-rustls = ["reqwest/rustls-tls"]
 
 [lib]
 name = "axcp"
