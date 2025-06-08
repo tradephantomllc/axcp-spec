@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -11,15 +12,36 @@ import (
 
 	"github.com/tradephantom/axcp-spec/edge/gateway/internal"
 	"github.com/tradephantom/axcp-spec/edge/gateway/internal/buffer"
-	"github.com/tradephantom/axcp-spec/edge/gateway/internal/metrics"
+	gatewaymetrics "github.com/tradephantom/axcp-spec/edge/gateway/internal/metrics"
 	"github.com/tradephantom/axcp-spec/sdk/go/netquic"
 	"github.com/tradephantom/axcp-spec/sdk/go/pb"
 	"google.golang.org/protobuf/proto"
 )
 
 func main() {
-	addr := ":7143"
+	// Parse command line flags
+	metricsCfg := gatewaymetrics.DefaultConfig()
+	var addr string
+	flag.StringVar(&addr, "addr", ":7143", "Address to listen on")
+	metricsCfg.AddFlags(flag.CommandLine)
+	flag.Parse()
+
 	tlsConf := netquic.InsecureTLSConfig()
+
+	// Set up context for graceful shutdown
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	// Initialize metrics
+	metrics, err := metricsCfg.Setup(ctx)
+	if err != nil {
+		log.Fatalf("Failed to initialize metrics: %v", err)
+	}
+	defer func() {
+		if err := metrics.Shutdown(context.Background()); err != nil {
+			log.Printf("Failed to shutdown metrics: %v", err)
+		}
+	}()
 
 	// Initialize broker
 	broker, err := internal.NewBroker(internal.BrokerConfig{
@@ -31,9 +53,7 @@ func main() {
 		log.Fatalf("Failed to initialize broker: %v", err)
 	}
 
-	// Set up context for graceful shutdown
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
+
 
 	// Initialize retry buffer
 	db, err := buffer.Open("retry.db")
@@ -73,30 +93,29 @@ func main() {
 		if err != nil {
 			// If direct publish fails, add to retry queue
 			log.Printf("Publish failed, adding to retry queue: %v", err)
-			
-				// Serialize the telemetry data using protobuf
+						// Serialize the telemetry data using protobuf
 			data, err := proto.Marshal(td)
 			if err != nil {
 				log.Printf("Failed to marshal telemetry data: %v", err)
-				metrics.RetryDropped.Inc()
+				metrics.RecordRetryDropped()
 				return
 			}
 
 			// Add to retry queue with trace ID as key
 			if err := queue.Push([]byte(traceID), data); err != nil {
 				log.Printf("Failed to add to retry queue: %v", err)
-				metrics.RetryDropped.Inc()
+				metrics.RecordRetryDropped()
 				return
 			}
 
 			// Update metrics
-			metrics.RetryAttempts.Inc()
+			metrics.RecordRetryAttempt()
 			if count, err := queue.Len(); err == nil {
-				metrics.RetryQueue.Set(float64(count))
+				metrics.SetRetryQueueSize(count)
 			}
 		} else {
 			// Update success metric
-			metrics.RetrySuccess.Inc()
+			metrics.RecordRetrySuccess()
 		}
 	}
 

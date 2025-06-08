@@ -147,6 +147,11 @@ jobs:
           (cd edge/gateway && go test -v -race ./...)
           (cd sdk/go/axcp  && go test -v -run Test.*Telemetry)
 
+      - name: Run Prometheus metrics tests
+        run: |
+          set -e
+          (cd edge/gateway && go test -v -race ./internal/metrics/... -run TestPrometheusMetrics)
+
 # ------------------------------------------------------------ 
 # 4️⃣  RPI AGENT (Issue 21c) – usa stubs rigenerati & workspace
 # ------------------------------------------------------------
