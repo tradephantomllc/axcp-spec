@@ -1,10 +1,10 @@
 [package]
 name = "axcp-rs"
-version = "0.1.0-alpha.4"
+version = "0.1.0-alpha.5"
 publish = true
 edition = "2021"
 description = "Rust client SDK for AXCP protocol"
-license-file = "../../LICENSE"
+license-file = "LICENSE.BSL"
 authors = ["AXCP Team"]
 repository = "https://github.com/tradephantom/axcp-spec"
 documentation = "https://docs.rs/axcp-rs"
