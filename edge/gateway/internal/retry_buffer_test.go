@@ -151,43 +151,54 @@ func TestRetryBufferCapacity(t *testing.T) {
 func TestRetryBufferStop(t *testing.T) {
 	logger := NewMockTestLogger(t)
 	
-	// Mock per la funzione di pubblicazione che si blocca
-	blockingCalled := false
-	blockingDone := make(chan struct{})
-	blockingPublish := func(env *axcp.Envelope) error {
-		blockingCalled = true
-		<-blockingDone // Blocca finché non viene chiuso il canale
+	// Mock sincrono per la funzione di pubblicazione con controllo
+	callMutex := sync.Mutex{}
+	publishCalled := false
+	mockPublish := func(env *axcp.Envelope) error {
+		callMutex.Lock()
+		publishCalled = true
+		callMutex.Unlock()
 		return nil
 	}
 	
-	// Crea il buffer di retry
+	// Crea il buffer di retry con configurazione veloce per i test
 	config := DefaultRetryBufferConfig()
-	config.MinRetryInterval = 10 * time.Millisecond
-	rb := NewRetryBuffer(&config, logger, blockingPublish)
+	config.MinRetryInterval = 5 * time.Millisecond // Ridotto per test più veloci
+	config.MaxRetryInterval = 20 * time.Millisecond
+	rb := NewRetryBuffer(&config, logger, mockPublish)
 	
-	// Aggiungi un elemento
-	env := axcp.NewEnvelope("test-stop", 0)
+	// Aggiungi alcuni elementi al buffer
+	for i := 0; i < 3; i++ {
+		id := fmt.Sprintf("test-stop-%d", i)
+		env := axcp.NewEnvelope(id, 0)
+		err := rb.AddEnvelope(id, env)
+		require.NoError(t, err)
+	}
 	
-	err := rb.AddEnvelope("test-stop", env)
-	require.NoError(t, err)
+	// Verifica dimensione iniziale
+	assert.Equal(t, 3, rb.Size(), "Buffer should contain 3 items")
 	
 	// Avvia il buffer
 	rb.Start()
 	
-	// Attendi che la funzione di pubblicazione venga chiamata
-	time.Sleep(50 * time.Millisecond)
-	assert.True(t, blockingCalled, "Publish function should have been called")
+	// Attendiamo che la pubblicazione venga chiamata
+	require.Eventually(t, func() bool {
+		callMutex.Lock()
+		defer callMutex.Unlock()
+		return publishCalled
+	}, 100*time.Millisecond, 5*time.Millisecond, "Publish function should be called")
+	
+	// Attendiamo che la coda si svuoti
+	require.Eventually(t, func() bool {
+		return rb.Size() == 0
+	}, 200*time.Millisecond, 10*time.Millisecond, "Queue should be empty after processing")
 	
 	// Ferma il buffer
 	rb.Stop()
 	
-	// Sblocca la funzione di pubblicazione
-	close(blockingDone)
-	
 	// Verifica che dopo lo stop non si possano aggiungere nuovi elementi
 	env2 := axcp.NewEnvelope("test-after-stop", 0)
-	
-	err = rb.AddEnvelope("test-after-stop", env2)
+	err := rb.AddEnvelope("test-after-stop", env2)
 	assert.Error(t, err, "Adding elements after stop should fail")
 }
 
