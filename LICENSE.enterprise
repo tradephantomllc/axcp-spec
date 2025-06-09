@@ -1,0 +1,47 @@
+AXCP ENTERPRISE EDITION SOFTWARE LICENSE AGREEMENT
+
+This AXCP Enterprise Edition Software License Agreement (the "Agreement") is a legal agreement between you (either an individual or a legal entity) ("Licensee") and TradePhantom Inc. ("Licensor") for the software, services, and related materials (collectively, the "Software") contained in this package or accessed through this Agreement.
+
+1. LICENSE GRANT
+
+1.1 Subject to the terms and conditions of this Agreement and payment of applicable license fees, Licensor grants to Licensee a non-exclusive, non-transferable license to use the Software solely for Licensee's internal business purposes.
+
+1.2 This license specifically covers all code, services, and materials located within the "enterprise/" directory of the AXCP protocol repository and any other components marked as "Enterprise Edition" or "EE".
+
+2. RESTRICTIONS
+
+2.1 Licensee shall not:
+   (a) copy, modify, or create derivative works of the Software;
+   (b) reverse engineer, decompile, or disassemble the Software;
+   (c) remove any copyright or proprietary notices from the Software;
+   (d) transfer, sublicense, lease, lend, rent or otherwise distribute the Software to any third party;
+   (e) use the Software for providing services to third parties without explicit written permission;
+   (f) make the functionality of the Software available to third parties through API, web service, or similar technology without explicit written permission.
+
+3. OWNERSHIP
+
+3.1 The Software is licensed, not sold. Licensor retains all right, title, and interest in and to the Software, including all intellectual property rights therein.
+
+4. TERM AND TERMINATION
+
+4.1 This Agreement remains in effect until terminated.
+4.2 Licensor may terminate this Agreement immediately if Licensee breaches any provision of this Agreement.
+4.3 Upon termination, Licensee must cease all use of the Software and destroy all copies.
+
+5. WARRANTY DISCLAIMER
+
+5.1 THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. LICENSOR DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+
+6. LIMITATION OF LIABILITY
+
+6.1 IN NO EVENT SHALL LICENSOR BE LIABLE FOR ANY SPECIAL, INCIDENTAL, INDIRECT, OR CONSEQUENTIAL DAMAGES WHATSOEVER ARISING OUT OF OR RELATED TO YOUR USE OF OR INABILITY TO USE THE SOFTWARE.
+
+7. GENERAL
+
+7.1 This Agreement constitutes the entire agreement between the parties concerning the subject matter hereof.
+7.2 This Agreement shall be governed by the laws of the jurisdiction in which Licensor is located, without regard to conflict of law principles.
+7.3 Any dispute arising out of or related to this Agreement shall be resolved exclusively in the courts of the jurisdiction in which Licensor is located.
+
+By accessing, installing, or using the AXCP Enterprise Edition Software, you agree to be bound by the terms of this Agreement.
+
+TradePhantom Inc.
