@@ -1,5 +1,10 @@
 # axcp-spec
 
+> **Dual Licence Notice** – this repo ships  
+> • **AXCP Core** (Apache 2.0) – fully open-source  
+> • **AXCP Enterprise** (Commercial) – under `enterprise/`  
+> See `ENTERPRISE_NOTICE.md` for details.
+
 [![CI](https://github.com/tradephantom/axcp-spec/actions/workflows/ci.yml/badge.svg)](https://github.com/tradephantom/axcp-spec/actions/workflows/ci.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/tradephantom/axcp-spec/sdk/go.svg)](https://pkg.go.dev/github.com/tradephantom/axcp-spec/sdk/go)
 
@@ -31,6 +36,7 @@ AXCP v0.3 introduces a novel approach to telemetry data collection that prioriti
 ### QUIC DATAGRAM Transport
 
 Telemetry data is transmitted using QUIC's unreliable DATAGRAM frames, providing:
+
 - Ultra-low latency (no head-of-line blocking)
 - Zero connection setup overhead for frequent metrics
 - Minimal impact on application traffic
