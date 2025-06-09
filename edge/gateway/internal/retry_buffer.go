@@ -207,12 +207,21 @@ func (rb *RetryBuffer) Start() {
 
 // Stop ferma il processo di gestione dei retry
 func (rb *RetryBuffer) Stop() {
+	// Impostiamo lo stato stopped
 	rb.mutex.Lock()
 	rb.stopped = true
 	rb.mutex.Unlock()
 
+	// Annulliamo il contesto per tutte le operazioni pendenti
 	rb.cancelFunc()
+	
+	// Attendiamo che tutte le goroutine completino
 	rb.wg.Wait()
+	
+	// Log di debug
+	if rb.logger != nil {
+		rb.logger.Debug("Retry buffer stopped successfully")
+	}
 }
 
 // Size ritorna il numero di elementi nel buffer
@@ -268,17 +277,33 @@ func (rb *RetryBuffer) retryPendingItems() {
 
 // processRetryItem gestisce il retry di un singolo elemento
 func (rb *RetryBuffer) processRetryItem(item *RetryItem) {
-	// Incrementa il contatore dei tentativi e registra l'ultimo tentativo
-	rb.mutex.Lock()
-	item.Attempts++
-	item.LastAttempt = time.Now()
-	rb.mutex.Unlock()
-
-	// Prova a pubblicare l'envelope
-	err := rb.publishFn(item.Envelope)
-	
+	// Acquisisce il lock prima di qualsiasi modifica all'item
+	// e lo mantiene fino alla fine della funzione per evitare race condition
 	rb.mutex.Lock()
 	defer rb.mutex.Unlock()
+	
+	// Verifichiamo che l'item esista ancora nel buffer
+	// potrebbe essere stato rimosso da un'altra goroutine
+	if _, exists := rb.items[item.ID]; !exists {
+		return
+	}
+	
+	// Incrementa il contatore dei tentativi e registra l'ultimo tentativo
+	item.Attempts++
+	item.LastAttempt = time.Now()
+	
+	// Creiamo una copia dell'envelope per processarla
+	// senza bloccare il mutex durante la chiamata di rete
+	envelopeCopy := item.Envelope
+	
+	// Rilascia il mutex durante l'operazione di pubblicazione
+	rb.mutex.Unlock()
+	
+	// Prova a pubblicare l'envelope
+	err := rb.publishFn(envelopeCopy)
+	
+	// Riacquisisce il mutex per il resto della funzione
+	rb.mutex.Lock()
 
 	// Se la pubblicazione è riuscita, rimuovi l'elemento dal buffer
 	if err == nil {
