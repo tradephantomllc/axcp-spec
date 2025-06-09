@@ -1,0 +1,22 @@
+name: AXCP Enterprise CI
+
+on:
+  push:
+    branches: ["enterprise/**"]
+  pull_request:
+    branches: ["enterprise/**"]
+
+jobs:
+  enterprise-build:
+    name: Enterprise Build Placeholder
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Enterprise build placeholder
+        run: echo "Enterprise build placeholder"
+        
+      # Placeholder per futuri job specifici Enterprise
+      # Da espandere nelle issue future (#32-34)
