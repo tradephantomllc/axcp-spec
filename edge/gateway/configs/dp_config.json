@@ -1,0 +1,5 @@
+{
+    "epsilon": 1.0,
+    "delta": 0.00001,
+    "budget_window_seconds": 3600
+}
