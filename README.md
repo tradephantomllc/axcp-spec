@@ -1,7 +1,7 @@
 # axcp-spec
 
 > **Dual Licence Notice** – this repo ships  
-> • **AXCP Core** (Apache 2.0) – fully open-source  
+> • **AXCP Core** (BSL 1.1 → Apache 2.0 in 2029) – source-available  
 > • **AXCP Enterprise** (Commercial) – under `enterprise/`  
 > See `ENTERPRISE_NOTICE.md` for details.
 
