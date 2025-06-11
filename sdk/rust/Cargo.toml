@@ -1,6 +1,6 @@
 [package]
 name = "axcp-sdk"
-version = "0.1.0-alpha.13"
+version = "0.1.0-alpha.14"
 publish = true
 edition = "2021"
 description = "Rust client SDK for AXCP protocol"
@@ -65,5 +65,3 @@ tokio = { version = "1.0", features = ["full", "rt-multi-thread", "test-util"] }
 name = "axcp"
 path = "src/lib.rs"
 doctest = true
-
-
