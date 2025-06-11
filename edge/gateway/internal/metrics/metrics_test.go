@@ -14,19 +14,16 @@ import (
 
 // resetTestState è una funzione helper per ripulire lo stato tra i test
 func resetTestState() {
-	// Cleanup per test precedenti e previeni interferenze
+	// Usa ShutdownOTEL per terminare in modo pulito il goroutine del batch processor
+	ShutdownOTEL()
+	
+	// Cleanup extra per test precedenti
 	batchMutex.Lock()
 	defer batchMutex.Unlock()
 	
-	if batchCancelFunc != nil {
-		batchCancelFunc()
-		batchCancelFunc = nil
-	}
-	if batchTicker != nil {
-		batchTicker.Stop()
-		batchTicker = nil
-	}
+	// Assicurati che lo stato sia completamente pulito
 	batchingEnabled = false
+	batchBuffer = nil
 }
 
 func TestHistogramObserve(t *testing.T) {
