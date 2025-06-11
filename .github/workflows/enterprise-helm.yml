@@ -1,0 +1,25 @@
+name: Enterprise Helm
+
+on:
+  push:
+    branches:
+      - 'enterprise/**'
+  pull_request:
+    branches:
+      - 'enterprise/**'
+
+jobs:
+  helm-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: v3.13.3
+
+      - name: Lint Helm chart
+        run: |
+          helm lint charts/enterprise-node

@@ -1,0 +1,26 @@
+apiVersion: v2
+name: enterprise-node
+description: A minimal Helm chart for deploying AXCP Enterprise Node
+
+# Chart type must be "application" for deployable workloads.
+type: application
+
+# Version of the chart (semver-compatible) – increment with chart changes.
+version: 0.1.0
+
+# The version of the app that this chart installs.
+# Keep this aligned with the milestone/tag referenced in the issue.
+appVersion: "v0.3-edge-beta"
+
+keywords:
+  - axcp
+  - enterprise
+  - helm
+  - grpc
+authors:
+  - name: TradePhantom
+    email: dev@tradephantom.com
+home: https://github.com/tradephantom/axcp-spec
+maintainers:
+  - name: Julio (Automation)
+    email: dev@tradephantom.com

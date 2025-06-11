@@ -1,0 +1,42 @@
+# Default values for enterprise-node.
+# This file contains all the configurable parameters that can be overridden
+# via the --set flag or a custom values file during helm install/upgrade.
+
+# -----------------------------------------------------------------------------
+# Enterprise Secrets & Configuration
+# -----------------------------------------------------------------------------
+# JWT secret used to sign/verify tokens.
+jwtSecret: ""
+
+# Base64-encoded PEM certificates/keys for mTLS.
+tlsCert: ""
+tlsKey: ""
+
+# JSON-encoded PII schema path or inline content.
+piiSchema: ""
+
+# -----------------------------------------------------------------------------
+# Container Image
+# -----------------------------------------------------------------------------
+image:
+  repository: ghcr.io/tradephantom/axcp-enterprise
+  tag: v0.3-edge-beta
+  pullPolicy: IfNotPresent
+
+# -----------------------------------------------------------------------------
+# Kubernetes Service
+# -----------------------------------------------------------------------------
+service:
+  type: ClusterIP
+  port: 7143
+
+# -----------------------------------------------------------------------------
+# Resource Requests & Limits
+# -----------------------------------------------------------------------------
+resources:
+  limits:
+    cpu: "500m"
+    memory: "256Mi"
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
