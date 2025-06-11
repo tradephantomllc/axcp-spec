@@ -21,12 +21,38 @@ type PrometheusMetrics struct {
 	retryAttempts prometheus.Counter
 	retrySuccess  prometheus.Counter
 	retryDropped  prometheus.Counter
+	rpcLatency    *prometheus.HistogramVec
 }
 
 var (
 	once     sync.Once
 	registry = prometheus.NewRegistry()
+	
+	// RPCLatency è un istogramma pubblico per la latenza RPC
+	RPCLatency *prometheus.HistogramVec
 )
+
+// InitPrometheus inizializza le metriche Prometheus e avvia il server
+func InitPrometheus(addr string, enabled bool) error {
+	if !enabled {
+		return nil
+	}
+	
+	once.Do(func() {
+		RPCLatency = prometheus.NewHistogramVec(
+			prometheus.HistogramOpts{
+				Name:    "rpc_duration_seconds",
+				Help:    "RPC latency distributions in seconds",
+				Buckets: prometheus.DefBuckets,
+			},
+			[]string{"method", "status_code", "node_type"},
+		)
+		prometheus.MustRegister(RPCLatency)
+	})
+	
+	metrics := NewPrometheusMetrics()
+	return metrics.StartServer(addr)
+}
 
 // NewPrometheusMetrics creates a new PrometheusMetrics instance
 func NewPrometheusMetrics() *PrometheusMetrics {
@@ -55,6 +81,7 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 			Name: "axcp_retry_dropped_total",
 			Help: "Total number of dropped retries",
 		}),
+		rpcLatency: RPCLatency,
 	}
 }
 
