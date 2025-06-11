@@ -1,6 +1,6 @@
 [package]
 name = "axcp-sdk"
-version = "0.1.0-alpha.14"
+version = "0.1.0-alpha.15"
 publish = true
 edition = "2021"
 description = "Rust client SDK for AXCP protocol"
