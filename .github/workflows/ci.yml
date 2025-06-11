@@ -54,6 +54,9 @@ jobs:
       - name: DP budget tests
         run: go test ./edge/gateway/internal -run BudgetCLI
 
+      - name: Metrics histogram tests
+        run: go test ./edge/gateway/internal/metrics -run TestHistogramObserve,TestOTELBatching
+
       - name: Code coverage
         working-directory: sdk/go
         run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
