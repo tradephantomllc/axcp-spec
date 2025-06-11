@@ -5,6 +5,8 @@ import (
 	"context"
 	"flag"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // Config holds the configuration for metrics collection
@@ -60,11 +62,16 @@ func (c *Config) Setup(ctx context.Context) (Metrics, error) {
 
 	// Setup Prometheus if enabled
 	if c.Prometheus.Enabled {
-		// Inizializza Prometheus con il nuovo istogramma
-		if err := InitPrometheus(c.Prometheus.ListenAddr, true); err != nil {
+		// Crea un nuovo registry personalizzato per Prometheus per evitare conflitti nei test
+		registry := prometheus.NewRegistry()
+		
+		// Inizializza Prometheus con un registry personalizzato
+		if err := InitPrometheusWithRegistry(c.Prometheus.ListenAddr, true, registry); err != nil {
 			return nil, err
 		}
-		promMetrics := NewPrometheusMetrics()
+		
+		// Crea un'istanza di PrometheusMetrics usando il registry personalizzato
+		promMetrics := NewPrometheusMetrics(registry)
 		metrics = append(metrics, promMetrics)
 		cleanupFuncs = append(cleanupFuncs, func() {
 			_ = promMetrics.Shutdown(ctx)
