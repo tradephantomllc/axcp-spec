@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/tradephantom/axcp-spec/edge/gateway/internal"
-	gatewaymetrics "github.com/tradephantom/axcp-spec/edge/gateway/internal/metrics"
+	// gatewaymetrics "github.com/tradephantom/axcp-spec/enterprise/edge/gateway/internal/metrics" // Importazione commentata per risolvere problema con internal package
 	"github.com/tradephantom/axcp-spec/sdk/go/axcp"
 	"github.com/tradephantom/axcp-spec/sdk/go/netquic"
 	"github.com/tradephantom/axcp-spec/sdk/go/pb"
@@ -40,7 +40,7 @@ func lookupEnvDuration(key string, defaultVal time.Duration) time.Duration {
 
 func main() {
 	// Parse command line flags
-	metricsCfg := gatewaymetrics.DefaultConfig()
+	// metricsCfg := gatewaymetrics.DefaultConfig() // Commentato per risolvere problema con internal package
 	var addr string
 	var enableRetryBuffer bool
 	var maxRetryCapacity int
@@ -65,25 +65,25 @@ func main() {
 	flag.Float64Var(&deltaFlag, "delta", lookupEnvFloat("AXCP_DP_DELTA", 1e-5), "Privacy parameter delta for differential privacy")
 	flag.DurationVar(&budgetWindowFlag, "budget-window", lookupEnvDuration("AXCP_DP_WINDOW", 1*time.Hour), "Time window for privacy budget calculation")
 	
-	metricsCfg.AddFlags(flag.CommandLine)
+	// metricsCfg.AddFlags(flag.CommandLine) // Commentato per risolvere problema con internal package
 	flag.Parse()
 
 	tlsConf := netquic.InsecureTLSConfig()
 
 	// Set up context for graceful shutdown
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	_, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	// Initialize metrics
-	metrics, err := metricsCfg.Setup(ctx)
-	if err != nil {
-		log.Fatalf("Failed to initialize metrics: %v", err)
-	}
-	defer func() {
-		if err := metrics.Shutdown(context.Background()); err != nil {
-			log.Printf("Failed to shutdown metrics: %v", err)
-		}
-	}()
+	// metrics, err := metricsCfg.Setup(ctx)
+	// if err != nil {
+	// 	log.Fatalf("Failed to initialize metrics: %v", err)
+	// }
+	// defer func() {
+	// 	if err := metrics.Shutdown(context.Background()); err != nil {
+	// 		log.Printf("Failed to shutdown metrics: %v", err)
+	// 	}
+	// }()
 
 	// Initialize logger
 	log.SetFlags(log.LstdFlags | log.Lshortfile | log.Lmicroseconds)
@@ -217,7 +217,7 @@ func main() {
 			}
 		} else {
 			// Update success metric
-			metrics.RecordRetrySuccess()
+			// metrics.RecordRetrySuccess() // Commentato: metrics non disponibile dopo refactoring
 		}
 	}
 
