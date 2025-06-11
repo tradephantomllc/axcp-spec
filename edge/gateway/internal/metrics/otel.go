@@ -100,12 +100,26 @@ func batchProcessor(ctx context.Context) {
 	defer batchWaitGroup.Done()
 	
 	for {
+		var localTicker *time.Ticker
+		var localShutdown chan struct{}
+
+		// Acquisizione sicura delle variabili condivise
+		batchMutex.Lock()
+		localTicker = batchTicker
+		localShutdown = shutdown
+		batchMutex.Unlock()
+
+		// Controllo di sicurezza in caso di shutdown durante l'esecuzione
+		if localTicker == nil || localShutdown == nil {
+			return
+		}
+		
 		select {
-		case <-batchTicker.C:
+		case <-localTicker.C:
 			flushBatch()
 		case <-ctx.Done():
 			return
-		case <-shutdown:
+		case <-localShutdown:
 			// Flush any remaining metrics before shutdown
 			flushBatch()
 			return
@@ -115,18 +129,20 @@ func batchProcessor(ctx context.Context) {
 
 // ShutdownOTEL terminates the OTEL exporter gracefully
 func ShutdownOTEL() {
+	// Prima acquisiamo un lock per modificare le variabili condivise
 	batchMutex.Lock()
-	defer batchMutex.Unlock()
 	
 	if !batchingEnabled {
+		batchMutex.Unlock()
 		return
 	}
 	
 	batchingEnabled = false
 	
 	// Cancel the batch context
+	var localCancelFunc context.CancelFunc
 	if batchCancelFunc != nil {
-		batchCancelFunc()
+		localCancelFunc = batchCancelFunc
 		batchCancelFunc = nil
 	}
 	
@@ -136,17 +152,25 @@ func ShutdownOTEL() {
 		batchTicker = nil
 	}
 	
-	// Signal shutdown and wait for goroutine to exit
+	// Signal shutdown
+	var needWait bool
 	if shutdown != nil {
 		close(shutdown)
-		// Rilascia il lock per evitare deadlock
-		batchMutex.Unlock()
-		// Attendi che il goroutine termini
-		batchWaitGroup.Wait()
-		// Riacquista il lock per il resto della funzione
-		batchMutex.Lock()
-		// Reset del canale di shutdown
 		shutdown = nil
+		needWait = true
+	}
+	
+	// Rilascia il lock prima di eseguire operazioni bloccanti
+	batchMutex.Unlock()
+	
+	// Cancella il contesto dopo aver rilasciato il lock
+	if localCancelFunc != nil {
+		localCancelFunc()
+	}
+	
+	// Attendi che il goroutine termini, se necessario
+	if needWait {
+		batchWaitGroup.Wait()
 	}
 	
 	// Clear the batch buffer
@@ -155,17 +179,24 @@ func ShutdownOTEL() {
 
 // flushBatch sends all batched metrics to OpenTelemetry
 func flushBatch() {
+	// Prendi il lock per accedere al buffer condiviso
 	batchMutex.Lock()
-	
-	// Make a copy of the buffer and reset it
-	records := batchBuffer
-	batchBuffer = make([]metricRecord, 0, cap(batchBuffer))
-	
-	batchMutex.Unlock()
-	
-	if len(records) == 0 {
+
+	// Verifica che ci siano dati da processare
+	if len(batchBuffer) == 0 || !batchingEnabled {
+		batchMutex.Unlock()
 		return
 	}
+
+	// Crea una copia locale dei dati da processare
+	records := make([]metricRecord, len(batchBuffer))
+	copy(records, batchBuffer)
+
+	// Svuota il buffer mentre abbiamo ancora il lock
+	batchBuffer = batchBuffer[:0]
+
+	// Rilascia il lock prima di elaborare i dati
+	batchMutex.Unlock()
 	
 	// Process all records in batch
 	for _, record := range records {
