@@ -1,12 +1,70 @@
 # Rust
+# Cartelle di build
 /target/
-**/*.rs.bk
+**/target/
+**/target/**/*
+
+# File di blocco e cache di Cargo
 Cargo.lock
 *.crate
+.cargo/credentials
+.cargo-target/
+
+# File di backup
+**/*.rs.bk
+**/*.rs.bk.*
+
+# File di debug e profili
+debug/
+release/
+*.pdb
+*.dSYM/
+*.profdata
+*.profraw
+
+# File generati da rustfmt
+**/*.rs.bk
+
+# File di documentazione generati
+/doc/
+**/doc/
+
+# File di output di test
+/test-results/
+**/test-results/
 
 # Go
+# Dipendenze
 /vendor/
+**/vendor/
+
+# File di lavoro di Go
+go.work
 /go.work.sum
+/go.work
+
+# Binari e file eseguibili
+/bin/
+**/bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# File di test
+*.test
+*.out
+
+# File di copertura
+coverage.txt
+profile.cov
+*.cover
+*.cover.html
+
+# File di debug
+debug/
+**/debug/
 
 # IDE
 .vscode/

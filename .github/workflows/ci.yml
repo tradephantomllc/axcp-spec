@@ -54,6 +54,9 @@ jobs:
       - name: DP budget tests
         run: go test ./edge/gateway/internal -run BudgetCLI
 
+      - name: Metrics histogram tests
+        run: go test ./edge/gateway/internal/metrics -run TestHistogramObserve,TestOTELBatching
+
       - name: Code coverage
         working-directory: sdk/go
         run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
@@ -257,8 +260,8 @@ jobs:
       - name: Publish to crates.io
         if: |
           steps.check-context.outputs.publish == 'true' && 
-          steps.token-prep.outputs.has_token != '' && 
-          steps.token-prep.outputs.has_token == 'true'
+          contains(toJSON(steps.token-prep.outputs), 'has_token') && 
+          fromJSON(toJSON(steps.token-prep.outputs)).has_token == 'true'
         working-directory: ./sdk/rust
         run: cargo publish --no-verify
 
