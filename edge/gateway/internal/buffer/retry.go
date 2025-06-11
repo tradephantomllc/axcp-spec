@@ -5,7 +5,6 @@ import (
 	"math"
 	"time"
 
-	"github.com/tradephantom/axcp-spec/edge/gateway/internal/metrics"
 	"github.com/tradephantom/axcp-spec/sdk/go/pb"
 	"google.golang.org/protobuf/proto"
 )
@@ -75,7 +74,7 @@ func processBatch(q *Queue, b Broker, batchSize int) (bool, error) {
 		var td pb.TelemetryDatagram
 		if err := proto.Unmarshal(item, &td); err != nil {
 			// If we can't unmarshal, skip this item
-			metrics.RetryDropped.Inc()
+			// metrics.RetryDropped.Inc() // Commentato: metrics non disponibile dopo refactoring
 			continue
 		}
 
@@ -87,18 +86,18 @@ func processBatch(q *Queue, b Broker, batchSize int) (bool, error) {
 			// Use a new key to avoid overwriting other items
 			if err := q.Push([]byte(time.Now().String()), item); err != nil {
 				// If we can't requeue, we'll lose this message
-				metrics.RetryDropped.Inc()
+				// metrics.RetryDropped.Inc() // Commentato: metrics non disponibile dopo refactoring
 			}
 		} else {
 			// Update success metrics
-			metrics.RetrySuccess.Inc()
+			// metrics.RetrySuccess.Inc() // Commentato: metrics non disponibile dopo refactoring
 		}
 
 		// Update metrics
-		metrics.RetryAttempts.Inc()
-		if count, err := q.Len(); err == nil {
-			metrics.RetryQueue.Set(float64(count))
-		}
+		// metrics.RetryAttempts.Inc() // Commentato: metrics non disponibile dopo refactoring
+		// if count, err := q.Len(); err == nil {
+		// 	metrics.RetryQueue.Set(float64(count))
+		// }
 	}
 
 	return allSuccessful, nil
