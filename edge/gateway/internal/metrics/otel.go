@@ -16,6 +16,8 @@ var (
 	batchingEnabled  bool
 	batchContext     context.Context
 	batchCancelFunc  context.CancelFunc
+	shutdown         chan struct{}
+	batchWaitGroup   sync.WaitGroup
 )
 
 // metricRecord represents a single metric record in the batch
@@ -42,6 +44,11 @@ func InitOTELExporter(endpoint string, enabled bool, interval time.Duration) err
 	if batchTicker != nil {
 		batchTicker.Stop()
 	}
+	if shutdown != nil {
+		close(shutdown)
+		// Wait for the goroutine to exit
+		batchWaitGroup.Wait()
+	}
 	
 	// Initialize new batch context and buffer
 	batchingEnabled = true
@@ -49,8 +56,10 @@ func InitOTELExporter(endpoint string, enabled bool, interval time.Duration) err
 	batchBuffer = make([]metricRecord, 0, 100) // Pre-allocate buffer
 	batchContext, batchCancelFunc = context.WithCancel(context.Background())
 	batchTicker = time.NewTicker(batchInterval)
+	shutdown = make(chan struct{})
 	
 	// Start background batch processor
+	batchWaitGroup.Add(1)
 	go batchProcessor(batchContext)
 	
 	return nil
@@ -88,14 +97,60 @@ func BatchSize() int {
 
 // batchProcessor periodically flushes the batch buffer
 func batchProcessor(ctx context.Context) {
+	defer batchWaitGroup.Done()
+	
 	for {
 		select {
 		case <-batchTicker.C:
 			flushBatch()
 		case <-ctx.Done():
 			return
+		case <-shutdown:
+			// Flush any remaining metrics before shutdown
+			flushBatch()
+			return
 		}
 	}
+}
+
+// ShutdownOTEL terminates the OTEL exporter gracefully
+func ShutdownOTEL() {
+	batchMutex.Lock()
+	defer batchMutex.Unlock()
+	
+	if !batchingEnabled {
+		return
+	}
+	
+	batchingEnabled = false
+	
+	// Cancel the batch context
+	if batchCancelFunc != nil {
+		batchCancelFunc()
+		batchCancelFunc = nil
+	}
+	
+	// Stop the ticker
+	if batchTicker != nil {
+		batchTicker.Stop()
+		batchTicker = nil
+	}
+	
+	// Signal shutdown and wait for goroutine to exit
+	if shutdown != nil {
+		close(shutdown)
+		// Rilascia il lock per evitare deadlock
+		batchMutex.Unlock()
+		// Attendi che il goroutine termini
+		batchWaitGroup.Wait()
+		// Riacquista il lock per il resto della funzione
+		batchMutex.Lock()
+		// Reset del canale di shutdown
+		shutdown = nil
+	}
+	
+	// Clear the batch buffer
+	batchBuffer = nil
 }
 
 // flushBatch sends all batched metrics to OpenTelemetry
