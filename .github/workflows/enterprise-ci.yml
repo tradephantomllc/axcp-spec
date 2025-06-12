@@ -25,6 +25,8 @@ jobs:
         uses: golangci/golangci-lint-action@v4
         with:
           version: v1.54.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install staticcheck
         run: go install honnef.co/go/tools/cmd/staticcheck@latest
