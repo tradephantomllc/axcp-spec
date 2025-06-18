@@ -21,20 +21,21 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
 
-      - name: Install golangci-lint
+      - name: Lint with golangci-lint
         uses: golangci/golangci-lint-action@v4
         with:
-          version: v1.54.2
+          version: v1.57.2
+          args: --out-format colored-line-number
+          skip-cache: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install staticcheck
         run: go install honnef.co/go/tools/cmd/staticcheck@latest
 
-      - name: Lint & Vet
+      - name: Go vet + staticcheck
         run: |
           go vet -vettool=$(which staticcheck) ./...
-          golangci-lint run --out-format colored-line-number
 
       - name: Run tests with race detector & coverage
         run: |
