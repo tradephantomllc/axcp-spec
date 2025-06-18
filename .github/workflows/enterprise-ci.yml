@@ -4,9 +4,15 @@ on:
   push:
     branches:
       - 'enterprise/**'
+    paths-ignore:
+      - 'charts/**'
+      - '.github/workflows/enterprise-helm.yml'
   pull_request:
     branches:
       - 'enterprise/**'
+    paths-ignore:
+      - 'charts/**'
+      - '.github/workflows/enterprise-helm.yml'
 
 jobs:
   build-test:
