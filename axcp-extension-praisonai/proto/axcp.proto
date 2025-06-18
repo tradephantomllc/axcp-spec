@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+// Placeholder copy of the AXCPEnvelope proto definition.
+// TODO: Replace with the authoritative version from axcp-spec or add as git submodule.
+
+package axcp;
+
+message AxcpEnvelope {
+  string trace_id = 1;
+  // Add remaining fields as defined in axcp-spec/axcp.proto
+}
