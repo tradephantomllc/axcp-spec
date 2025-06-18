@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "enterprise-node.fullname" . }}-config
+  labels:
+    app.kubernetes.io/name: {{ include "enterprise-node.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+data:
+  enterprise.yaml: |
+    jwt:
+      secret: {{ .Values.jwtSecret | quote }}
+    tls:
+      cert: {{ .Values.tlsCert | quote }}
+      key: {{ .Values.tlsKey | quote }}
+    pii:
+      schema: {{ .Values.piiSchema | quote }}

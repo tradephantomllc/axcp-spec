@@ -28,8 +28,8 @@ Code under the `enterprise/` directory may not be used, modified, or distributed
 
 For commercial license inquiries, pricing information, or to request a trial license, please contact:
 
-- Email: enterprise@tradephantom.io
-- Website: [https://tradephantom.io/enterprise](https://tradephantom.io/enterprise)
+- Email: [enterprise@tradephantom.io](mailto:enterprise@tradephantom.io)
+- Website: [TradePhantom Enterprise](https://tradephantom.io/enterprise)
 
 ## Contributing to Enterprise Code
 
