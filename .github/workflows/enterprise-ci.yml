@@ -4,15 +4,13 @@ on:
   push:
     branches:
       - 'enterprise/**'
-    paths-ignore:
-      - 'charts/**'
-      - '.github/workflows/enterprise-helm.yml'
+    paths:
+      - '**/*.go'
   pull_request:
     branches:
       - 'enterprise/**'
-    paths-ignore:
-      - 'charts/**'
-      - '.github/workflows/enterprise-helm.yml'
+    paths:
+      - '**/*.go'
 
 jobs:
   build-test:
