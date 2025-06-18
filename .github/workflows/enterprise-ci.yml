@@ -36,7 +36,6 @@ jobs:
       - name: Go vet + staticcheck
         run: |
           go vet -vettool=$(which staticcheck) ./...
-
       - name: Run tests with race detector & coverage
         run: |
           go test -race -coverprofile=coverage.out -covermode=atomic ./enterprise/...
