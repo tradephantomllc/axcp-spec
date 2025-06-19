@@ -1,0 +1,40 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python deps
+        run: |
+          pip install grpcio-tools pytest ruff
+
+      - name: Python Lint
+        run: ruff py/ tests/
+
+      - name: Python Tests
+        run: pytest tests/
+
+      - name: Set up Rust
+        uses: actions/setup-rust@v1
+        with:
+          rust-version: stable
+
+      - name: Rust Lint
+        run: cargo clippy --manifest-path rust/bridge/Cargo.toml --no-deps -- -D warnings
+
+      - name: Rust Tests
+        run: cargo test --manifest-path rust/bridge/Cargo.toml --all

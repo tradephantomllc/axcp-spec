@@ -6,7 +6,8 @@ version = "0.3.0"
 authors = ["AXCP Team"]
 edition = "2021"
 description = "Rust implementation of AXCP protocol"
-license = "Apache-2.0"
+license = "BSL-1.1"
+license-file = "../../../LICENSE"
 repository = "https://github.com/tradephantom/axcp-spec"
 
 [dependencies]
