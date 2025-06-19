@@ -1,11 +1,11 @@
-# SPDX-License-Identifier: BSL-1.1
+# SPDX-License-Identifier: BUSL-1.1
 [package]
 name = "axcp-sdk"
-version = "0.1.0-alpha.17"
+version = "0.1.0-alpha.18"
 publish = true
 edition = "2021"
 description = "Rust client SDK for AXCP protocol"
-license = "BSL-1.1"
+license = "BUSL-1.1"
 license-file = "../../LICENSE"
 authors = ["AXCP Team"]
 repository = "https://github.com/tradephantom/axcp-spec"

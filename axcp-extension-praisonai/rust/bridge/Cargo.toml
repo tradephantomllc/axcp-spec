@@ -1,6 +1,7 @@
+# SPDX-License-Identifier: BUSL-1.1
 [package]
 name = "axcp-praison-bridge"
-license = "BSL-1.1"
+license = "BUSL-1.1"
 license-file = "../../../LICENSE"
 version = "0.1.0"
 edition = "2021"
