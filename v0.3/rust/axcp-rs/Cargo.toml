@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: BUSL-1.1
 # Placeholder – v0.3 structure only
 [package]
 name = "axcp-rs"
@@ -6,7 +6,7 @@ version = "0.3.0"
 authors = ["AXCP Team"]
 edition = "2021"
 description = "Rust implementation of AXCP protocol"
-license = "BSL-1.1"
+license = "BUSL-1.1"
 license-file = "../../../LICENSE"
 repository = "https://github.com/tradephantom/axcp-spec"
 
