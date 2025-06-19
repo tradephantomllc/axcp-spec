@@ -1,11 +1,29 @@
 [package]
 name = "axcp-praison-bridge"
+license = "BSL-1.1"
+license-file = "../../../LICENSE"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 prost = "0.12"
 prost-types = "0.12"
+tool_hook_macro = { path = "../tool_hook_macro" }
+tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
+anyhow = "1"
+uuid = { version = "1", features = ["v4"] }
+# OpenTelemetry
+opentelemetry = { version = "0.30", features = ["metrics"] }
+opentelemetry_sdk = { version = "0.30", features = ["metrics", "rt-tokio"] }
+opentelemetry-otlp = { version = "0.30", features = ["grpc-tonic", "metrics"] }
+once_cell = "1"
+tonic = { version = "0.11", features = ["tls"] }
+
+# optional Python bindings
+pyo3 = { version = "0.21", optional = true, features = ["extension-module"] }
+
+[features]
+python = ["pyo3"]
 
 [build-dependencies]
 prost-build = "0.12"
