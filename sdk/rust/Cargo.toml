@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: BUSL-1.1
 [package]
 name = "axcp-sdk"
-version = "0.1.0-alpha.20"
+version = "0.3.0-beta"
 publish = true
 edition = "2021"
 description = "Rust client SDK for AXCP protocol"

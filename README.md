@@ -69,7 +69,7 @@ The current implementation provides a solid foundation while maintaining simplic
 
 ## Contents
 
-- AXCP v0.3-draft specification (RFC-style)  
+- AXCP v0.3-edge-beta specification (RFC-style)
 - Transport schema and Protobuf IDL  
 - No-code PoC orchestration workflows (Make, n8n)  
 - Benchmark simulations and performance tests  

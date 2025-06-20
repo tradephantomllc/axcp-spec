@@ -1,11 +1,11 @@
-# AXCP v0.3-draft – Adaptive eXchange Context Protocol
+# AXCP v0.3-edge-beta – Adaptive eXchange Context Protocol
 
 © 2025 TradePhantom LLC – BSL 1.1 / Apache-2.0 fallback
 
 _Work in progress – structure auto-generated._
 
 > This document defines the initial AXCP protocol specification.
-> Version: **v0.3-draft**
+> Version: **0.3-edge-beta**
 > Status: **Draft**
 > Last updated: 2025-05-30
 

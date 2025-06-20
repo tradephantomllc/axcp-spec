@@ -6,7 +6,7 @@ description: A minimal Helm chart for deploying AXCP Enterprise Node
 type: application
 
 # Version of the chart (semver-compatible) – increment with chart changes.
-version: 0.1.0
+version: 0.3.0-beta
 
 # The version of the app that this chart installs.
 # Keep this aligned with the milestone/tag referenced in the issue.
