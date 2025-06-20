@@ -18,6 +18,8 @@ import (
 	"github.com/tradephantom/axcp-spec/sdk/go/pb"
 )
 
+var BuildVersion = "dev" // overridden at build time with -ldflags "-X main.BuildVersion=<ver>"
+
 // lookupEnvFloat legge una variabile d'ambiente come float64 o restituisce il valore di default
 func lookupEnvFloat(key string, defaultVal float64) float64 {
 	if val, ok := os.LookupEnv(key); ok {
@@ -222,7 +224,7 @@ func main() {
 	}
 
 	// Start server
-	log.Printf("Starting AXCP gateway server on %s...", addr)
+	log.Printf("Starting AXCP gateway server %s on %s...", BuildVersion, addr)
 	if err := internal.RunQuicServer(addr, tlsConf, handler, telemetryHandler); err != nil {
 		log.Fatalf("Server error: %v", err)
 	}
