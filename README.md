@@ -1,7 +1,7 @@
 # axcp-spec
 
 > **Dual Licence Notice** – this repo ships  
-> • **AXCP Core** (BSL 1.1 → Apache 2.0 in 2029) – source-available  
+> • **AXCP Core** (BUSL-1.1 → Apache 2.0 in 2029) – source-available  
 > • **AXCP Enterprise** (Commercial) – under `enterprise/`  
 > See `ENTERPRISE_NOTICE.md` for details.
 
@@ -10,7 +10,7 @@
 
 > **Quick Start**: see [`examples/go/simple_chat`](examples/go/simple_chat)
 
-© 2025 TradePhantom LLC – BSL 1.1 / Apache-2.0 fallback
+ 2025 TradePhantom LLC – BUSL-1.1 / Apache-2.0 fallback
 
 AXCP – Adaptive eXchange Context Protocol. An open specification for ultra-efficient, privacy-preserving AI agent orchestration.
 It improves on existing agent communication protocols (like MCP, A2A, and ACP) by integrating:
@@ -73,7 +73,7 @@ The current implementation provides a solid foundation while maintaining simplic
 - Transport schema and Protobuf IDL  
 - No-code PoC orchestration workflows (Make, n8n)  
 - Benchmark simulations and performance tests  
-- License: BSL 1.1 (converts to Apache 2.0 on 2029-01-01)
+- License: BUSL-1.1 (converts to Apache 2.0 on 2029-01-01)
 
 ## 🔐 Branch Protection
 
