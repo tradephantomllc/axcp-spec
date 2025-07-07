@@ -8,6 +8,8 @@ require (
 	github.com/quic-go/quic-go v0.49.0
 	github.com/stretchr/testify v1.10.0
 	github.com/tradephantom/axcp-spec/sdk/go v0.0.0-00010101000000-000000000000
+	github.com/tradephantom/axcp-spec/sdk/go/axcp v0.0.0
+	github.com/tradephantom/axcp-spec/sdk/go/netquic v0.0.0-00010101000000-000000000000
 	go.etcd.io/bbolt v1.3.8
 	go.opentelemetry.io/otel v1.36.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.36.0
@@ -17,6 +19,10 @@ require (
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/yaml.v3 v3.0.1
 )
+
+replace github.com/tradephantom/axcp-spec/sdk/go/axcp => ../../sdk/go/axcp
+
+replace github.com/tradephantom/axcp-spec/sdk/go/netquic => ../../sdk/go/netquic
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
