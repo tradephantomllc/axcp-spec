@@ -1,0 +1,15 @@
+name: "Bug report"
+description: "Create a bug report to help us improve AXCP"
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "### What happened?"
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: Describe the bug
+      description: >-
+        Provide a clear and concise description of what the bug is. Include logs or screenshots if helpful.
+    validations:
+      required: true

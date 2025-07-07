@@ -1,0 +1,22 @@
+name: "Feature request"
+description: "Suggest an idea for this project"
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: "### Motivation"
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Why is this needed?
+      description: Describe the problem you are trying to solve.
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: "### Proposed solution"
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution or API
+      description: Provide a concise description of what you want to happen.

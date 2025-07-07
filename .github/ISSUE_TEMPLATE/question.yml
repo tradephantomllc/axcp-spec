@@ -1,0 +1,11 @@
+name: "Question"
+description: "Ask anything about AXCP"
+labels: [question]
+body:
+  - type: input
+    id: question
+    attributes:
+      label: Ask your question
+      description: A clear and concise question about AXCP Core, SDKs or docs.
+    validations:
+      required: true
