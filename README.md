@@ -5,10 +5,19 @@
 > • **AXCP Enterprise** (Commercial) – under `enterprise/`  
 > See `ENTERPRISE_NOTICE.md` for details.
 
-[![CI](https://github.com/tradephantom/axcp-spec/actions/workflows/ci.yml/badge.svg)](https://github.com/tradephantom/axcp-spec/actions/workflows/ci.yml)
+![CI](https://img.shields.io/github/actions/workflow/status/tradephantom/axcp-spec/ci.yml?logo=github)
+![License](https://img.shields.io/badge/license-BUSL_1.1-blue)
 [![Go Reference](https://pkg.go.dev/badge/github.com/tradephantom/axcp-spec/sdk/go.svg)](https://pkg.go.dev/github.com/tradephantom/axcp-spec/sdk/go)
 
-> **Quick Start**: see [`examples/go/simple_chat`](examples/go/simple_chat)
+
+### 🔥 Tri-AI Orchestration Demo  
+<a href="https://youtu.be/j9OzbG62BNY" target="_blank">
+  <img src="docs/img/tri-ai-preview.gif" alt="Tri-AI demo" width="640">
+</a>
+
+*Click per guardare la demo completa (YouTube, 3 min).*  
+
+> **Quick Start**: see [`docs/quickstart.md`](docs/quickstart.md)
 
  2025 TradePhantom LLC – BUSL-1.1 / Apache-2.0 fallback
 
@@ -66,6 +75,16 @@ The current implementation provides a solid foundation while maintaining simplic
 - Basic UDP benchmarks for initial round-trip validation
 - Progressive enhancement toward full QUIC+SSL implementation
 - Privacy mechanisms with configurable parameters
+
+## Core vs Enterprise
+
+| Feature | Core | Enterprise |
+|---------|------|------------|
+| License | BUSL-1.1 (Apache 2.0 in 2029) | Commercial |
+| Encryption Profiles | 0-2 | 0-4 + FIPS |
+| Support SLA | Community | 24/7 Enterprise |
+
+---
 
 ## Contents
 
