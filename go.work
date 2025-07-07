@@ -1,7 +1,0 @@
-go 1.23.4
-
-use (
-	.
-	..\\axcp-enterprise-split\\edge\\gateway
-	..\\axcp-enterprise-split\\sdk\\go
-)
