@@ -32,6 +32,8 @@ require (
 	github.com/prometheus/client_model v0.5.0 // indirect
 	github.com/prometheus/common v0.48.0 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect
+	github.com/tradephantom/axcp-spec/sdk/go v0.0.0-20250626003337-93253c3df199 // indirect
+	github.com/tradephantom/axcp-spec/sdk/go/axcp v0.0.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/otel/trace v1.36.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.6.0 // indirect
