@@ -15,7 +15,7 @@
   <img src="docs/img/tri-ai-preview.gif" alt="Tri-AI demo" width="640">
 </a>
 
-*Click per guardare la demo completa (YouTube, 3 min).*  
+*(Click the image to watch the tri-AI orchestration demo on YouTube, 3 min).*  
 
 > **Quick Start**: see [`docs/quickstart.md`](docs/quickstart.md)
 

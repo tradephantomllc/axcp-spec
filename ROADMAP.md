@@ -12,7 +12,7 @@ Below is a high-level public roadmap for AXCP Core and related initiatives.
 
 ### NEXCP Convergence
 
-AXCP is evolving in parallel with the NEXCP (Next-generation Exchange Context Protocol) initiative. Starting at **v0.5** we plan a gradual convergence path so that agents implementing AXCP will be wire-compatible with the emerging NEXCP standard.
+AXCP is evolving in parallel with the NEXCP initiative. Starting at **v0.5** we plan a gradual convergence path so that agents implementing AXCP will be wire-compatible with the emerging NEXCP standard.
 
 ### Open Governance Working Group
 
