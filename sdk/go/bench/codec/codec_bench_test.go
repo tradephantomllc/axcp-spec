@@ -3,10 +3,15 @@ package codec
 import (
 	"testing"
 	"github.com/google/uuid"
-	"github.com/tradephantom/axcp-spec/sdk/go/axcp"
+	"github.com/tradephantom/axcp-spec/sdk/go/pb"
 )
 
-var sample = axcp.NewEnvelope(uuid.NewString(), 1)
+var sample = pb.NewAxcpEnvelope()
+
+func init() {
+	sample.TraceId = uuid.NewString()
+	sample.Profile = 1
+}
 
 func BenchmarkEncode(b *testing.B) {
 	for i := 0; i < b.N; i++ {
