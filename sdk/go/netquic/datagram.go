@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/tradephantom/axcp-spec/sdk/go/axcp"
-	"github.com/tradephantom/axcp-spec/sdk/go/pb"
+	"github.com/tradephantom/axcp-spec/sdk/go/axcp/internal/pb"
 	"google.golang.org/protobuf/proto"
 )
 

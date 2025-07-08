@@ -1849,7 +1849,7 @@ const file_proto_axcp_proto_rawDesc = "" +
 	"\x13PROFILE_UNSUPPORTED\x10\r\x12\x1e\n" +
 	"\x1aPROFILE_NEGOTIATION_FAILED\x10\x0e\x12\x17\n" +
 	"\x13MISSING_PATCH_RANGE\x10\x0f\x12\x16\n" +
-	"\x12DP_POLICY_CONFLICT\x10\x10B6Z4github.com/tradephantom/axcp-spec/sdk/go/pbb\x06proto3"
+	"\x12DP_POLICY_CONFLICT\x10\x10B6Z4github.com/tradephantom/axcp-spec/sdk/go/axcp/internal/pbb\x06proto3"
 
 var (
 	file_proto_axcp_proto_rawDescOnce sync.Once

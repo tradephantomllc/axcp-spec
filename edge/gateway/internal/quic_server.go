@@ -6,12 +6,12 @@ import (
 	"log"
 
 	"github.com/quic-go/quic-go"
-	pb "github.com/tradephantom/axcp-spec/sdk/go/pb"
+	pb "github.com/tradephantom/axcp-spec/sdk/go/axcp/internal/pb"
 	"google.golang.org/protobuf/proto"
 )
 
 // EnvelopeHandler gestisce i messaggi AXCP in arrivo
-type EnvelopeHandler func(*pb.Envelope)
+type EnvelopeHandler func(*pb.AxcpEnvelope)
 
 // TelemetryHandler gestisce i datagrammi di telemetria
 type TelemetryHandler func(*pb.TelemetryDatagram)
