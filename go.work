@@ -8,5 +8,6 @@ use (
 	./sdk/go/axcp
 	./sdk/go/dp
 	./sdk/go/netquic
+	./sdk/go/pb
 	./tools/dpctl
 )

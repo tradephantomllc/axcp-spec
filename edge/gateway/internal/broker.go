@@ -8,7 +8,7 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/tradephantom/axcp-spec/edge/gateway/internal/buffer"
 	"github.com/tradephantom/axcp-spec/edge/gateway/internal/dp"
-	pb "github.com/tradephantom/axcp-spec/sdk/go/axcp/internal/pb"
+	pb "github.com/tradephantom/axcp-spec/sdk/go/pb"
 	"google.golang.org/protobuf/proto"
 )
 

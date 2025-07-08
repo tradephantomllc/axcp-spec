@@ -1,7 +1,7 @@
 package axcp
 
 import (
-	"github.com/tradephantom/axcp-spec/edge/rpi-agent/internal/pb"
+	"github.com/tradephantom/axcp-spec/sdk/go/pb"
 )
 
 // Envelope is a minimal façade around the generated AxcpEnvelope.
