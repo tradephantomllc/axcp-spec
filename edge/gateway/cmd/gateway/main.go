@@ -15,7 +15,7 @@ import (
 	// gatewaymetrics "github.com/tradephantom/axcp-spec/enterprise/edge/gateway/internal/metrics" // Importazione commentata per risolvere problema con internal package
 	"github.com/tradephantom/axcp-spec/sdk/go/axcp"
 	"github.com/tradephantom/axcp-spec/sdk/go/netquic"
-	pb "github.com/tradephantom/axcp-spec/sdk/go/internal/pb"
+	pb "github.com/tradephantom/axcp-spec/sdk/go/pb"
 )
 
 var BuildVersion = "dev" // overridden at build time with -ldflags "-X main.BuildVersion=<ver>"

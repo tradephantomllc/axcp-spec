@@ -3,7 +3,7 @@ package bench
 import (
     "testing"
     "google.golang.org/protobuf/proto"
-    pb "github.com/tradephantom/axcp-spec/sdk/go/internal/pb"
+    pb "github.com/tradephantom/axcp-spec/sdk/go/pb"
 )
 
 func BenchmarkEncode(b *testing.B) {

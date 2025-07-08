@@ -4,7 +4,7 @@ package axcp
 import (
 	"time"
 
-	"github.com/tradephantom/axcp-spec/sdk/go/internal/pb"
+	"github.com/tradephantom/axcp-spec/sdk/go/pb"
 )
 
 // NewTelemetryDatagram creates a new TelemetryDatagram with the current timestamp.
