@@ -15,7 +15,7 @@ import (
 	// gatewaymetrics "github.com/tradephantom/axcp-spec/enterprise/edge/gateway/internal/metrics" // Importazione commentata per risolvere problema con internal package
 	"github.com/tradephantom/axcp-spec/sdk/go/axcp"
 	"github.com/tradephantom/axcp-spec/sdk/go/netquic"
-	pb "github.com/tradephantom/axcp-spec/sdk/go/pb"
+	pb "github.com/tradephantom/axcp-spec/sdk/go/axcp/internal/pb"
 )
 
 var BuildVersion = "dev" // overridden at build time with -ldflags "-X main.BuildVersion=<ver>"
@@ -131,7 +131,7 @@ func main() {
 		
 		// Crea il buffer di retry con la funzione di pubblicazione del broker
 		retryBuffer = internal.NewRetryBuffer(&retryConfig, nil, func(env *axcp.Envelope) error {
-			// Qui andrebbe la conversione da axcp.Envelope a pb.Envelope
+			// Qui andrebbe la conversione da axcp.Envelope a pb.AxcpEnvelope
 			return fmt.Errorf("not implemented")
 		})
 		
@@ -158,7 +158,7 @@ func main() {
 	}
 
 	// Handler per envelope AXCP compatibile con l'interfaccia EnvelopeHandler
-	handler := func(pbEnv *pb.Envelope) {
+	handler := func(pbEnv *pb.AxcpEnvelope) {
 		// Usiamo il broker che è stato inizializzato all'interno del main
 		if err := broker.Publish(pbEnv); err != nil {
 			log.Printf("Failed to publish envelope: %v", err)

@@ -8,7 +8,7 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/tradephantom/axcp-spec/edge/gateway/internal/buffer"
 	"github.com/tradephantom/axcp-spec/edge/gateway/internal/dp"
-	pb "github.com/tradephantom/axcp-spec/sdk/go/pb"
+	pb "github.com/tradephantom/axcp-spec/sdk/go/axcp/internal/pb"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -67,7 +67,7 @@ func NewBroker(cfg BrokerConfig) (*Broker, error) {
 	}, nil
 }
 
-func (b *Broker) Publish(env *pb.Envelope) error {
+func (b *Broker) Publish(env *pb.AxcpEnvelope) error {
 	raw, err := proto.Marshal(env)
 	if err != nil {
 		return err

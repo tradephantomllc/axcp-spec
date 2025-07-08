@@ -1,6 +1,6 @@
 package axcp
 
-import "github.com/tradephantom/axcp-spec/sdk/go/pb"
+import "github.com/tradephantom/axcp-spec/sdk/go/axcp/internal/pb"
 
 type Capability = pb.CapabilityDescriptor
 type CapabilityOffer = pb.CapabilityOffer
