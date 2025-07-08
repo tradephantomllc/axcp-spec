@@ -6,7 +6,7 @@ import (
 	"time"
 	
 	"github.com/tradephantom/axcp-spec/sdk/go/axcp"
-	pb "github.com/tradephantom/axcp-spec/sdk/go/pb"
+	pb "github.com/tradephantom/axcp-spec/sdk/go/internal/pb"
 )
 
 // BrokerWrapper è un wrapper che adatta la funzione di pubblicazione 
