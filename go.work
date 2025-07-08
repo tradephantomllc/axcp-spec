@@ -6,6 +6,7 @@ use (
 	./edge/rpi-agent
 	./sdk/go
 	./sdk/go/axcp
+	./sdk/go/dp
 	./sdk/go/netquic
 	./tools/dpctl
 )
