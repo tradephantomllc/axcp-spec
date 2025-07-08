@@ -56,6 +56,5 @@ replace github.com/tradephantom/axcp-spec/sdk/go => ../../sdk/go
 
 replace go.etcd.io/bbolt => go.etcd.io/bbolt v1.3.8
 
-replace github.com/tradephantom/axcp-spec/sdk/go/internal/pb => ../../sdk/go/axcp/internal/pb
 
 replace github.com/tradephantom/axcp-spec/edge/gateway/internal => ./internal

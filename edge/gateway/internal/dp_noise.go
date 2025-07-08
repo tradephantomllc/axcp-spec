@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"time"
 
-	pb "github.com/tradephantom/axcp-spec/sdk/go/pb"
+	pb "github.com/tradephantom/axcp-spec/sdk/go/axcp/internal/pb"
 )
 
 const (
