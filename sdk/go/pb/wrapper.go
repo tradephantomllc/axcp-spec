@@ -2,7 +2,7 @@
 package pb
 
 import (
-	"github.com/tradephantom/axcp-spec/sdk/go/internal/pb"
+	"github.com/tradephantom/axcp-spec/sdk/go/pb"
 )
 
 // --------- Tipi Telemetria ---------

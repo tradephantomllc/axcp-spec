@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	pb "github.com/tradephantom/axcp-spec/sdk/go/internal/pb"
+	pb "github.com/tradephantom/axcp-spec/sdk/go/pb"
 )
 
 func createTestBudgetLookup(budgets map[string]Budget) *BudgetLookup {
