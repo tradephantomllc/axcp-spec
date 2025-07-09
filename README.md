@@ -7,6 +7,10 @@
 
 [![CI](https://github.com/tradephantom/axcp-spec/actions/workflows/ci.yml/badge.svg)](https://github.com/tradephantom/axcp-spec/actions/workflows/ci.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/tradephantom/axcp-spec/sdk/go.svg)](https://pkg.go.dev/github.com/tradephantom/axcp-spec/sdk/go)
+[![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-blue.svg)](LICENSE)
+[![Version](https://img.shields.io/github/v/tag/tradephantom/axcp-spec?label=version&color=green)](https://github.com/tradephantom/axcp-spec/releases)
+[![Issues](https://img.shields.io/github/issues/tradephantom/axcp-spec)](https://github.com/tradephantom/axcp-spec/issues)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 > **Quick Start**: see [`examples/go/simple_chat`](examples/go/simple_chat)
 
@@ -21,6 +25,20 @@ It improves on existing agent communication protocols (like MCP, A2A, and ACP) b
 - SGX enclaves and differential privacy for confidential and auditable execution  
 - Smart routing between cloud and edge nodes  
 - Telemetry datagrams for real-time monitoring with built-in differential privacy
+
+## 🤖 Tri-AI Demo: Multi-Agent Orchestration
+
+AXCP enables seamless coordination between heterogeneous AI agents, as demonstrated in our Tri-AI integration:
+
+![Tri-AI Preview](docs/img/tri-ai-preview.gif)
+
+**Key Features Demonstrated:**
+- **Multi-Model Coordination**: Claude, GPT-4, and Gemini working together on complex tasks
+- **Real-Time Context Sync**: Delta-based updates ensure all agents stay synchronized
+- **Privacy-Preserving Telemetry**: Performance metrics collected with differential privacy
+- **Cross-Platform Integration**: Agents running on different platforms and languages
+
+> [📖 Learn More](docs/quickstart.md) | [🏗️ Architecture](docs/architecture.md) | [⚡ Get Started](examples/go/simple_chat)
 
 ## What's New in v0.3
 
