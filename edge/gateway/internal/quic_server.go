@@ -6,7 +6,7 @@ import (
 	"log"
 
 	"github.com/quic-go/quic-go"
-	pb "github.com/tradephantom/axcp-spec/sdk/go/axcp/internal/pb"
+	pb "github.com/tradephantom/axcp-spec/sdk/go/axcp/pb"
 	"google.golang.org/protobuf/proto"
 )
 

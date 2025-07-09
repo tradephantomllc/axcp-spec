@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"time"
 
-	pb "github.com/tradephantom/axcp-spec/sdk/go/axcp/internal/pb"
+	pb "github.com/tradephantom/axcp-spec/sdk/go/axcp/pb"
 )
 
 // TelemetryData rappresenta i dati essenziali estratti da un datagramma di telemetria
