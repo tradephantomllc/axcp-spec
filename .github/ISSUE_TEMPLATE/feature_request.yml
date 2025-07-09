@@ -1,0 +1,52 @@
+name: "Feature request"
+description: "Suggest an idea for AXCP"
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### Motivation
+        
+        Please describe the motivation for this feature request.
+        
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Why is this needed?
+      description: A clear and concise description of what the problem is or what you want to achieve.
+      placeholder: "I'm always frustrated when..."
+    validations:
+      required: true
+      
+  - type: textarea
+    id: solution
+    attributes:
+      label: Describe the solution you'd like
+      description: A clear and concise description of what you want to happen.
+    validations:
+      required: true
+      
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: A clear and concise description of any alternative solutions or features you've considered.
+      
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use case
+      description: Describe the use case for this feature. Who would benefit from it?
+      
+  - type: textarea
+    id: implementation
+    attributes:
+      label: Implementation ideas
+      description: If you have ideas about how this could be implemented, please share them here.
+      
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Add any other context or screenshots about the feature request here.
