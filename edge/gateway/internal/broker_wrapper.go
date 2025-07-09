@@ -5,12 +5,12 @@ import (
 	"log"
 	"time"
 	
-	"github.com/tradephantom/axcp-spec/sdk/go/axcp"
+	pb "github.com/tradephantom/axcp-spec/sdk/go/axcp/internal/pb"
 )
 
 // BrokerWrapper è un wrapper che adatta la funzione di pubblicazione 
 // del broker esistente per funzionare con il retry buffer.
-// Risolve la discrepanza tra il tipo axcp.AxcpEnvelope usato dal broker
+// Risolve la discrepanza tra il tipo pb.AxcpEnvelope usato dal broker
 // e il tipo axcp.Envelope usato dal retry buffer.
 type BrokerWrapper struct {
 	broker        *Broker
@@ -31,8 +31,8 @@ func (w *BrokerWrapper) PublishEnvelope(env *axcp.Envelope) error {
 		return fmt.Errorf("envelope is nil")
 	}
 
-	// Conversione da axcp.Envelope a axcp.AxcpEnvelope
-	pbEnv := &axcp.AxcpEnvelope{
+	// Conversione da axcp.Envelope a pb.AxcpEnvelope
+	pbEnv := &pb.AxcpEnvelope{
 		Version: env.GetVersion(),
 		TraceId: env.GetTraceId(),
 		Profile: env.GetProfile(),
@@ -69,7 +69,7 @@ func (w *BrokerWrapper) PublishTelemetryWithEnvelope(env *axcp.Envelope) error {
 }
 
 // GetTelemetryFromEnvelope estrae il datagramma di telemetria da un envelope AXCP
-func GetTelemetryFromEnvelope(env *axcp.Envelope) *axcp.TelemetryDatagram {
+func GetTelemetryFromEnvelope(env *axcp.Envelope) *pb.TelemetryDatagram {
 	if env == nil {
 		return nil
 	}
@@ -81,13 +81,13 @@ func GetTelemetryFromEnvelope(env *axcp.Envelope) *axcp.TelemetryDatagram {
 	// quindi creiamo un datagramma di telemetria di base per i test
 	
 	// Creiamo un TelemetryDatagram di base con timestamp corrente
-	td := &axcp.TelemetryDatagram{
+	td := &pb.TelemetryDatagram{
 		TimestampMs: uint64(time.Now().UnixNano() / int64(time.Millisecond)),
 	}
 	
 	// Aggiungiamo il payload di sistema come esempio
-	td.Payload = &axcp.TelemetryDatagram_System{
-		System: &axcp.SystemStats{
+	td.Payload = &pb.TelemetryDatagram_System{
+		System: &pb.SystemStats{
 			CpuPercent: 50,           // Valore di esempio
 			MemBytes: 1024 * 1024 * 100, // 100MB di esempio
 			TemperatureC: 45,          // Temperatura di esempio
