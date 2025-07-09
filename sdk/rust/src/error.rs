@@ -55,9 +55,9 @@ impl From<reqwest::Error> for Error {
         if err.is_timeout() {
             Error::Timeout
         } else if err.is_connect() {
-            Error::Network(format!("Connection error: {}", err))
+            Error::Network(format!("Connection error: {err}"))
         } else if err.is_decode() {
-            Error::Serialization(format!("Failed to decode response: {}", err))
+            Error::Serialization(format!("Failed to decode response: {err}"))
         } else {
             Error::Network(err.to_string())
         }
@@ -72,6 +72,6 @@ impl From<serde_json::Error> for Error {
 
 impl From<url::ParseError> for Error {
     fn from(err: url::ParseError) -> Self {
-        Error::Config(format!("Invalid URL: {}", err))
+        Error::Config(format!("Invalid URL: {err}"))
     }
 }

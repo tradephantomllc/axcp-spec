@@ -5,7 +5,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/tradephantom/axcp-spec/sdk/go/pb"
+	pb "github.com/tradephantom/axcp-spec/sdk/go/axcp/pb"
 	"google.golang.org/protobuf/proto"
 )
 
