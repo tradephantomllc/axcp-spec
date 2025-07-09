@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	pb "github.com/tradephantom/axcp-spec/sdk/go/internal/pb"
+	"github.com/tradephantom/axcp-spec/sdk/go/axcp"
 )
 
 func createTestBudgetLookup(budgets map[string]Budget) *BudgetLookup {
@@ -15,20 +15,20 @@ func createTestBudgetLookup(budgets map[string]Budget) *BudgetLookup {
 	return NewBudgetLookup(config)
 }
 
-func createTestSystemTelemetry(cpuPercent uint32) *pb.TelemetryDatagram {
-	return &pb.TelemetryDatagram{
-		Payload: &pb.TelemetryDatagram_System{
-			System: &pb.SystemStats{
+func createTestSystemTelemetry(cpuPercent uint32) *axcp.TelemetryDatagram {
+	return &axcp.TelemetryDatagram{
+		Payload: &axcp.TelemetryDatagram_System{
+			System: &axcp.SystemStats{
 				CpuPercent: cpuPercent,
 			},
 		},
 	}
 }
 
-func createTestTokenTelemetry(prompt, completion uint32) *pb.TelemetryDatagram {
-	return &pb.TelemetryDatagram{
-		Payload: &pb.TelemetryDatagram_Tokens{
-			Tokens: &pb.TokenUsage{
+func createTestTokenTelemetry(prompt, completion uint32) *axcp.TelemetryDatagram {
+	return &axcp.TelemetryDatagram{
+		Payload: &axcp.TelemetryDatagram_Tokens{
+			Tokens: &axcp.TokenUsage{
 				PromptTokens:     prompt,
 				CompletionTokens: completion,
 			},

@@ -8,7 +8,7 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/tradephantom/axcp-spec/edge/gateway/internal/buffer"
 	"github.com/tradephantom/axcp-spec/edge/gateway/internal/dp"
-	pb "github.com/tradephantom/axcp-spec/sdk/go/internal/pb"
+	"github.com/tradephantom/axcp-spec/sdk/go/axcp"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -67,7 +67,7 @@ func NewBroker(cfg BrokerConfig) (*Broker, error) {
 	}, nil
 }
 
-func (b *Broker) Publish(env *pb.AxcpEnvelope) error {
+func (b *Broker) Publish(env *axcp.AxcpEnvelope) error {
 	raw, err := proto.Marshal(env)
 	if err != nil {
 		return err
@@ -78,11 +78,11 @@ func (b *Broker) Publish(env *pb.AxcpEnvelope) error {
 }
 
 // PublishTelemetry publishes telemetry data to MQTT with the given trace ID
-func (b *Broker) PublishTelemetry(td *pb.TelemetryDatagram, trace string) error {
+func (b *Broker) PublishTelemetry(td *axcp.TelemetryDatagram, trace string) error {
 	// Apply differential privacy if enabled and DP lookup is configured
 	if b.dpEnabled && b.dpLookup != nil {
 		// Create a copy of the telemetry data to avoid modifying the original
-		tdCopy := proto.Clone(td).(*pb.TelemetryDatagram)
+		tdCopy := proto.Clone(td).(*axcp.TelemetryDatagram)
 		
 		// Apply DP noise based on the topic and budget configuration
 		if err := dp.ApplyNoise(tdCopy, trace, b.dpLookup); err != nil {

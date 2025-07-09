@@ -15,7 +15,6 @@ import (
 	// gatewaymetrics "github.com/tradephantom/axcp-spec/enterprise/edge/gateway/internal/metrics" // Importazione commentata per risolvere problema con internal package
 	"github.com/tradephantom/axcp-spec/sdk/go/axcp"
 	"github.com/tradephantom/axcp-spec/sdk/go/netquic"
-	pb "github.com/tradephantom/axcp-spec/sdk/go/internal/pb"
 )
 
 var BuildVersion = "dev" // overridden at build time with -ldflags "-X main.BuildVersion=<ver>"
@@ -158,7 +157,7 @@ func main() {
 	}
 
 	// Handler per envelope AXCP compatibile con l'interfaccia EnvelopeHandler
-	handler := func(pbEnv *pb.AxcpEnvelope) {
+	handler := func(pbEnv *axcp.AxcpEnvelope) {
 		// Usiamo il broker che è stato inizializzato all'interno del main
 		if err := broker.Publish(pbEnv); err != nil {
 			log.Printf("Failed to publish envelope: %v", err)
@@ -185,7 +184,7 @@ func main() {
 	}
 
 	// Telemetry datagram handler
-	telemetryHandler := func(td *pb.TelemetryDatagram) {
+	telemetryHandler := func(td *axcp.TelemetryDatagram) {
 		// Apply DP noise
 		internal.ApplyNoise(td)
 
