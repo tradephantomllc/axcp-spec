@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/tradephantom/axcp-spec/sdk/go/axcp/internal/pb"
+	"github.com/tradephantom/axcp-spec/sdk/go/internal/pb"
 )
 
 func TestNewTelemetryDatagram(t *testing.T) {

@@ -5,6 +5,7 @@ import (
 	"log"
 	"time"
 	
+	"github.com/tradephantom/axcp-spec/sdk/go/axcp"
 	pb "github.com/tradephantom/axcp-spec/sdk/go/axcp/pb"
 )
 
