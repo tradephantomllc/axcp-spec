@@ -1,0 +1,40 @@
+name: "Question"
+description: "Ask a question about AXCP"
+title: "[Question] "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### Ask anything about AXCP
+        
+        We're here to help! Please ask your question about AXCP protocol, implementation, or usage.
+        
+  - type: input
+    id: question
+    attributes:
+      label: Ask anything about AXCP
+      description: What would you like to know about AXCP?
+      placeholder: "How do I..."
+    validations:
+      required: true
+      
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Please provide any additional context that might be helpful for answering your question.
+      placeholder: |
+        - What are you trying to achieve?
+        - What have you already tried?
+        - Any relevant documentation you've read?
+        
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment (if relevant)
+      description: Please provide your environment details if relevant to your question
+      placeholder: |
+        - OS: [e.g. Ubuntu 20.04]
+        - Go version: [e.g. 1.21.0]
+        - AXCP version: [e.g. v0.3.5]
