@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/tradephantom/axcp-spec/sdk/go/axcp"
+	pb "github.com/tradephantom/axcp-spec/sdk/go/axcp/internal/pb"
 )
 
 const (
@@ -36,7 +36,7 @@ func GaussianNoise(stdDev float64) float64 {
 
 // ApplyNoise applica rumore differenzialmente privato al datagramma di telemetria
 // secondo il profilo specificato
-func ApplyNoise(td *axcp.TelemetryDatagram) {
+func ApplyNoise(td *pb.TelemetryDatagram) {
 	if td == nil {
 		return
 	}
@@ -44,9 +44,9 @@ func ApplyNoise(td *axcp.TelemetryDatagram) {
 	// Non eseguiamo il controllo del profilo qui, assumiamo che il chiamante
 	// abbia già verificato se è necessario applicare il rumore
 
-	// Accediamo al campo Payload che è un oneof in axcp.TelemetryDatagram
+	// Accediamo al campo Payload che è un oneof in pb.TelemetryDatagram
 	switch payload := td.GetPayload().(type) {
-	case *axcp.TelemetryDatagram_System:
+	case *pb.TelemetryDatagram_System:
 		systemStats := payload.System
 		if systemStats == nil {
 			return
@@ -68,7 +68,7 @@ func ApplyNoise(td *axcp.TelemetryDatagram) {
 			systemStats.MemBytes = uint64(memWithNoise) // Valore impostato tramite campo generato
 		}
 
-	case *axcp.TelemetryDatagram_Tokens:
+	case *pb.TelemetryDatagram_Tokens:
 		// Per i token non applichiamo rumore per ora
 		return
 	}

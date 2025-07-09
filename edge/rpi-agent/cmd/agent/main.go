@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/mem"
-	"github.com/tradephantom/axcp-spec/sdk/go/axcp"
+	pb "github.com/tradephantom/axcp-spec/sdk/go/axcp/internal/pb"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -46,10 +46,10 @@ func sendTelemetry() error {
 	}
 
 	// Create telemetry datagram
-	tel := &axcp.TelemetryDatagram{
+	tel := &pb.TelemetryDatagram{
 		TimestampMs: uint64(time.Now().UnixNano() / int64(time.Millisecond)),
-		Payload: &axcp.TelemetryDatagram_System{
-			System: &axcp.SystemStats{
+		Payload: &pb.TelemetryDatagram_System{
+			System: &pb.SystemStats{
 				CpuPercent:   getCPUPercent(),
 				MemBytes:     vmStat.Used,
 				TemperatureC: getCPUTemperature(),
@@ -58,11 +58,11 @@ func sendTelemetry() error {
 	}
 
 	// Wrap in envelope
-	env := &axcp.AxcpEnvelope{
+	env := &pb.AxcpEnvelope{
 		Version: 1,
 		TraceId: uuid.New().String(),
 		Profile: cfg.Profile, // Use configured profile
-		Payload: &axcp.AxcpEnvelope_Telemetry{
+		Payload: &pb.AxcpEnvelope_Telemetry{
 			Telemetry: tel,
 		},
 	}

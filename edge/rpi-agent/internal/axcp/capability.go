@@ -1,9 +1,9 @@
 package axcp
 
-import "github.com/tradephantom/axcp-spec/sdk/go/axcp"
+import pb "github.com/tradephantom/axcp-spec/sdk/go/axcp/internal/pb"
 
-type Capability = axcp.CapabilityDescriptor
-type CapabilityOffer = axcp.CapabilityOffer
-type CapabilityRequest = axcp.CapabilityRequest
-type CapabilityAck = axcp.CapabilityAck
-type TelemetryDatagram = axcp.TelemetryDatagram
+type Capability = pb.CapabilityDescriptor
+type CapabilityOffer = pb.CapabilityOffer
+type CapabilityRequest = pb.CapabilityRequest
+type CapabilityAck = pb.CapabilityAck
+type TelemetryDatagram = pb.TelemetryDatagram

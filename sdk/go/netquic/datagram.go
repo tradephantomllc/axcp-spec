@@ -4,22 +4,23 @@ import (
 	"fmt"
 
 	"github.com/tradephantom/axcp-spec/sdk/go/axcp"
+	pb "github.com/tradephantom/axcp-spec/sdk/go/axcp/internal/pb"
 	"google.golang.org/protobuf/proto"
 )
 
 // SendTelemetry sends a telemetry datagram over the QUIC connection.
 // It wraps the TelemetryDatagram in an AxcpEnvelope with the appropriate profile
 // and sends it as a datagram.
-func (c *Client) SendTelemetry(d *axcp.TelemetryDatagram) error {
+func (c *Client) SendTelemetry(d *pb.TelemetryDatagram) error {
 	if c == nil || c.conn == nil {
 		return fmt.Errorf("client is not connected")
 	}
 
 	// Create an envelope for the telemetry data
-	envelope := &axcp.AxcpEnvelope{
+	envelope := &pb.AxcpEnvelope{
 		Version: 1, // Current protocol version
 		Profile: 0, // Basic profile for telemetry
-		Payload: &axcp.AxcpEnvelope_Telemetry{
+		Payload: &pb.AxcpEnvelope_Telemetry{
 			Telemetry: d,
 		},
 	}
@@ -36,7 +37,7 @@ func (c *Client) SendTelemetry(d *axcp.TelemetryDatagram) error {
 
 // ReceiveTelemetry waits for and receives a telemetry datagram from the QUIC connection.
 // It returns the received TelemetryDatagram or an error if the operation fails.
-func (c *Client) ReceiveTelemetry() (*axcp.TelemetryDatagram, error) {
+func (c *Client) ReceiveTelemetry() (*pb.TelemetryDatagram, error) {
 	if c == nil || c.conn == nil {
 		return nil, fmt.Errorf("client is not connected")
 	}
@@ -48,13 +49,13 @@ func (c *Client) ReceiveTelemetry() (*axcp.TelemetryDatagram, error) {
 	}
 
 	// Unmarshal the envelope
-	envelope := &axcp.AxcpEnvelope{}
+	envelope := &pb.AxcpEnvelope{}
 	if err := proto.Unmarshal(data, envelope); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal envelope: %w", err)
 	}
 
 	// Extract the telemetry data from the envelope
-	telemetry, ok := envelope.Payload.(*axcp.AxcpEnvelope_Telemetry)
+	telemetry, ok := envelope.Payload.(*pb.AxcpEnvelope_Telemetry)
 	if !ok {
 		return nil, fmt.Errorf("received message is not a telemetry datagram")
 	}

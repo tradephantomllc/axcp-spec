@@ -5,11 +5,11 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/tradephantom/axcp-spec/sdk/go/axcp"
+	pb "github.com/tradephantom/axcp-spec/sdk/go/axcp/internal/pb"
 )
 
 // ApplyNoise applies differential privacy noise to telemetry data based on the topic
-func ApplyNoise(td *axcp.TelemetryDatagram, topic string, lookup *BudgetLookup) error {
+func ApplyNoise(td *pb.TelemetryDatagram, topic string, lookup *BudgetLookup) error {
 	if td == nil {
 		return fmt.Errorf("telemetry datagram is nil")
 	}
@@ -32,7 +32,7 @@ func ApplyNoise(td *axcp.TelemetryDatagram, topic string, lookup *BudgetLookup) 
 	}
 
 	switch p := payload.(type) {
-	case *axcp.TelemetryDatagram_System:
+	case *pb.TelemetryDatagram_System:
 		// Apply noise to system stats
 		sys := p.System
 		if sys == nil {
@@ -57,7 +57,7 @@ func ApplyNoise(td *axcp.TelemetryDatagram, topic string, lookup *BudgetLookup) 
 			sys.CpuPercent = uint32(clipped) // Clip to 0-100%
 		}
 
-	case *axcp.TelemetryDatagram_Tokens:
+	case *pb.TelemetryDatagram_Tokens:
 		// Apply noise to token usage
 		tokens := p.Tokens
 		if tokens == nil {
