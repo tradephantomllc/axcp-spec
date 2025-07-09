@@ -13,7 +13,7 @@ import (
 
 	"github.com/tradephantom/axcp-spec/edge/gateway/internal"
 	// gatewaymetrics "github.com/tradephantom/axcp-spec/enterprise/edge/gateway/internal/metrics" // Importazione commentata per risolvere problema con internal package
-	pb "github.com/tradephantom/axcp-spec/sdk/go/axcp/internal/pb"
+	pb "github.com/tradephantom/axcp-spec/sdk/go/axcp/pb"
 	"github.com/tradephantom/axcp-spec/sdk/go/netquic"
 )
 
