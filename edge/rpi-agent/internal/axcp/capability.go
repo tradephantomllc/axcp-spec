@@ -1,6 +1,6 @@
 package axcp
 
-import "github.com/tradephantom/axcp-spec/edge/rpi-agent/internal/pb"
+import pb "github.com/tradephantom/axcp-spec/sdk/go/axcp/pb"
 
 type Capability = pb.CapabilityDescriptor
 type CapabilityOffer = pb.CapabilityOffer

@@ -48,9 +48,7 @@ impl Client {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
             return Err(Error::Server(format!(
-                "Server returned {}: {}", 
-                status, 
-                body
+                "Server returned {status}: {body}"
             )));
         }
 

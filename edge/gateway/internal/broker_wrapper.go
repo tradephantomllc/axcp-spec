@@ -6,12 +6,12 @@ import (
 	"time"
 	
 	"github.com/tradephantom/axcp-spec/sdk/go/axcp"
-	"github.com/tradephantom/axcp-spec/sdk/go/pb"
+	pb "github.com/tradephantom/axcp-spec/sdk/go/axcp/pb"
 )
 
 // BrokerWrapper è un wrapper che adatta la funzione di pubblicazione 
 // del broker esistente per funzionare con il retry buffer.
-// Risolve la discrepanza tra il tipo pb.Envelope usato dal broker
+// Risolve la discrepanza tra il tipo pb.AxcpEnvelope usato dal broker
 // e il tipo axcp.Envelope usato dal retry buffer.
 type BrokerWrapper struct {
 	broker        *Broker
@@ -32,8 +32,8 @@ func (w *BrokerWrapper) PublishEnvelope(env *axcp.Envelope) error {
 		return fmt.Errorf("envelope is nil")
 	}
 
-	// Conversione da axcp.Envelope a pb.Envelope
-	pbEnv := &pb.Envelope{
+	// Conversione da axcp.Envelope a pb.AxcpEnvelope
+	pbEnv := &pb.AxcpEnvelope{
 		Version: env.GetVersion(),
 		TraceId: env.GetTraceId(),
 		Profile: env.GetProfile(),

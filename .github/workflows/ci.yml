@@ -61,14 +61,30 @@ jobs:
         working-directory: sdk/go
         run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
 
+      # ── Upload generated protobuf artifacts for reuse ──────────────
+      - name: Upload protobuf artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-protobuf-stubs
+          path: sdk/go/internal/pb/
+          retention-days: 1
+
 # ------------------------------------------------------------ 
 # 2️⃣  PYTHON (Budget Go test)  – workspace + mini-mod dp
 # ------------------------------------------------------------
   test-python:
     name: Test Python
+    needs: [test-go]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # ── Download protobuf artifacts from test-go job ──────────────
+      - name: Download protobuf artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: go-protobuf-stubs
+          path: sdk/go/internal/pb/
 
       - name: Set-up Go
         uses: actions/setup-go@v5
@@ -127,25 +143,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # ── Download protobuf artifacts from test-go job ──────────────
+      - name: Download protobuf artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: go-protobuf-stubs
+          path: sdk/go/internal/pb/
+
       - name: Set-up Go
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-
-      - name: Install protoc + plugin
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y protobuf-compiler
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-
-      - name: Generate Go stubs
-        working-directory: sdk/go
-        run: |
-          mkdir -p internal/pb
-          protoc -I ../../proto \
-            --go_out=internal/pb --go_opt=paths=source_relative \
-            ../../proto/axcp.proto
 
       - name: Run Gateway telemetry tests
         run: |
@@ -275,26 +284,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # ── Download protobuf artifacts from test-go job ──────────────
+      - name: Download protobuf artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: go-protobuf-stubs
+          path: sdk/go/internal/pb/
+
       - name: Set-up Go
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-
-      - name: Install protoc + plugin
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y protobuf-compiler
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-
-      # ── rigenera stubs (assicura campo Profile) ──────────────────
-      - name: Generate Go stubs
-        working-directory: sdk/go
-        run: |
-          mkdir -p internal/pb
-          protoc -I ../../proto \
-            --go_out=internal/pb --go_opt=paths=source_relative \
-            ../../proto/axcp.proto
 
       # ── workspace per rpi-agent <-> sdk/go -----------------------
       - name: Create Go workspace for rpi-agent

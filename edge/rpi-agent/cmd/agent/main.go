@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/mem"
-	pb "github.com/tradephantom/axcp-spec/edge/rpi-agent/internal/pb"
+	pb "github.com/tradephantom/axcp-spec/sdk/go/axcp/pb"
 	"google.golang.org/protobuf/proto"
 )
 
