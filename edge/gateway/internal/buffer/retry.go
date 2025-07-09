@@ -5,7 +5,7 @@ import (
 	"math"
 	"time"
 
-	pb "github.com/tradephantom/axcp-spec/sdk/go/internal/pb"
+	"github.com/tradephantom/axcp-spec/sdk/go/axcp"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -17,7 +17,7 @@ const (
 
 // Broker defines the interface required for publishing telemetry data
 type Broker interface {
-	PublishTelemetry(td *pb.TelemetryDatagram, traceID string) error
+	PublishTelemetry(td *axcp.TelemetryDatagram, traceID string) error
 }
 
 // StartRetryLoop starts a goroutine that processes items from the queue with exponential backoff
@@ -71,7 +71,7 @@ func processBatch(q *Queue, b Broker, batchSize int) (bool, error) {
 
 	for _, item := range items {
 		// Unmarshal the telemetry data
-		var td pb.TelemetryDatagram
+		var td axcp.TelemetryDatagram
 		if err := proto.Unmarshal(item, &td); err != nil {
 			// If we can't unmarshal, skip this item
 			// metrics.RetryDropped.Inc() // Commentato: metrics non disponibile dopo refactoring

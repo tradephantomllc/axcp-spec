@@ -3,11 +3,11 @@ package bench
 import (
     "testing"
     "google.golang.org/protobuf/proto"
-    pb "github.com/tradephantom/axcp-spec/sdk/go/internal/pb"
+    "github.com/tradephantom/axcp-spec/sdk/go/axcp"
 )
 
 func BenchmarkEncode(b *testing.B) {
-    msg := &pb.AxcpEnvelope{
+    msg := &axcp.AxcpEnvelope{
         Version: 1,
         TraceId: "bench",
         Profile: 0,

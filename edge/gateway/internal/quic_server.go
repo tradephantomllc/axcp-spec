@@ -6,15 +6,15 @@ import (
 	"log"
 
 	"github.com/quic-go/quic-go"
-	pb "github.com/tradephantom/axcp-spec/sdk/go/internal/pb"
+	"github.com/tradephantom/axcp-spec/sdk/go/axcp"
 	"google.golang.org/protobuf/proto"
 )
 
 // EnvelopeHandler gestisce i messaggi AXCP in arrivo
-type EnvelopeHandler func(*pb.AxcpEnvelope)
+type EnvelopeHandler func(*axcp.AxcpEnvelope)
 
 // TelemetryHandler gestisce i datagrammi di telemetria
-type TelemetryHandler func(*pb.TelemetryDatagram)
+type TelemetryHandler func(*axcp.TelemetryDatagram)
 
 // RunQuicServer avvia il server QUIC con supporto per stream e datagrammi
 func RunQuicServer(addr string, tlsConf *tls.Config, h EnvelopeHandler, dgram TelemetryHandler) error {
@@ -58,7 +58,7 @@ func RunQuicServer(addr string, tlsConf *tls.Config, h EnvelopeHandler, dgram Te
 
 				// Se il datagramma inizia con 0xA0, è un datagramma di telemetria
 				if len(data) > 0 && data[0] == 0xA0 {
-					var td pb.TelemetryDatagram
+					var td axcp.TelemetryDatagram
 					if err := proto.Unmarshal(data[1:], &td); err == nil {
 						// Log per debug con informazioni di base sul datagramma di telemetria
 						timestamp := td.GetTimestampMs()
