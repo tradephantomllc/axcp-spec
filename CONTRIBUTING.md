@@ -18,33 +18,4 @@ Before your contribution can be accepted, you **must read and agree to the CLA**
 
 All contributions are subject to review and approval by the maintainers. Submissions not aligned with the roadmap or project principles may be declined.
 
-## Development Guidelines
-
-### Regenerating Protobuf Stubs
-
-If you modify the protocol definition in `proto/axcp.proto`, you **must** regenerate the language-specific stubs:
-
-#### Go Stubs
-```bash
-cd sdk/go
-mkdir -p internal/pb
-protoc -I ../../proto \
-  --go_out=internal/pb --go_opt=paths=source_relative \
-  ../../proto/axcp.proto
-```
-
-#### Python Stubs
-```bash
-python -m grpc_tools.protoc -I=proto --python_out=proto proto/axcp.proto
-```
-
-#### Rust Stubs
-Rust protobuf generation is handled automatically by the build system.
-
-**Important Notes:**
-- Do **not** commit generated stub files unless absolutely necessary
-- The CI pipeline automatically generates stubs during testing
-- Local development should use the commands above for testing changes
-- Always run `go mod tidy` after regenerating Go stubs
-
 Thanks again!
