@@ -1,0 +1,7 @@
+name: "Question"
+labels: question
+body:
+- type: input
+  attributes:
+    id: question
+    label: Ask anything about AXCP

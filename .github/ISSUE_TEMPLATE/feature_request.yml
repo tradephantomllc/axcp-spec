@@ -1,0 +1,10 @@
+name: "Feature request"
+labels: enhancement
+body:
+- type: markdown
+  attributes:
+    value: "### Motivation"
+- type: textarea
+  attributes:
+    id: motivation
+    label: Why is this needed?

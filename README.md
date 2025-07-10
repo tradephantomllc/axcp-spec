@@ -5,10 +5,19 @@
 > • **AXCP Enterprise** (Commercial) – under `enterprise/`  
 > See `ENTERPRISE_NOTICE.md` for details.
 
+![CI](https://img.shields.io/github/actions/workflow/status/tradephantom/axcp-spec/ci.yml?logo=github)
+![License](https://img.shields.io/badge/license-BUSL_1.1-blue)
 [![CI](https://github.com/tradephantom/axcp-spec/actions/workflows/ci.yml/badge.svg)](https://github.com/tradephantom/axcp-spec/actions/workflows/ci.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/tradephantom/axcp-spec/sdk/go.svg)](https://pkg.go.dev/github.com/tradephantom/axcp-spec/sdk/go)
 
-> **Quick Start**: see [`examples/go/simple_chat`](examples/go/simple_chat)
+### 🔥 Tri-AI Orchestration Demo  
+<a href="https://youtu.be/j9OzbG62BNY" target="_blank">
+  <img src="docs/img/tri-ai-preview.gif" alt="Tri-AI demo" width="640">
+</a>
+
+*Click to watch the complete demo (YouTube, 3 min).*
+
+> **Quick Start**: see [docs/quickstart.md](docs/quickstart.md)
 
  2025 TradePhantom LLC – BUSL-1.1 / Apache-2.0 fallback
 
