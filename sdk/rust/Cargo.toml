@@ -53,7 +53,7 @@ build = []
 
 [dev-dependencies]
 # For testing
-mockall = "0.11"
+mockall = "0.13"
 mockito = "1.4.0"
 # For property-based testing
 proptest = "1.0"
