@@ -21,7 +21,7 @@ once_cell = "1"
 tonic = { version = "0.11", features = ["tls"] }
 
 # optional Python bindings
-pyo3 = { version = "0.21", optional = true, features = ["extension-module"] }
+pyo3 = { version = "0.25", optional = true, features = ["extension-module"] }
 
 [features]
 python = ["pyo3"]
