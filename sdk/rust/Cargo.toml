@@ -58,7 +58,7 @@ mockito = "1.4.0"
 # For property-based testing
 proptest = "1.0"
 # For integration tests
-serial_test = "1.0"
+serial_test = "3.2"
 serde_json = "1.0"
 tokio = { version = "1.0", features = ["full", "rt-multi-thread", "test-util"] }
 
