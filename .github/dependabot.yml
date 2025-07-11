@@ -6,7 +6,6 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    security-updates: true
     open-pull-requests-limit: 1
 
   # 2️⃣ Cargo (Rust)
@@ -14,7 +13,6 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    security-updates: true
     open-pull-requests-limit: 1
 
   # 3️⃣ Go modules
@@ -22,7 +20,6 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    security-updates: true
     open-pull-requests-limit: 1
 
   # 4️⃣ Pip (Python)
@@ -30,7 +27,6 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    security-updates: true
     open-pull-requests-limit: 1
 
 # No cosmetic version bumps, only CVE patches.
