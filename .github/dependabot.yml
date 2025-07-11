@@ -1,0 +1,33 @@
+# Minimal-impact Dependabot configuration (security patches only)
+version: 2
+updates:
+  # 1️⃣ GitHub Actions – critical security patches & runner deprecations
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 1
+
+  # 2️⃣ Cargo (Rust)
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 1
+
+  # 3️⃣ Go modules
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 1
+
+  # 4️⃣ Pip (Python)
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 1
+
+# No cosmetic version bumps, only CVE patches.
+# Max 1 PR per ecosystem per week.
