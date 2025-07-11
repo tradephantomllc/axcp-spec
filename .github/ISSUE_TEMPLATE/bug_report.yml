@@ -1,0 +1,11 @@
+name: "Bug report"
+description: Create a report to help us improve
+labels: bug
+body:
+  - type: markdown
+    attributes:
+      value: "### What happened?"
+  - type: textarea
+    attributes:
+      id: what-happened
+      label: Describe the bug
