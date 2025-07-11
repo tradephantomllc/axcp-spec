@@ -35,7 +35,7 @@ jobs:
             cache-key: nightly
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
@@ -81,7 +81,7 @@ jobs:
     if: always()                # mostra esito anche se test fallisse
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Install stable Rust
         uses: actions-rs/toolchain@v1
