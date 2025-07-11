@@ -6,28 +6,49 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 1
+    open-pull-requests-limit: 2
 
-  # 2️⃣ Cargo (Rust)
+  # --- Cargo (SDK Rust crate) ---
   - package-ecosystem: "cargo"
-    directory: "/"
+    directory: "/sdk/rust"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 1
+    open-pull-requests-limit: 2
+
+  # --- Cargo (PraisonAI bridge crate) ---
+  - package-ecosystem: "cargo"
+    directory: "/axcp-extension-praisonai/rust/bridge"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 2
+
+  # --- Cargo (PraisonAI macro crate) ---
+  - package-ecosystem: "cargo"
+    directory: "/axcp-extension-praisonai/rust/tool_hook_macro"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 2
+
+  # --- Cargo (legacy v0.3 crate) ---
+  - package-ecosystem: "cargo"
+    directory: "/v0.3/rust/axcp-rs"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 2
 
   # 3️⃣ Go modules
   - package-ecosystem: "gomod"
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 1
+    open-pull-requests-limit: 2
 
   # 4️⃣ Pip (Python)
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 1
+    open-pull-requests-limit: 2
 
 # No cosmetic version bumps, only CVE patches.
 # Max 1 PR per ecosystem per week.
