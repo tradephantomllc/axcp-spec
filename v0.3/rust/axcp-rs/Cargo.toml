@@ -28,7 +28,7 @@ tracing = "0.1.0"
 tracing-subscriber = { version = "0.3.0", features = ["env-filter"] }
 
 # Configuration
-config = "0.13.0"
+config = "0.15.13"
 
 [dev-dependencies]
 # Test dependencies
