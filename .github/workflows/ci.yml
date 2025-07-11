@@ -127,9 +127,11 @@ jobs:
         run: pytest -q scripts gateway tests/dp
 
       - name: QUIC RTT micro-bench
+        if: ${{ github.actor != 'dependabot[bot]' }}
         run: python bench/quic/rtt_bench.py 20
 
       - name: Codec benchmarks (Go quick)
+        if: ${{ github.actor != 'dependabot[bot]' }}
         working-directory: sdk/go
         run: go test ./... -bench=. -benchtime=1x -benchmem
 
@@ -171,6 +173,7 @@ jobs:
 # 4️⃣  RPI AGENT (Issue 21c) – usa stubs rigenerati & workspace
 # ------------------------------------------------------------
   publish-rust-sdk:
+    if: ${{ github.actor != 'dependabot[bot]' }}
     name: Publish Rust SDK
     needs: [test-go, test-python, test-rpi-agent]
     # L'esecuzione condizionale viene gestita nei passaggi individuali per una maggiore flessibilità
