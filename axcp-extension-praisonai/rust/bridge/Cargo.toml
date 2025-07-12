@@ -3,7 +3,7 @@
 name = "axcp-praison-bridge"
 license = "BUSL-1.1"
 license-file = "../../../LICENSE"
-version = "0.1.0"
+version = "0.3.11-beta"
 edition = "2021"
 
 [dependencies]
