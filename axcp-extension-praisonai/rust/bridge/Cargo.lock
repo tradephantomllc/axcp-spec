@@ -79,14 +79,14 @@ checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
 name = "axcp-praison-bridge"
-version = "0.1.0"
+version = "0.3.11-beta"
 dependencies = [
  "anyhow",
  "once_cell",
  "opentelemetry",
  "opentelemetry-otlp",
  "opentelemetry_sdk",
- "prost 0.12.6",
+ "prost 0.13.5",
  "prost-build",
  "prost-types",
  "pyo3",
