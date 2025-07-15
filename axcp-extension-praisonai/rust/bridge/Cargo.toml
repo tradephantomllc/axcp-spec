@@ -27,4 +27,4 @@ pyo3 = { version = "0.21", optional = true, features = ["extension-module"] }
 python = ["pyo3"]
 
 [build-dependencies]
-prost-build = "0.12"
+prost-build = "0.14"
