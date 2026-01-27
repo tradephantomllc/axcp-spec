@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: BUSL-1.1
+# SPDX-License-Identifier: Apache-2.0
 [package]
 name = "axcp-sdk"
 version = "0.3.11-beta"
