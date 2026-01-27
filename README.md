@@ -1,13 +1,8 @@
 # axcp-spec
 
-> **Dual Licence Notice** – this repo ships  
-> • **AXCP Core** (BUSL-1.1 → Apache 2.0 in 2029) – source-available  
-> • **AXCP Enterprise** (Commercial) – under `enterprise/`  
-> See `ENTERPRISE_NOTICE.md` for details.
-
 [![CI](https://github.com/tradephantom/axcp-spec/actions/workflows/ci.yml/badge.svg)](https://github.com/tradephantom/axcp-spec/actions/workflows/ci.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/tradephantom/axcp-spec/sdk/go.svg)](https://pkg.go.dev/github.com/tradephantom/axcp-spec/sdk/go)
-![License](https://img.shields.io/badge/license-BUSL_1.1-blue)
+![License](https://img.shields.io/badge/license-Apache_2.0-green)
 
 ### 🔥 Tri-AI Orchestration Demo  
 <a href="https://youtu.be/j9OzbG62BNY" target="_blank">
@@ -17,8 +12,6 @@
 *Click to watch the full demo (YouTube, 3 min).*  
 
 > **Quick Start**: see [`docs/quickstart.md`](docs/quickstart.md)
-
- 2025 TradePhantom LLC – BUSL-1.1 / Apache-2.0 fallback
 
 AXCP – Adaptive eXchange Context Protocol. An open specification for ultra-efficient, privacy-preserving AI agent orchestration.
 It improves on existing agent communication protocols (like MCP, A2A, and ACP) by integrating:
@@ -81,7 +74,28 @@ The current implementation provides a solid foundation while maintaining simplic
 - Transport schema and Protobuf IDL  
 - No-code PoC orchestration workflows (Make, n8n)  
 - Benchmark simulations and performance tests  
-- License: BUSL-1.1 (converts to Apache 2.0 on 2029-01-01)
+- License: Apache 2.0 (open source)
+
+## License
+
+**AXCP Core is open source under the Apache License 2.0.**
+
+You are free to use, modify, and distribute AXCP Core for any purpose, including commercial applications, without fees or special permissions.
+
+See [LICENSE](./LICENSE) for the full license text.
+
+## AXCP Enterprise
+
+For organizations requiring advanced capabilities, TradePhantom LLC offers commercial tiers:
+
+| Tier | Key Features |
+|------|--------------|
+| **AXCP Advanced** | Context-Sync (CRDT), mTLS certificates, SGX/SEV enclaves, Differential Privacy (optional) |
+| **AXCP Enterprise** | Differential Privacy (mandatory), PII filtering, Compliance reporting (GDPR/HIPAA/SOC2), Audit trails, TRI-AI Orchestration, Dedicated support |
+
+For licensing inquiries: [licensing@tradephantom.com](mailto:licensing@tradephantom.com)
+
+See [docs/licensing/](./docs/licensing/) for detailed licensing information.
 
 ## 🔐 Branch Protection
 
