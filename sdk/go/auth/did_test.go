@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"crypto/ed25519"
 	"testing"
 	"time"
 )
