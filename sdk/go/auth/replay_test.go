@@ -527,7 +527,10 @@ func TestGetStats(t *testing.T) {
 // --- Concurrency Tests ---
 
 func TestCheckAndMark_Concurrent(t *testing.T) {
-	rp, _ := NewReplayProtector(time.Minute, 1000, nil)
+	// Window must be large enough to accommodate all sequences from concurrent goroutines.
+	// With 100 goroutines × 100 seqs = 10000 total sequences (0-9999),
+	// we need window >= 10000 to avoid "too old" errors when goroutines race.
+	rp, _ := NewReplayProtector(time.Minute, 15000, nil)
 
 	var wg sync.WaitGroup
 	numGoroutines := 100
