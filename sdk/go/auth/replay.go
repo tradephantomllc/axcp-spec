@@ -149,7 +149,7 @@ func (rp *ReplayProtector) CheckAndMark(peerID string, seq uint64) error {
 		if pw.highest >= rp.window {
 			minAcceptable = pw.highest - rp.window + 1
 		} else {
-			minAcceptable = 1 // Can't go below 1 for sequence numbers
+			minAcceptable = 0 // Allow seq=0 when highest < window
 		}
 
 		if seq < minAcceptable {
