@@ -10,11 +10,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/tradephantom/axcp-spec/edge/gateway/internal"
-	"github.com/tradephantom/axcp-spec/sdk/go/axcp"
-	pb "github.com/tradephantom/axcp-spec/sdk/go/axcp/pb"
-	"github.com/tradephantom/axcp-spec/sdk/go/negotiate"
-	"github.com/tradephantom/axcp-spec/sdk/go/netquic"
+	"github.com/tradephantomllc/axcp-spec/edge/gateway/internal"
+	"github.com/tradephantomllc/axcp-spec/sdk/go/axcp"
+	pb "github.com/tradephantomllc/axcp-spec/sdk/go/axcp/pb"
+	"github.com/tradephantomllc/axcp-spec/sdk/go/negotiate"
+	"github.com/tradephantomllc/axcp-spec/sdk/go/netquic"
 )
 
 var BuildVersion = "dev" // overridden at build time with -ldflags "-X main.BuildVersion=<ver>"

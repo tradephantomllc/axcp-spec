@@ -6,9 +6,9 @@ import (
 	"log"
 
 	"github.com/quic-go/quic-go"
-	"github.com/tradephantom/axcp-spec/sdk/go/auth"
-	"github.com/tradephantom/axcp-spec/sdk/go/negotiate"
-	pb "github.com/tradephantom/axcp-spec/sdk/go/axcp/pb"
+	"github.com/tradephantomllc/axcp-spec/sdk/go/auth"
+	"github.com/tradephantomllc/axcp-spec/sdk/go/negotiate"
+	pb "github.com/tradephantomllc/axcp-spec/sdk/go/axcp/pb"
 	"google.golang.org/protobuf/proto"
 )
 

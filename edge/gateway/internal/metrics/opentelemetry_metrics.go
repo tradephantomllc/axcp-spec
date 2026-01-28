@@ -67,7 +67,7 @@ func NewOpenTelemetryMetrics(ctx context.Context, cfg OpenTelemetryConfig) (*Ope
 
 	// Create meter
 	meter := meterProvider.Meter(
-		"github.com/tradephantom/axcp-spec/gateway",
+		"github.com/tradephantomllc/axcp-spec/gateway",
 	)
 
 	// Create counters and gauges

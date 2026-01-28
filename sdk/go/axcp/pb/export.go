@@ -3,7 +3,7 @@
 
 package pb
 
-import internal "github.com/tradephantom/axcp-spec/sdk/go/internal/pb"
+import internal "github.com/tradephantomllc/axcp-spec/sdk/go/internal/pb"
 
 // ---- re-export core types we actually use ----
 type (
@@ -23,6 +23,7 @@ type (
 	// Context and patch types
 	ContextPatch         = internal.ContextPatch
 	DeltaOp              = internal.DeltaOp
+	DeltaOp_OpType       = internal.DeltaOp_OpType
 	RetryEnvelope        = internal.RetryEnvelope
 	
 	// Profile and routing types
@@ -55,6 +56,12 @@ const (
 	ErrorCode_MISSING_PATCH_RANGE         = internal.ErrorCode_MISSING_PATCH_RANGE
 	ErrorCode_AUTH_DID_INVALID            = internal.ErrorCode_AUTH_DID_INVALID
 	ErrorCode_AUTH_TIMESTAMP_EXPIRED      = internal.ErrorCode_AUTH_TIMESTAMP_EXPIRED
+
+	// DeltaOp OpType enum values
+	DeltaOp_ADD     = internal.DeltaOp_ADD
+	DeltaOp_REPLACE = internal.DeltaOp_REPLACE
+	DeltaOp_REMOVE  = internal.DeltaOp_REMOVE
+	DeltaOp_MERGE   = internal.DeltaOp_MERGE
 )
 
 // Re-export oneof wrapper types for AxcpEnvelope

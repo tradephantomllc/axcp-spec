@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/tradephantom/axcp-spec/sdk/go/axcp"
+	"github.com/tradephantomllc/axcp-spec/sdk/go/axcp"
 )
 
 // TestPing è un test di base per verificare la funzionalità di invio/ricezione messaggi

@@ -1,4 +1,4 @@
-module github.com/tradephantom/axcp-spec/edge/rpi-agent
+module github.com/tradephantomllc/axcp-spec/edge/rpi-agent
 
 go 1.23.4
 

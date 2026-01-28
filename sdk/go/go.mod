@@ -1,4 +1,4 @@
-module github.com/tradephantom/axcp-spec/sdk/go
+module github.com/tradephantomllc/axcp-spec/sdk/go
 
 go 1.23.4
 

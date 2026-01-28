@@ -1,4 +1,4 @@
-module github.com/tradephantom/axcp-spec/edge/gateway
+module github.com/tradephantomllc/axcp-spec/edge/gateway
 
 go 1.23.4
 
@@ -7,7 +7,7 @@ require (
 	github.com/prometheus/client_golang v1.19.1
 	github.com/quic-go/quic-go v0.49.0
 	github.com/stretchr/testify v1.10.0
-	github.com/tradephantom/axcp-spec/sdk/go v0.0.0-00010101000000-000000000000
+	github.com/tradephantomllc/axcp-spec/sdk/go v0.0.0-00010101000000-000000000000
 	go.etcd.io/bbolt v1.3.8
 	go.opentelemetry.io/otel v1.36.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.36.0
@@ -52,9 +52,9 @@ require (
 	google.golang.org/grpc v1.72.1 // indirect
 )
 
-replace github.com/tradephantom/axcp-spec/sdk/go => ../../sdk/go
+replace github.com/tradephantomllc/axcp-spec/sdk/go => ../../sdk/go
 
 replace go.etcd.io/bbolt => go.etcd.io/bbolt v1.3.8
 
 
-replace github.com/tradephantom/axcp-spec/edge/gateway/internal => ./internal
+replace github.com/tradephantomllc/axcp-spec/edge/gateway/internal => ./internal
