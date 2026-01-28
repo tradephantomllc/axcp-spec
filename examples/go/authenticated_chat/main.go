@@ -25,9 +25,9 @@ import (
 	"github.com/quic-go/quic-go"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/tradephantom/axcp-spec/sdk/go/auth"
-	pb "github.com/tradephantom/axcp-spec/sdk/go/axcp/pb"
-	"github.com/tradephantom/axcp-spec/sdk/go/negotiate"
+	"github.com/tradephantomllc/axcp-spec/sdk/go/auth"
+	pb "github.com/tradephantomllc/axcp-spec/sdk/go/axcp/pb"
+	"github.com/tradephantomllc/axcp-spec/sdk/go/negotiate"
 )
 
 const (

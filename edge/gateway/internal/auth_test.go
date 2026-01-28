@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tradephantom/axcp-spec/sdk/go/auth"
-	"github.com/tradephantom/axcp-spec/sdk/go/negotiate"
+	"github.com/tradephantomllc/axcp-spec/sdk/go/auth"
+	"github.com/tradephantomllc/axcp-spec/sdk/go/negotiate"
 )
 
 // mockClock provides a controllable time source for testing
