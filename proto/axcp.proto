@@ -82,7 +82,8 @@ message CapabilityDescriptor {
   string  resource_hint     = 5;
   repeated string auth_scope = 6;
   string  descriptor_version = 7;
-  DpParams dp               = 8;   // profile ≥3
+  // Field 8 reserved (was: DpParams dp for profile ≥3, moved to Advanced/Enterprise)
+  reserved 8;
 }
 
 /* ─────────────  PROFILE HANDSHAKE (dynamic)  ──────────────────────── */
@@ -125,20 +126,8 @@ message TelemetryDatagram {
   }
 }
 
-/* ─────────────  DIFFERENTIAL-PRIVACY  ─────────────────────────────── */
-
-enum DpMechanism { LAPLACE = 0; GAUSSIAN = 1; }
-
-message DpParams {
-  double        epsilon   = 1;
-  double        delta     = 2;
-  DpMechanism   mech      = 3;
-  double        clip_norm = 4;
-  enum Granularity { RECORD = 0; BATCH = 1; TOKEN = 2; }
-  Granularity   gran      = 5;
-}
-
 /* ─────────────  ERROR HANDLING  ───────────────────────────────────── */
+// Note: Differential Privacy (DP) definitions moved to Advanced/Enterprise proto.
 
 enum ErrorCode {
   UNKNOWN                     = 0;
@@ -155,7 +144,7 @@ enum ErrorCode {
   PROFILE_UNSUPPORTED         = 13;
   PROFILE_NEGOTIATION_FAILED  = 14;
   MISSING_PATCH_RANGE         = 15;
-  DP_POLICY_CONFLICT          = 16;
+  // Error code 16 reserved (was: DP_POLICY_CONFLICT, moved to Advanced/Enterprise)
 }
 
 message ErrorMessage {

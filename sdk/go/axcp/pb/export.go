@@ -33,10 +33,6 @@ type (
 	// Error handling
 	ErrorMessage         = internal.ErrorMessage
 	ErrorCode            = internal.ErrorCode
-	
-	// Differential privacy
-	DpParams             = internal.DpParams
-	DpMechanism          = internal.DpMechanism
 )
 
 // Re-export constants
@@ -55,10 +51,6 @@ const (
 	ErrorCode_PROFILE_UNSUPPORTED         = internal.ErrorCode_PROFILE_UNSUPPORTED
 	ErrorCode_PROFILE_NEGOTIATION_FAILED  = internal.ErrorCode_PROFILE_NEGOTIATION_FAILED
 	ErrorCode_MISSING_PATCH_RANGE         = internal.ErrorCode_MISSING_PATCH_RANGE
-	ErrorCode_DP_POLICY_CONFLICT          = internal.ErrorCode_DP_POLICY_CONFLICT
-	
-	DpMechanism_LAPLACE                   = internal.DpMechanism_LAPLACE
-	DpMechanism_GAUSSIAN                  = internal.DpMechanism_GAUSSIAN
 )
 
 // Re-export oneof wrapper types for AxcpEnvelope
