@@ -68,6 +68,13 @@ AXCP v0.1 is an **Exploratory Draft**: it defines lexicon, wire formats, and min
 
 AXCP supports four progressive profiles that balance security, functionality and runtime overhead.
 
+> **Deprecation Notice (v1.0):**
+> - **Profile-0 (Basic/Transport-Only)** is deprecated and NOT suitable for production deployments.
+>   It provides only transport-level security without application-layer authentication.
+> - **Secure Baseline (Profile-0 + Profile-1 unified)** is the recommended default for production.
+>   This profile requires DID mutual authentication, Ed25519 signatures, and replay protection.
+> - Profile-0 is retained only for backward compatibility labeling and testing purposes.
+
 |
  Feature / Layer                     
 |
