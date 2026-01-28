@@ -41,7 +41,8 @@ func DeterministicKeyPair(seed string) (ed25519.PublicKey, ed25519.PrivateKey) {
 	// Create a deterministic seed by hashing the input
 	seedBytes := make([]byte, ed25519.SeedSize)
 	copy(seedBytes, []byte(seed))
-	return ed25519.NewKeyFromSeed(seedBytes)
+	priv := ed25519.NewKeyFromSeed(seedBytes)
+	return priv.Public().(ed25519.PublicKey), priv
 }
 
 // SharedDIDResolver returns a resolver pre-populated with both server and client DIDs.
@@ -183,7 +184,7 @@ func runServer(tlsConf *tls.Config) {
 	}
 
 	// Complete server session negotiation for response
-	session.SetNegotiated(negotiate.ProfileSecureBaseline, clientDID)
+	session.SetNegotiated(string(negotiate.ProfileSecureBaseline), clientDID)
 
 	// Build response envelope
 	respPatch := &pb.ContextPatch{
@@ -201,7 +202,7 @@ func runServer(tlsConf *tls.Config) {
 	respEnv := &pb.AxcpEnvelope{
 		Version: 1,
 		TraceId: env.TraceId + "-resp",
-		Profile: uint32(negotiate.ProfileSecureBaseline),
+		Profile: 1, // secure-baseline-v1
 		Payload: &pb.AxcpEnvelope_ContextPatch{ContextPatch: respPatch},
 	}
 
@@ -252,7 +253,7 @@ func runClient(tlsConf *tls.Config) {
 	})
 
 	// Simulate profile negotiation (in real usage, this happens via handshake)
-	session.SetNegotiated(negotiate.ProfileSecureBaseline, serverDID)
+	session.SetNegotiated(string(negotiate.ProfileSecureBaseline), serverDID)
 
 	// Initialize shared resolver for response verification
 	resolver := SharedDIDResolver()
@@ -289,7 +290,7 @@ func runClient(tlsConf *tls.Config) {
 	reqEnv := &pb.AxcpEnvelope{
 		Version: 1,
 		TraceId: "auth-chat-001",
-		Profile: uint32(negotiate.ProfileSecureBaseline),
+		Profile: 1, // secure-baseline-v1
 		Payload: &pb.AxcpEnvelope_ContextPatch{ContextPatch: reqPatch},
 	}
 
