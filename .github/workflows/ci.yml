@@ -187,20 +187,23 @@ jobs:
           cargo install cargo-release --no-default-features
 
       # Verifica le condizioni per procedere con la pubblicazione
+      # IMPORTANTE: Pubblica SOLO su tag di release (vX.Y.Z), MAI su push a main
+      # Questo evita errori "crate already exists" su crates.io
       - name: Check publishing context
         id: check-context
         run: |
-          # Non usiamo variabili complesse nei confronti per sicurezza
+          # Pubblica SOLO su tag di release, NON su push a main
           if [[ "${{ github.event_name }}" == "push" ]]; then
-            if [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.ref }}" == refs/tags/v* ]]; then
+            if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
               echo "publish=true" >> "$GITHUB_OUTPUT"
+              echo "::notice::Tag release detected - will publish to crates.io"
             else
               echo "publish=false" >> "$GITHUB_OUTPUT"
-              echo "::notice::Non in publishing branch/tag"
+              echo "::notice::Not a release tag - skipping crates.io publish"
             fi
           else
             echo "publish=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Non è un evento push"
+            echo "::notice::Not a push event - skipping crates.io publish"
           fi
           
       # Imposta il token in un modo che evita avvisi di sicurezza
@@ -265,11 +268,13 @@ jobs:
       # Pubblica il crate
       - name: Publish to crates.io
         if: |
-          steps.check-context.outputs.publish == 'true' && 
-          contains(toJSON(steps.token-prep.outputs), 'has_token') && 
+          steps.check-context.outputs.publish == 'true' &&
+          contains(toJSON(steps.token-prep.outputs), 'has_token') &&
           fromJSON(toJSON(steps.token-prep.outputs)).has_token == 'true'
+        continue-on-error: true
         working-directory: ./sdk/rust
-        run: cargo publish --no-verify
+        run: |
+          cargo publish --no-verify || echo "::warning::Failed to publish to crates.io - check CARGO_REGISTRY_TOKEN"
 
 # ------------------------------------------------------------ 
 # 5️⃣  RPI AGENT (Issue 21c) – usa stubs rigenerati & workspace
