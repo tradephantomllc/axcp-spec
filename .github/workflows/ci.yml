@@ -13,9 +13,11 @@ on:
   push:
     branches:
       - main
+      - 'restructure/open-core'
       - 'chore/ci-go-workspaces'
       - 'fix/ci-*'
       - 'feature/21c-*'
+      - 'feat/m4*'
     tags:
       - 'axcp-rs-*'
   pull_request:

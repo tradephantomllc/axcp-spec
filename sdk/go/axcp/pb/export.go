@@ -47,10 +47,14 @@ const (
 	ErrorCode_PAYLOAD_TOO_LARGE           = internal.ErrorCode_PAYLOAD_TOO_LARGE
 	ErrorCode_MALFORMED_REQUEST           = internal.ErrorCode_MALFORMED_REQUEST
 	ErrorCode_TOO_MANY_REQUESTS           = internal.ErrorCode_TOO_MANY_REQUESTS
+	ErrorCode_AUTH_SIGNATURE_INVALID      = internal.ErrorCode_AUTH_SIGNATURE_INVALID
+	ErrorCode_AUTH_REPLAY_DETECTED        = internal.ErrorCode_AUTH_REPLAY_DETECTED
 	ErrorCode_PROFILE_MISMATCH            = internal.ErrorCode_PROFILE_MISMATCH
 	ErrorCode_PROFILE_UNSUPPORTED         = internal.ErrorCode_PROFILE_UNSUPPORTED
 	ErrorCode_PROFILE_NEGOTIATION_FAILED  = internal.ErrorCode_PROFILE_NEGOTIATION_FAILED
 	ErrorCode_MISSING_PATCH_RANGE         = internal.ErrorCode_MISSING_PATCH_RANGE
+	ErrorCode_AUTH_DID_INVALID            = internal.ErrorCode_AUTH_DID_INVALID
+	ErrorCode_AUTH_TIMESTAMP_EXPIRED      = internal.ErrorCode_AUTH_TIMESTAMP_EXPIRED
 )
 
 // Re-export oneof wrapper types for AxcpEnvelope
