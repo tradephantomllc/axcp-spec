@@ -1,7 +1,7 @@
 # axcp-spec
 
-[![CI](https://github.com/tradephantom/axcp-spec/actions/workflows/ci.yml/badge.svg)](https://github.com/tradephantom/axcp-spec/actions/workflows/ci.yml)
-[![Go Reference](https://pkg.go.dev/badge/github.com/tradephantom/axcp-spec/sdk/go.svg)](https://pkg.go.dev/github.com/tradephantom/axcp-spec/sdk/go)
+[![CI](https://github.com/tradephantomllc/axcp-spec/actions/workflows/ci.yml/badge.svg)](https://github.com/tradephantomllc/axcp-spec/actions/workflows/ci.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/tradephantomllc/axcp-spec/sdk/go.svg)](https://pkg.go.dev/github.com/tradephantomllc/axcp-spec/sdk/go)
 ![License](https://img.shields.io/badge/license-Apache_2.0-green)
 
 ### 🔥 Tri-AI Orchestration Demo  
@@ -13,26 +13,27 @@
 
 > **Quick Start**: see [`docs/quickstart.md`](docs/quickstart.md)
 
-AXCP – Adaptive eXchange Context Protocol. An open specification for ultra-efficient, privacy-preserving AI agent orchestration.
+AXCP – Adaptive eXchange Context Protocol. An open specification for ultra-efficient AI agent orchestration.
 It improves on existing agent communication protocols (like MCP, A2A, and ACP) by integrating:
 
-- QUIC + Protobuf transport for high-performance, low-latency communication  
-- Delta-synced context cache to reduce token overhead  
-- DIDComm v2 for decentralized capability negotiation and secure identity  
-- SGX enclaves and differential privacy for confidential and auditable execution  
-- Smart routing between cloud and edge nodes  
-- Telemetry datagrams for real-time monitoring with built-in differential privacy
+- QUIC + Protobuf transport for high-performance, low-latency communication
+- Delta-synced context cache to reduce token overhead
+- DIDComm v2 for decentralized capability negotiation and secure identity
+- Smart routing between cloud and edge nodes
+- Telemetry datagrams for real-time monitoring
+
+> **Privacy & Security**: Differential Privacy, SGX enclaves, mTLS, and PII filtering are available in [AXCP Advanced/Enterprise](#axcp-enterprise) tiers.
 
 ## What's New in v0.3
 
 - **Telemetry Datagrams**: Low-latency telemetry data collection with QUIC DATAGRAM extension
-- **Differential Privacy**: Built-in support for privacy-preserving metrics collection with configurable privacy budgets
 - **Edge Gateway**: Enhanced gateway with telemetry support for edge computing scenarios
-- **Improved Testing**: Comprehensive test suite for differential privacy and telemetry features
+- **Profile Negotiation**: Capability-based profile negotiation for secure connections
+- **Improved Testing**: Comprehensive test suite for telemetry and gateway features
 
-## Telemetry and Differential Privacy
+## Telemetry Transport
 
-AXCP v0.3 introduces a novel approach to telemetry data collection that prioritizes both performance and privacy:
+AXCP v0.3 introduces high-performance telemetry data collection:
 
 ### QUIC DATAGRAM Transport
 
@@ -43,30 +44,9 @@ Telemetry data is transmitted using QUIC's unreliable DATAGRAM frames, providing
 - Minimal impact on application traffic
 - Automatic coalescing of telemetry points during network congestion
 
-### Privacy-Preserving Metrics
+### Privacy Features
 
-Built-in differential privacy mechanisms protect sensitive telemetry data:
-
-- **Profile-Based Privacy**: Privacy guarantees increase with profile level
-  - Profile 1-2: Basic telemetry with minimal noise
-  - Profile 3+: Strong differential privacy guarantees
-  
-- **Configurable Noise Mechanisms**:
-  - Laplace noise for discrete metrics (counters, percentages)
-  - Gaussian noise for continuous metrics (timing, memory usage)
-  
-- **Adaptive Privacy Budget**: Each gateway maintains a privacy budget that adapts based on:
-  - Query sensitivity
-  - Data volume
-  - Time-based budget replenishment
-
-### Implementation Status
-
-The current implementation provides a solid foundation while maintaining simplicity:
-
-- Basic UDP benchmarks for initial round-trip validation
-- Progressive enhancement toward full QUIC+SSL implementation
-- Privacy mechanisms with configurable parameters
+For privacy-preserving metrics collection with Differential Privacy, see **AXCP Advanced** and **AXCP Enterprise** tiers below.
 
 ## Contents
 
