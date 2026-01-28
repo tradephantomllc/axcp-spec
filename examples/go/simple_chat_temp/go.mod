@@ -1,4 +1,4 @@
-module github.com/tradephantom/axcp-spec/examples/go/simple_chat
+module github.com/tradephantomllc/axcp-spec/examples/go/simple_chat
 
 go 1.22.7
 

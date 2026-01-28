@@ -6,8 +6,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/tradephantom/axcp-spec/sdk/go/auth"
-	"github.com/tradephantom/axcp-spec/sdk/go/negotiate"
+	"github.com/tradephantomllc/axcp-spec/sdk/go/auth"
+	"github.com/tradephantomllc/axcp-spec/sdk/go/negotiate"
 )
 
 // Auth verification errors

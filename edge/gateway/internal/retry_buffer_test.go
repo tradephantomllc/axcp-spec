@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tradephantom/axcp-spec/sdk/go/axcp"
+	"github.com/tradephantomllc/axcp-spec/sdk/go/axcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
