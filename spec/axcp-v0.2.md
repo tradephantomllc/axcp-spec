@@ -68,6 +68,13 @@ AXCP v0.1 is an **Exploratory Draft**: it defines lexicon, wire formats, and min
 
 AXCP supports four progressive profiles that balance security, functionality and runtime overhead.
 
+> **Deprecation Notice (v1.0):**
+> - **Profile-0 (Basic/Transport-Only)** is deprecated and NOT suitable for production deployments.
+>   It provides only transport-level security without application-layer authentication.
+> - **Secure Baseline (Profile-0 + Profile-1 unified)** is the recommended default for production.
+>   This profile requires DID mutual authentication, Ed25519 signatures, and replay protection.
+> - Profile-0 is retained only for backward compatibility labeling and testing purposes.
+
 |
  Feature / Layer                     
 |
@@ -158,15 +165,15 @@ Enterprise-Privacy
  ✓ 
 |
 |
- Differential-Privacy module        
+ Differential-Privacy module (Enterprise)
 |
- ✗ 
+ ✗
 |
- ✗ 
+ ✗
 |
- optional 
+ ✗
 |
- ✓ 
+ See Enterprise
 |
 |
  Advanced metadata anonymisation    
@@ -495,40 +502,9 @@ The `AxcpEnvelope` may include an `attestation_proof` field for runtime validati
 
 ### 9.2 Differential Privacy Filter
 
-Nodes MAY enable differential privacy (DP) when handling context data.  
-The filter operates on outbound payloads and applies randomized noise based on:
-
-- `ε` (epsilon): privacy budget
-- `δ` (delta): confidence threshold
-- Output sensitivity class (e.g., exact count vs. mean estimate)
-
-The DP module MUST be declared in capability metadata and MUST be tunable per session.
-
-### 9.2.1 Differential-Privacy Parameter Block
-
-Each node MAY advertise a **DP parameter set** that governs how noise is added
-before sharing aggregated results.
-
-| Field | Description | Range / Notes |
-|-------|-------------|---------------|
-| `epsilon`  | Privacy budget (ε) | 0.1 – 10.0 (lower = stronger privacy) |
-| `delta`    | Failure prob (δ)   | ≤ 1 e-5 |
-| `mechanism`| `LAPLACE` \| `GAUSSIAN` | MUST be identical both sides |
-| `clip_norm`| L2 clipping bound | 0 = no clipping |
-| `granularity` | Unit applied (RECORD, BATCH, TOKEN) | affects noise scale |
-
-Nodes embed this block in `CapabilityOffer` → receiver **MUST** echo in the
-`CapabilityAck`.  If two nodes disagree on ε/δ they MUST down-shift to the
-higher privacy (min ε, min δ) or abort with `ErrorCode.DP_POLICY_CONFLICT`.
-
-```mermaid
-sequenceDiagram
-  Edge->>Cloud: CapabilityOffer{dp: ε=1.0,δ=1e-5}
-  Cloud-->>Edge: CapabilityAck same ε/δ
-  Edge->>Cloud: AxcpEnvelope{profile=3, dp=true}
-
-  Implementation note: noise scale = clip_norm / ε (Laplace) or
-σ = sqrt(2*ln(1.25/δ)) * clip_norm / ε (Gaussian).
+> **Enterprise Feature:** Differential Privacy (DP) capabilities are available
+> in the AXCP Enterprise Edition. See the [Enterprise documentation](../enterprise/README.md)
+> for details on privacy budget management, noise mechanisms, and parameter negotiation.
 
 
 ### 9.3 Audit & Logging
@@ -559,7 +535,7 @@ Nodes MAY expose a `LogProof` query to third parties for audit purposes.
 - Feature-complete transport, sync, telemetry, gateway, and Go SDK
 - Added QUIC DATAGRAM telemetry support
 - Implemented CRDT context-sync & store-forward
-- Added capability framework with DP parameters
+- Added capability framework
 - Integrated Gateway MCP ⇆ AXCP ⇆ A2A
 - Added full CI pipeline (proto, Go, Python, benchmarks)
 
@@ -615,7 +591,7 @@ _(To be compiled after first pass)_
 (TODO: Define envelope fields for attestation reports, measurement hashes, and enclave identity)
 
 ### 9.2 Differential-Privacy Filter
-(TODO: Specify filter schemas, privacy budgets, and token-based access)
+(See Enterprise Edition for DP capabilities)
 
 ### 9.3 Audit & Logging
 (TODO: Describe tamper-resistant audit trails for envelope usage, including log formats and retention)
