@@ -156,7 +156,7 @@ jobs:
         run: |
           set -e
           (cd edge/gateway && go test -v -race ./...)
-          (cd sdk/go/axcp  && go test -v -run Test.*Telemetry)
+          (cd sdk/go && go test -v -run Test.*Telemetry ./axcp/...)
 
       - name: Run Prometheus metrics tests
         run: |
