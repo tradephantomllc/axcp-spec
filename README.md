@@ -84,6 +84,9 @@ You are free to use, modify, and distribute AXCP Core for any purpose, including
 
 See [LICENSE](./LICENSE) for the full license text.
 
+**Trademark:** See [TRADEMARK.md](./TRADEMARK.md) for name and logo usage guidelines.
+
+
 ## AXCP Enterprise
 
 For organizations requiring advanced capabilities, TradePhantom LLC offers commercial tiers:

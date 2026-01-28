@@ -1,12 +1,23 @@
+# =============================================================================
+# AXCP Core CI - Standalone Pipeline
+# =============================================================================
+# This workflow runs the Core test suite independently of Advanced/Enterprise.
+# It validates: Go SDK, Python bindings, Gateway telemetry, Rust SDK, examples.
+#
+# Required checks: "Test Go", "Test Python" (defined in branch protection)
+# =============================================================================
+
 name: AXCP CI
 
 on:
   push:
     branches:
       - main
+      - 'restructure/open-core'
       - 'chore/ci-go-workspaces'
       - 'fix/ci-*'
       - 'feature/21c-*'
+      - 'feat/m4*'
     tags:
       - 'axcp-rs-*'
   pull_request:
@@ -50,9 +61,6 @@ jobs:
 
       - name: Run Go tests
         run: go test -v -race ./...
-        
-      - name: DP budget tests
-        run: go test ./edge/gateway/internal -run BudgetCLI
 
       - name: Metrics histogram tests
         run: go test ./edge/gateway/internal/metrics -run TestHistogramObserve,TestOTELBatching
@@ -104,27 +112,13 @@ jobs:
           python -m pip install -r requirements.txt
           pip install grpcio-tools aioquic protobuf pytest-cov
 
-      # ── mini-mod per sdk/go/dp (serve a TestBudget) ──────────────
-      - name: Init dp module (temp)
-        run: |
-          if [ ! -f sdk/go/dp/go.mod ]; then
-            (cd sdk/go/dp && go mod init github.com/tradephantom/axcp-spec/sdk/go/dp)
-            (cd sdk/go/dp && go mod tidy)
-          fi
-
-      # ── workspace che unisce sdk/go e dp ─────────────────────────
-      - name: Create Go workspace for dp tests
-        run: |
-          go work init ./sdk/go ./sdk/go/dp || true
-          go work use  ./sdk/go ./sdk/go/dp
-
       - name: Generate Python stubs
         run: python -m grpc_tools.protoc -I=proto --python_out=proto proto/axcp.proto
 
       - name: Run Python tests
         env:
           PYTHONPATH: ${{ github.workspace }}
-        run: pytest -q scripts gateway tests/dp
+        run: pytest -q scripts gateway
 
       - name: QUIC RTT micro-bench
         if: ${{ github.actor != 'dependabot[bot]' }}
@@ -326,14 +320,6 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-
-      # ── mini-mod dp (richiesto in caso di import indiretti) ─────
-      - name: Init dp module (temp)
-        run: |
-          if [ ! -f sdk/go/dp/go.mod ]; then
-            (cd sdk/go/dp && go mod init github.com/tradephantom/axcp-spec/sdk/go/dp)
-            (cd sdk/go/dp && go mod tidy)
-          fi
 
       - name: Build simple_chat example
         working-directory: examples/go/simple_chat
