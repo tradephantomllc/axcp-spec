@@ -86,6 +86,7 @@ See [LICENSE](./LICENSE) for the full license text.
 
 **Trademark:** See [TRADEMARK.md](./TRADEMARK.md) for name and logo usage guidelines.
 
+
 ## AXCP Enterprise
 
 For organizations requiring advanced capabilities, TradePhantom LLC offers commercial tiers:
