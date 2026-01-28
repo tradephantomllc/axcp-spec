@@ -3,7 +3,7 @@
 
 package pb
 
-import internal "github.com/tradephantom/axcp-spec/sdk/go/internal/pb"
+import internal "github.com/tradephantomllc/axcp-spec/sdk/go/internal/pb"
 
 // ---- re-export core types we actually use ----
 type (

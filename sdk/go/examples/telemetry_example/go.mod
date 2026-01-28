@@ -4,11 +4,11 @@ go 1.22
 
 require (
 	github.com/quic-go/quic-go v0.40.1
-	github.com/tradephantom/axcp-spec/sdk/go v0.0.0
+	github.com/tradephantomllc/axcp-spec/sdk/go v0.0.0
 )
 
 // Use local version of the SDK
-replace github.com/tradephantom/axcp-spec/sdk/go => ../../..
+replace github.com/tradephantomllc/axcp-spec/sdk/go => ../../..
 
 require (
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
