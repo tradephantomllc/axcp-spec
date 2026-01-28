@@ -24,16 +24,26 @@ It improves on existing agent communication protocols (like MCP, A2A, and ACP) b
 
 > **Privacy & Security**: Differential Privacy, SGX enclaves, mTLS, and PII filtering are available in [AXCP Advanced/Enterprise](#axcp-enterprise) tiers.
 
-## What's New in v0.3
+## Specification
 
-- **Telemetry Datagrams**: Low-latency telemetry data collection with QUIC DATAGRAM extension
-- **Edge Gateway**: Enhanced gateway with telemetry support for edge computing scenarios
-- **Profile Negotiation**: Capability-based profile negotiation for secure connections
-- **Improved Testing**: Comprehensive test suite for telemetry and gateway features
+The authoritative protocol specification is **[AXCP Core Specification v1.0](spec/axcp-v1.0.md)** ("Secure Baseline").
+
+This specification defines:
+- Security profiles (`secure-baseline-v1` for production)
+- DID-based mutual authentication with Ed25519 signatures
+- Replay protection using sequence numbers or nonces
+- Profile negotiation algorithm
+
+## What's New in v1.0
+
+- **Secure Baseline Profile**: Production-ready `secure-baseline-v1` profile with mandatory DID authentication
+- **DID Authentication**: Mutual authentication using Decentralized Identifiers and Ed25519 signatures
+- **Replay Protection**: Built-in replay attack prevention with sliding window or nonce-based modes
+- **Clear Tier Separation**: Core vs Advanced vs Enterprise feature boundaries explicitly defined
 
 ## Telemetry Transport
 
-AXCP v0.3 introduces high-performance telemetry data collection:
+AXCP provides high-performance telemetry data collection:
 
 ### QUIC DATAGRAM Transport
 
@@ -50,10 +60,10 @@ For privacy-preserving metrics collection with Differential Privacy, see **AXCP 
 
 ## Contents
 
-- AXCP v0.3-edge-beta specification (RFC-style)
-- Transport schema and Protobuf IDL  
-- No-code PoC orchestration workflows (Make, n8n)  
-- Benchmark simulations and performance tests  
+- [AXCP Core Specification v1.0](spec/axcp-v1.0.md) (RFC-style)
+- Transport schema and Protobuf IDL (`proto/axcp.proto`)
+- Go SDK with authentication and negotiation (`sdk/go/`)
+- Benchmark simulations and performance tests
 - License: Apache 2.0 (open source)
 
 ## License
