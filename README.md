@@ -11,7 +11,7 @@
 
 *Click to watch the full demo (YouTube, 3 min).*  
 
-> **Quick Start**: see [`docs/quickstart.md`](docs/quickstart.md)
+> **Quick Start**: see [`docs/getting-started.md`](docs/getting-started.md)
 
 AXCP – Adaptive eXchange Context Protocol. An open specification for ultra-efficient AI agent orchestration.
 It improves on existing agent communication protocols (like MCP, A2A, and ACP) by integrating:
@@ -33,6 +33,14 @@ This specification defines:
 - DID-based mutual authentication with Ed25519 signatures
 - Replay protection using sequence numbers or nonces
 - Profile negotiation algorithm
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [Getting Started](docs/getting-started.md) | Installation, setup, and running the authenticated chat example |
+| [Authentication](docs/authentication.md) | DID model, Ed25519 signing, transcript format, replay protection |
+| [Gateway Setup](docs/gateway-setup.md) | Configuring the gateway for Secure Baseline enforcement |
 
 ## What's New in v1.0
 
@@ -76,6 +84,7 @@ See [LICENSE](./LICENSE) for the full license text.
 
 **Trademark:** See [TRADEMARK.md](./TRADEMARK.md) for name and logo usage guidelines.
 
+**Repository Boundary:** This repository (`axcp-spec`) contains only AXCP Core. The Advanced and Enterprise features (Differential Privacy, CRDT sync, mTLS management, PII filtering, compliance reporting) are delivered in separate private repositories and are not included here.
 
 ## AXCP Enterprise
 
