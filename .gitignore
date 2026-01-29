@@ -99,3 +99,7 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+# Internal documentation (local only, not for remote)
+CLAUDE.md
+*.internal.md
