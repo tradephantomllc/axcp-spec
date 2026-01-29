@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 [package]
 name = "axcp-sdk"
-version = "0.3.11-beta"
+version = "0.3.12-beta"
 publish = true
 edition = "2021"
 description = "Rust client SDK for AXCP protocol"
