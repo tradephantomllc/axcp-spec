@@ -1,8 +1,8 @@
 # AXCP Restructuring: Operational Roadmap
 
-**Version:** 1.0
-**Date:** 2026-01-17
-**Status:** APPROVED - Ready for Execution
+**Version:** 2.0
+**Date:** 2026-01-29
+**Status:** APPROVED - In Execution
 **Created by:** PM
 **Execution Team:** Claude Code, Codex CLI, Human Lead
 
@@ -13,6 +13,19 @@
 * Trasformare AXCP Core in "Secure Baseline" sotto Apache 2.0, con confini puliti.
 * Spostare Sync + DP + Compliance in Advanced/Enterprise (commerciale) con dependency direction rigorosa.
 * Arrivare a rilascio Core v1.0.0 (tag) con repo nuovamente pubblica.
+
+---
+
+## Legenda Stati
+
+| Stato | Significato |
+|-------|-------------|
+| **DONE** | Completato e verificato |
+| **IN PROGRESS** | Attualmente in lavorazione |
+| **NEXT** | Prossimo nella sequenza |
+| **PENDING** | Da fare, in attesa di dipendenze |
+| **VERIFY** | Da confermare (non evidenza diretta) |
+| **OPTIONAL** | Separato/non-bloccante per release |
 
 ---
 
@@ -30,347 +43,216 @@
 ## Dipendenze Principali (Ordine Minimo)
 
 ```
-M0 → M1 → M2 → M3 → M4 → (M5 parallelo dopo M4 stabile) → M6 → M7
+M0 → M1 → M2 → M3 → M4 → M6 → M7
+                    ↓
+                   M5 (parallelo, OPTIONAL)
 ```
 
 ---
 
-## M0 — Pre-work Legale + Governance (Blocco Iniziale)
+## A) Governance / Legal / Repo Safety
 
-### Issue M0.1 — Freeze main + repo privata + branch di lavoro
+### M0.1 — Freeze main + branch di lavoro + protezioni
+**Status:** DONE
 
-**Task:**
-- [ ] Impostare main frozen (solo hotfix critici)
-- [ ] Mettere repo privata durante il refactor
-- [ ] Creare branch `restructure/open-core`
-- [ ] Abilitare policy "PR required" sul branch di lavoro (se non già)
+- [x] main protetto
+- [x] Lavoro su `restructure/open-core`
 
-**Acceptance Criteria:**
-- Nessun commit diretto su `restructure/open-core` (solo via PR)
-- Repo privata confermata
+### M0.2 — Licensing switch Core → Apache 2.0
+**Status:** DONE
 
-**Test/CI:**
-- Nessun cambio codice richiesto, solo verifica pipeline esistente
+- [x] LICENSE file updated to Apache 2.0
+- [x] NOTICE file present
 
----
+### M0.3 — Trademark policy minimale
+**Status:** DONE
 
-### Issue M0.2 — Licensing switch (Core → Apache 2.0) + audit compatibilità
-
-**Task:**
-- [ ] Sostituire LICENSE con Apache 2.0
-- [ ] Aggiornare README/CONTRIBUTING/CLA (testo compatibile con Apache 2.0)
-- [ ] Audit dipendenze Core: tutte compatibili con Apache 2.0
-
-**Acceptance Criteria:**
-- Tutti i file legali aggiornati e coerenti
-- Nota di transizione in CHANGELOG
-
-**Test/CI:**
-- CI green invariata
-- (Se avete tooling) job "license-check" o checklist manuale
+- [x] TRADEMARK.md exists
+- [x] Linked in README.md
 
 ---
 
-### Issue M0.3 — Trademark policy minimale
+## B) Core Layout + CI Boundaries (axcp-spec)
 
-**Task:**
-- [ ] Creare TRADEMARK.md (regole base su uso del nome/logo "AXCP")
+### M1.1 — Nuova struttura directory (placeholder, senza spostare codice)
+**Status:** DONE
 
-**Acceptance Criteria:**
-- Documento presente e linkato da README
+- [x] Directory structure reorganized (spec/, sdk/, docs/, etc.)
 
-**Test/CI:**
-- N/A (doc-only)
+### M1.2 — CI aggiornata per nuovo layout (Core standalone)
+**Status:** DONE
 
----
-
-## M1 — Stabilizzazione Layout Repo + CI Boundaries
-
-### Issue M1.1 — Applicare la nuova struttura directory (vuota, senza spostare codice ancora)
-
-**Task:**
-- [ ] Creare le directory finali previste:
-  - `sdk/go/auth`
-  - `sdk/go/negotiate`
-  - `gateway/telemetry`
-  - `docs/*`
-  - `spec/*`
-  - `examples/*`
-- [ ] Lasciare placeholder dove necessario
-
-**Acceptance Criteria:**
-- Repo riflette la struttura finale senza breaking changes
-
-**Test/CI:**
-- Tutti i test attuali passano
+- [x] axcp-spec CI all green
+- [x] Cross-repo integration working
 
 ---
 
-### Issue M1.2 — Aggiornare CI per supportare il nuovo layout (senza logica enterprise)
+## C) Core Secure Baseline (axcp-spec)
 
-**Task:**
-- [ ] Aggiornare path/working-directory dei job se necessari
-- [ ] Garantire: "Core CI runs standalone"
+### M2.1 — Ed25519 signer/verifier in Core
+**Status:** DONE
 
-**Acceptance Criteria:**
-- Pipeline completa verde su `restructure/open-core`
+- [x] `sdk/go/auth/ed25519.go` implemented
 
-**Test/CI:**
-- Tutti i job attuali green
+### M2.2 — DID mutual authentication in Core
+**Status:** DONE
 
----
+- [x] `sdk/go/auth/did.go` implemented
+- [x] Transcript format: `AXCP-DID-AUTH-v1`
 
-## M2 — Core Secure Baseline (Estrazione + Implementazione Auth)
+### M2.3 — Replay protection in Core
+**Status:** DONE
 
-### Issue M2.1 — Portare Ed25519 signer/verifier in Core come package pubblico
+- [x] `sdk/go/auth/replay.go` implemented
+- [x] Sequence + nonce modes supported
 
-**Task:**
-- [ ] Creare `sdk/go/auth/{signer.go,verifier.go}`
-- [ ] Spostare/copiarne il codice "buono" dall'Enterprise (senza trascinare dipendenze enterprise)
-- [ ] Aggiungere unit test minimi (sign/verify, tamper, empty payload)
+### M2.4 — Profile negotiation secure-baseline-v1
+**Status:** DONE
 
-**Acceptance Criteria:**
-- Package `sdk/go/auth` utilizzabile da Core e (in futuro) da Enterprise via import pubblico
-- Nessun uso di internal packages condivisi
-
-**Test/CI:**
-- `go test ./...` green
+- [x] `sdk/go/negotiate/profile.go` implemented
+- [x] `secure-baseline-v1` as production default
+- [x] `transport-only-v0` deprecated
 
 ---
 
-### Issue M2.2 — DID mutual authentication (Core)
+## D) DP fuori dal Core + Split Advanced/Enterprise (multi-repo)
 
-**Task:**
-- [ ] Implementare `sdk/go/auth/did.go` (verifica DID, risoluzione/validazione essenziale, handshake constraints)
-- [ ] Definire interfacce per DID resolver (mockabile) per non legarsi a un provider
-- [ ] Unit test con resolver finto
+### M3.1 — Rimozione DP dal Core (proto/spec/sdk/gateway)
+**Status:** DONE
 
-**Acceptance Criteria:**
-- DID flow verificabile in test senza rete
+- [x] DP lives in axcp-advanced, not in Core
+- [x] Core is Apache 2.0 / public
 
-**Test/CI:**
-- `go test ./...` green
+### M3.x.1 — Creazione repo axcp-advanced
+**Status:** DONE
 
----
+- [x] `github.com/tradephantomllc/axcp-advanced` created
 
-### Issue M2.3 — Replay protection (Core)
+### M3.x.2 — Migrazione DP in axcp-advanced
+**Status:** DONE
 
-**Task:**
-- [ ] Implementare `sdk/go/auth/replay.go` (nonce/sequence window, TTL, cache strategy)
-- [ ] Unit test: replay detect, expiry, window edges
+- [x] DP module in `axcp-advanced/dp/`
+- [x] Tests passing
 
-**Acceptance Criteria:**
-- Rejection deterministica dei replay
+### M3.x.3 — Enterprise rewiring: enterprise importa DP da advanced
+**Status:** DONE
 
-**Test/CI:**
-- `go test ./...` green
+- [x] `axcp-enterprise` imports from `axcp-advanced`
+- [x] PR #4 merged with all checks green
 
----
+### M3.x.4 — Cross-repo CI integration (Core + Advanced)
+**Status:** DONE
 
-### Issue M2.4 — Profile negotiation (Core "Secure Baseline")
+- [x] Enterprise CI checks out axcp-advanced
+- [x] Stack integration tests passing
 
-**Task:**
-- [ ] Implementare `sdk/go/negotiate/profile.go`
-- [ ] Deprecare "Profile-0 transport-only" nel testo spec (non necessariamente rimuovere subito tutto il codice, ma deve risultare non-production)
+### M3.x.5 — Delivery policy GitHub Teams (advanced-customers / enterprise-customers)
+**Status:** PENDING (separato, non-bloccante per release)
 
-**Acceptance Criteria:**
-- Negotiation coperta da unit test
-
-**Test/CI:**
-- `go test ./...` green
+- [ ] GitHub Teams configuration
+- [ ] Stripe → team assignment automation
+- [ ] Revoca e onboarding clienti
 
 ---
 
-## M3 — Rimozione DP dal Core + Pulizia Proto/Spec
+## E) Gateway + Bridging Authenticated (axcp-spec)
 
-### Issue M3.1 — Eliminare qualsiasi riferimento DP dal Core (proto/spec/sdk/gateway)
+### M4.1 — Enforce DID + signature + replay in gateway
+**Status:** DONE
 
-**Task:**
-- [ ] Rimuovere DP refs da `proto/axcp.proto` (o separarle in modo che Core non le compili/usino)
-- [ ] Eliminare/neutralizzare import o codice DP nel gateway Core
+- [x] `gateway: integrate DID + Ed25519 + replay auth verification (M4.1) (#165)`
 
-**Acceptance Criteria:**
-- Core builda e testa senza DP
-- Nessun file DP rimasto nel perimetro Core
+### M4.2 — Hardening bridges + examples authenticated_chat
+**Status:** DONE
 
-**Test/CI:**
-- `go test ./...` green
-- gateway tests green
+- [x] `bridge: add Secure Baseline auth to MCP bridge + authenticated_chat example (M4.2) (#166)`
 
 ---
 
-### Issue M3.2 — Migrazione file DP verso axcp-enterprise (repo privata)
+## F) Spec + Docs (axcp-spec)
 
-**Task:**
-- [ ] Spostare `dp_noise`, `dp_budget`, `config`, `sdk/go/dp`, `tests/dp` nel layout enterprise (`advanced/dp/*`)
-- [ ] Aggiornare import path e moduli (Advanced dipende da Core)
+### M6.1 — Spec v1.0 "Secure Baseline" allineata al Core
+**Status:** DONE
 
-**Acceptance Criteria:**
-- Advanced builda con Core come dependency
+- [x] `spec/axcp-v1.0.md` created
+- [x] Profile negotiation documented
+- [x] DID authentication with transcript format
+- [x] Replay protection semantics
+- [x] Core vs Advanced/Enterprise boundaries defined
+- [x] Old specs (v0.1, v0.2, v0.3) marked as superseded
+- [x] README updated with spec link
+- [x] Commit: `8bc30d3`
 
-**Test/CI:**
-- (Nel repo enterprise) pipeline separata: Core tests + Advanced tests
+### M6.2 — Docs Core (authentication.md, gateway-setup.md, getting-started.md)
+**Status:** NEXT
 
----
-
-## M4 — Gateway Core "Authenticated Bridging"
-
-### Issue M4.1 — Integrare DID + signature verification nel gateway
-
-**Task:**
-- [ ] Enforce: messaggi entranti firmati, verifica Ed25519, replay protection
-- [ ] Gestione errori e retry envelopes (Core)
-
-**Acceptance Criteria:**
-- Gateway rifiuta messaggi non autenticati quando Secure Baseline attivo
-
-**Test/CI:**
-- Test gateway telemetry + integrazione green
+- [ ] Developer Getting Started guide
+- [ ] Architecture diagrams
+- [ ] API reference
+- [ ] Migration guide from v0.x
 
 ---
 
-### Issue M4.2 — Hardening bridging MCP ↔ AXCP ↔ A2A ↔ ACP (Core)
+## G) Release Readiness + Pubblicazione (axcp-spec)
 
-**Task:**
-- [ ] Assicurare che i bridge rispettino negotiation + auth
-- [ ] Aggiornare esempi (`authenticated_chat`)
+### M7.1 — Audit "No enterprise code in Core" + license checks + boundary report
+**Status:** PENDING
 
-**Acceptance Criteria:**
-- Esempio end-to-end funzionante (testabile in CI o come smoke test)
+- [ ] Automated audit script
+- [ ] No DP/sync/compliance in Core
+- [ ] No imports to advanced/enterprise
+- [ ] License headers consistent
+- [ ] Boundary report attached to final PR
 
-**Test/CI:**
-- check examples + eventuale smoke test
+### M7.2 — Merge restructure/open-core → main + repo public + tag v1.0.0
+**Status:** PENDING
 
----
-
-## M5 — Enterprise Repo Re-org (Solo Dopo che Core è Stabile)
-
-### Issue M5.1 — Reorg tri-ai/*
-
-**Task:**
-- [ ] Spostare agenti in:
-  - `tri-ai/gemini-cli-agent`
-  - `tri-ai/codex-cli-agent`
-  - `tri-ai/claude-code-agent`
-
-**Acceptance Criteria:**
-- Build/test enterprise invariati
-
-**Test/CI:**
-- Enterprise pipeline green
+- [ ] Final merge to main
+- [ ] Tag v1.0.0
+- [ ] Changelog updated
+- [ ] Repo made public
 
 ---
 
-### Issue M5.2 — Separazione Advanced vs Enterprise (dp optional vs mandatory + compliance)
+## H) Enterprise Housekeeping (solo dopo Core pronto)
 
-**Task:**
-- [ ] Advanced: sync + optional DP + mTLS + enclaves optional
-- [ ] Enterprise: DP mandatory + audit Merkle + compliance reporting
+### M5.1 — Reorg tri-ai/* (repo enterprise)
+**Status:** OPTIONAL / PENDING
 
-**Acceptance Criteria:**
-- Dependency direction rispettata, moduli separati
+- [ ] Directory reorganization in enterprise repo
 
-**Test/CI:**
-- Advanced pipeline green
-- Enterprise pipeline green
+### M5.2 — Advanced vs Enterprise separazione funzionale
+**Status:** OPTIONAL / PENDING
 
----
-
-## M6 — Spec + Docs (Allineamento Totale al Nuovo Modello)
-
-### Issue M6.1 — Spec v1.0 "Secure Baseline" (unifica Profile 0+1)
-
-**Task:**
-- [ ] Aggiornare `spec/axcp-v1.0.md`: nomenclatura Core/Advanced/Enterprise, deprecazioni chiare
-- [ ] Aggiornare appendix interop
-
-**Acceptance Criteria:**
-- Spec consistente con implementazione Core
-
-**Test/CI:**
-- Doc-only, ma CI green
+- [ ] DP optional (Advanced) vs mandatory (Enterprise)
+- [ ] Compliance features (Enterprise only)
+- [ ] Clear packaging boundaries
 
 ---
 
-### Issue M6.2 — Docs Core: authentication.md + gateway-setup.md + getting-started.md
+## Critical Path to v1.0.0 Release
 
-**Task:**
-- [ ] Documentare: DID auth, signing, replay, negotiation, bridging
+```
+M6.1 (DONE) → M6.2 (NEXT) → M7.1 → M7.2
+```
 
-**Acceptance Criteria:**
-- Percorso "hello world" + "authenticated chat" completo
-
-**Test/CI:**
-- Doc-only, CI green
-
----
-
-## M7 — Release Readiness + Merge Finale
-
-### Issue M7.1 — "No enterprise code in Core" verification
-
-**Task:**
-- [ ] Audit automatico o checklist: nessun file enterprise, nessun ref a DP/sync/compliance
-- [ ] Verifica licenze
-
-**Acceptance Criteria:**
-- Report audit allegato alla PR finale
-
-**Test/CI:**
-- Full CI green
+**Non-blocking items:**
+- M3.x.5 (Teams/Delivery) - can happen post-release
+- M5.1/M5.2 (Enterprise housekeeping) - OPTIONAL
 
 ---
 
-### Issue M7.2 — PR finale: restructure/open-core → main + repo pubblica + tag v1.0.0
+## Impact / Feasibility / TTM Table
 
-**Task:**
-- [ ] Merge su main
-- [ ] Riportare repo pubblica
-- [ ] Tag release v1.0.0 + changelog
-
-**Acceptance Criteria:**
-- Main verde, release taggata, repo pubblica
-
-**Test/CI:**
-- Full CI green post-merge
+| Blocco                            | Impatto | Fattibilità | TTM |
+| --------------------------------- | ------: | ----------: | --: |
+| M6.1 Spec v1.0                    |       9 |           9 |   8 |
+| M6.2 Docs Core                    |       8 |           9 |   8 |
+| M7.1 Audit boundary               |      10 |           8 |   7 |
+| M7.2 Release v1.0.0               |      10 |           8 |   6 |
+| M3.x.5 Delivery Teams             |       7 |           9 |   8 |
+| M5.1/M5.2 Enterprise housekeeping |       6 |           8 |   6 |
 
 ---
 
-## Assegnazione Consigliata (Operativa)
-
-| Ruolo | Responsabilità |
-|-------|----------------|
-| **PM** | Definizione issue, acceptance criteria, review finale PR |
-| **Claude Code** | Implementazione Go (auth, replay, negotiate), update gateway, test fixes |
-| **Codex CLI** | Refactor meccanici, spostamenti file, aggiornamento import, update docs scaffolding, CI YAML |
-| **Human Lead** | Decisioni finali su legal/trademark, merge/branch policy, review sicurezza |
-
----
-
-## Quick Reference: Issue Summary
-
-| Milestone | Issues | Focus |
-|-----------|--------|-------|
-| **M0** | M0.1, M0.2, M0.3 | Legal + Governance |
-| **M1** | M1.1, M1.2 | Repo Layout + CI |
-| **M2** | M2.1, M2.2, M2.3, M2.4 | Core Auth Implementation |
-| **M3** | M3.1, M3.2 | DP Removal + Migration |
-| **M4** | M4.1, M4.2 | Gateway Auth Integration |
-| **M5** | M5.1, M5.2 | Enterprise Reorg |
-| **M6** | M6.1, M6.2 | Spec + Docs |
-| **M7** | M7.1, M7.2 | Release + Go Public |
-
-**Total Issues:** 17
-
----
-
-## Next Steps
-
-1. ✅ Roadmap saved
-2. ⬜ Create issues M0.1–M0.3 (immediate)
-3. ⬜ Create issues M1.1–M1.2 (queue)
-4. ⬜ Begin execution with M0.1
-
----
-
-**Document Status:** APPROVED - Execution Ready
+*Last updated: 2026-01-29 by Claude Code*
