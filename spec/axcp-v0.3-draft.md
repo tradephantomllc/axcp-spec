@@ -1,12 +1,17 @@
 # AXCP v0.3-edge-beta – Adaptive eXchange Context Protocol
 
+> **⚠️ SUPERSEDED**: This document is superseded by **[AXCP Core Specification v1.0](./axcp-v1.0.md)**.
+> New implementations MUST use v1.0. This document is retained for historical reference only.
+
+---
+
 © 2025 TradePhantom LLC – BSL 1.1 / Apache-2.0 fallback
 
 _Work in progress – structure auto-generated._
 
 > This document defines the initial AXCP protocol specification.
 > Version: **0.3-edge-beta**
-> Status: **Draft**
+> Status: **SUPERSEDED by v1.0**
 > Last updated: 2025-05-30
 
 ---

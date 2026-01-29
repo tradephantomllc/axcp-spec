@@ -1,5 +1,32 @@
 # Changelog
 
+## v1.0.0 – 2026-01-29
+
+### AXCP Core v1.0.0 (Secure Baseline)
+
+First stable release of AXCP Core under Apache 2.0 open source license.
+
+### Added
+
+- **Secure Baseline Profile** (`secure-baseline-v1`): Production-ready security profile with mandatory authentication
+- **DID Authentication**: Mutual authentication using Decentralized Identifiers and Ed25519 signatures
+- **Replay Protection**: Built-in replay attack prevention with sliding window or nonce-based modes
+- **Profile Negotiation**: Automatic security profile negotiation between peers
+- **Authenticated Chat Example**: Complete working example demonstrating bidirectional authenticated exchange
+
+### Documentation
+
+- [AXCP Core Specification v1.0](spec/axcp-v1.0.md) - Authoritative protocol specification
+- [Getting Started Guide](docs/getting-started.md) - Installation and quickstart
+- [Authentication Guide](docs/authentication.md) - DID model, Ed25519 signing, replay protection
+- [Gateway Setup Guide](docs/gateway-setup.md) - Gateway configuration for Secure Baseline
+
+### Boundary
+
+Advanced and Enterprise features (Differential Privacy, CRDT sync, mTLS management, PII filtering, compliance reporting) are delivered in separate private repositories and are not included in AXCP Core.
+
+---
+
 ## 0.3-edge-beta – 2025-06-20
 
 ### Added
