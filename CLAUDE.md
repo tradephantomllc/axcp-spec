@@ -145,6 +145,130 @@ The project uses Go workspaces defined in `go.work`:
 - Gateway changes typically require testing with both Go and Python test suites
 - Edge agent development should use the Go workspace for SDK dependencies
 
+---
+
+## 🎯 CURRENT PROJECT STATE (Updated: 2026-01-29)
+
+### Release Status: BLOCKED - Awaiting M7.0 Protocol Proof
+
+**What happened:**
+- M6.1 ✅ Spec v1.0 created (`spec/axcp-v1.0.md`)
+- M6.2 ✅ Documentation created (`docs/getting-started.md`, `docs/authentication.md`, `docs/gateway-setup.md`)
+- M7.1 ✅ Boundary audit passed (`docs/boundary-audit-v1.0.md`)
+- M7.2 ⚠️ PARTIALLY DONE:
+  - PR #170 merged to main ✅
+  - Tag `v1.0.0` created (PREMATURE - should delete and recreate after M7.0)
+  - GitHub Release created (PREMATURE - should delete and recreate after M7.0)
+  - Repo visibility: PRIVATE ✅ (intentionally kept private)
+
+**Why we're blocked:**
+The TRI-AI demos in axcp-enterprise use **HTTP + JWT**, NOT real AXCP (QUIC + Protobuf + DID). Without end-to-end proof that the protocol actually works, releasing v1.0.0 publicly would be premature and potentially damaging to credibility.
+
+**Next step:** Execute M7.0 - AXCP Protocol Proof
+
+### Key Evidence Links
+- PR #170: https://github.com/tradephantomllc/axcp-spec/pull/170
+- Merge commit: `8849e00c646904e7aaa4cf9bf6f4dccd1105d1ec`
+- Tag (premature): `v1.0.0`
+- Main CI (green): https://github.com/tradephantomllc/axcp-spec/actions/runs/21461537895
+- Branch CI (green): https://github.com/tradephantomllc/axcp-spec/actions/runs/21461383424
+
+---
+
+## 📋 M7.0 - AXCP Protocol Proof (NEXT STEP)
+
+### Goal
+Produce **hard proof** that AXCP Core protocol works end-to-end using the real stack:
+- QUIC transport (not HTTP/TCP)
+- Protobuf envelope on the wire (not JSON)
+- Gateway routing/verification in the loop
+- secure-baseline-v1 negotiation + DID auth + Ed25519 signatures + replay protection
+
+### Acceptance Criteria (ALL required)
+1. **Real QUIC connection**: Evidence via qlog or quic-go logs with ConnectionID/ALPN
+2. **Real Protobuf messages**: marshal/unmarshal on AXCP envelope, no JSON
+3. **Complete flow**: negotiation → DID auth → Ed25519 signature → replay protection
+4. **Gateway verification**: Message passes from client → gateway → verified by gateway
+5. **Replay rejection**: Same seq/nonce sent twice → gateway rejects deterministically
+
+### Deliverables
+A) **Runnable smoke tool**: `tools/protocol-smoke/` or `examples/protocol_smoke/`
+   - Single command: `go run ./tools/protocol-smoke`
+
+B) **Smoke test must:**
+   1. Start gateway with QUIC listener on ephemeral port
+   2. Create client identity (Ed25519 + DID) with in-memory resolver
+   3. Run negotiation to secure-baseline-v1
+   4. Send signed Protobuf envelope over QUIC to gateway
+   5. Gateway verifies DID+sig+replay and responds
+   6. Send same seq/nonce again → assert rejection
+
+C) **Proof artifacts:**
+   - qlog files OR explicit QUIC connection state logs
+   - Gateway logs: negotiated profile, signature verified, replay rejected
+
+D) **Documentation:** `docs/protocol-proof.md`
+
+### Step-by-Step Execution Plan
+
+```
+0) Pre-flight
+   git fetch origin
+   git checkout main
+   git pull --ff-only origin main
+
+1) Identify QUIC + gateway entrypoints
+   rg -n "quic|quic-go|ListenAddr" edge/gateway/ sdk/ --type go
+   rg -n "proto.Marshal|proto.Unmarshal" . --type go
+   ls -la examples/go/authenticated_chat/
+
+2) Implement protocol smoke runner
+   - In-process test (fast, deterministic)
+   - Start gateway in goroutine, bind to :0
+   - Client connects over QUIC
+   - Use real AXCP envelope types + proto Marshal/Unmarshal
+   - In-memory DID resolver
+   - Enable qlog or log conn.ConnectionState()
+
+3) Assertions (strict)
+   - Assert profile == "secure-baseline-v1"
+   - Assert transport is QUIC (qlog or conn type)
+   - Assert Protobuf encoding (log marshaled bytes length + sha256)
+   - Assert replay rejection
+
+4) Optional negative control
+   - HTTP request to gateway port should fail
+
+5) Add docs/protocol-proof.md
+
+6) Local validation
+   go test ./...
+   go run ./tools/protocol-smoke
+
+7) Commit + PR
+   Message: "test: add QUIC+Protobuf protocol proof smoke (M7.0)"
+```
+
+### Stop Conditions
+- If gateway does NOT have QUIC listener → STOP and report gap
+- If Protobuf envelope not used at runtime → STOP and report which path uses JSON/HTTP
+
+### After M7.0
+
+**If M7.0 PASSES:**
+1. Delete existing tag: `git push --delete origin v1.0.0 && git tag -d v1.0.0`
+2. Delete existing release via GitHub UI
+3. Recreate tag and release with protocol proof evidence
+4. Proceed to make repo public (when ready for launch)
+
+**If M7.0 FAILS:**
+1. Open issue "Protocol gap: [specific problem]"
+2. Fix the implementation
+3. Re-run M7.0 until it passes
+4. NO release until protocol is proven
+
+---
+
 ## Backup and Recovery Points
 
 ### Available Restore Points
