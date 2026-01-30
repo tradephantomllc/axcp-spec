@@ -1,0 +1,32 @@
+2026/01/30 22:09:13 === AXCP Authenticated Chat Server ===
+2026/01/30 22:09:13 Profile: secure-baseline-v1
+2026/01/30 22:09:13 DID Resolver initialized with 2 identities
+2026/01/30 22:09:13 Server DID: did:key:axcp-auth-chat-server
+2026/01/30 22:09:13 Listening on localhost:61301
+2026/01/30 22:09:24 Client connected
+2026/01/30 22:09:24 [QUIC] Server Connection Established
+2026/01/30 22:09:24 [QUIC]   Local Addr:  127.0.0.1:61301
+2026/01/30 22:09:24 [QUIC]   Remote Addr: 127.0.0.1:57747
+2026/01/30 22:09:24 [QUIC]   ALPN:        axcp-auth-chat
+2026/01/30 22:09:24 [QUIC]   TLS Version: 0x0304
+2026/01/30 22:09:24 [QUIC]   Cipher Suite: 0x1301
+2026/01/30 22:09:24 [PROTOBUF] proto.Unmarshal (received): bytes=260, sha256=4d0dd44e8807d21f272df79523fa5ddb5c01e7682c8cad9cb44284cd589be5fe
+2026/01/30 22:09:24 
+--- Received Envelope ---
+2026/01/30 22:09:24   Version:    1
+2026/01/30 22:09:24   TraceID:    auth-chat-001
+2026/01/30 22:09:24   Profile:    1 (secure-baseline-v1)
+2026/01/30 22:09:24   SenderDID:  did:key:axcp-auth-chat-client
+2026/01/30 22:09:24   RecipientDID: did:key:axcp-auth-chat-server
+2026/01/30 22:09:24   TimestampMs: 1769807364000
+2026/01/30 22:09:24   Sequence:   1
+2026/01/30 22:09:24   Signature:  64 bytes
+2026/01/30 22:09:24 
+--- Verifying Signature ---
+2026/01/30 22:09:24   Signature VALID
+2026/01/30 22:09:24 [PROTOBUF] proto.Marshal (response): bytes=263, sha256=b32e368e48012be3bff9dfbd85f51e3ae30489281b82b6adebcd0bbe4deba9d7
+2026/01/30 22:09:24 
+--- Sent Authenticated Response ---
+2026/01/30 22:09:24   Sequence: 1
+2026/01/30 22:09:24 
+Authentication flow completed successfully!
