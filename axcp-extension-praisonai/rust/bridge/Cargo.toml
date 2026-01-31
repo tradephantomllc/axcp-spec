@@ -7,7 +7,7 @@ version = "0.3.11-beta"
 edition = "2021"
 
 [dependencies]
-prost = "0.12"
+prost = "0.13"
 prost-types = "0.12"
 tool_hook_macro = { path = "../tool_hook_macro" }
 tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
