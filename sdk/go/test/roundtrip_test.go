@@ -4,7 +4,7 @@ import (
   "testing"
 
   "github.com/google/uuid"
-  "github.com/tradephantom/axcp-spec/sdk/go/axcp"
+  "github.com/tradephantomllc/axcp-spec/sdk/go/axcp"
 )
 
 func TestRoundTrip(t *testing.T) {

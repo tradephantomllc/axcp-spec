@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 	"github.com/google/uuid"
-	"github.com/tradephantom/axcp-spec/sdk/go/axcp"
+	"github.com/tradephantomllc/axcp-spec/sdk/go/axcp"
 )
 
 var sample = axcp.NewEnvelope(uuid.NewString(), 1)
