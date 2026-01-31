@@ -4,13 +4,6 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/tradephantomllc/axcp-spec/sdk/go.svg)](https://pkg.go.dev/github.com/tradephantomllc/axcp-spec/sdk/go)
 ![License](https://img.shields.io/badge/license-Apache_2.0-green)
 
-### 🔥 Tri-AI Orchestration Demo  
-<a href="https://youtu.be/j9OzbG62BNY" target="_blank">
-  <img src="docs/img/tri-ai-preview.gif" alt="Tri-AI demo" width="640">
-</a>
-
-*Click to watch the full demo (YouTube, 3 min).*  
-
 > **Quick Start**: see [`docs/getting-started.md`](docs/getting-started.md)
 
 AXCP – Adaptive eXchange Context Protocol. An open specification for ultra-efficient AI agent orchestration.
@@ -86,14 +79,14 @@ See [LICENSE](./LICENSE) for the full license text.
 
 **Repository Boundary:** This repository (`axcp-spec`) contains only AXCP Core. The Advanced and Enterprise features (Differential Privacy, CRDT sync, mTLS management, PII filtering, compliance reporting) are delivered in separate private repositories and are not included here.
 
-## AXCP Enterprise
+## AXCP Advanced & Enterprise
 
 For organizations requiring advanced capabilities, TradePhantom LLC offers commercial tiers:
 
 | Tier | Key Features |
 |------|--------------|
-| **AXCP Advanced** | Context-Sync (CRDT), mTLS certificates, SGX/SEV enclaves, Differential Privacy (optional) |
-| **AXCP Enterprise** | Differential Privacy (mandatory), PII filtering, Compliance reporting (GDPR/HIPAA/SOC2), Audit trails, TRI-AI Orchestration, Dedicated support |
+| **AXCP Advanced** | mTLS with DID-bound certificates, Hardware attestation (SGX/SEV), Rate limiting middleware, Context-Sync (CRDT), Differential Privacy (optional) |
+| **AXCP Enterprise** | Secure telemetry ingestion, Differential Privacy (mandatory), PII filtering & redaction, Compliance reporting (GDPR/HIPAA/SOC2), Ed25519 audit trails, Prometheus & OpenTelemetry metrics |
 
 For licensing inquiries: [licensing@tradephantom.com](mailto:licensing@tradephantom.com)
 
