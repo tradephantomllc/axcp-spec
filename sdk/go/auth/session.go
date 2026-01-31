@@ -238,6 +238,13 @@ func (r *MemoryDIDResolver) AddDID(did string, publicKey ed25519.PublicKey) {
 	}
 }
 
+// RemoveDID removes a DID from the resolver.
+func (r *MemoryDIDResolver) RemoveDID(did string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.docs, did)
+}
+
 // Resolve implements DIDResolver.
 func (r *MemoryDIDResolver) Resolve(ctx context.Context, did string) (*DIDDocument, error) {
 	r.mu.RLock()

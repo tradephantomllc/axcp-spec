@@ -23,6 +23,10 @@ var (
 	ErrNotConnected = errors.New("not connected")
 	// ErrDatagramNotSupported is returned when the server doesn't support QUIC datagrams
 	ErrDatagramNotSupported = errors.New("datagram not supported by server")
+	// ErrMessageTooLarge is returned when a message exceeds the maximum allowed size
+	ErrMessageTooLarge = errors.New("message too large")
+	// ErrDatagramTooLarge is returned when a datagram exceeds the maximum allowed size
+	ErrDatagramTooLarge = errors.New("datagram too large")
 )
 
 // Client represents a QUIC client connection to an AXCP server
