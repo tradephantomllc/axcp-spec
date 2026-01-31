@@ -1,4 +1,4 @@
-module github.com/tradephantom/axcp-spec
+module github.com/tradephantomllc/axcp-spec
 
 go 1.23.4
 
@@ -25,6 +25,6 @@ require (
 	google.golang.org/protobuf v1.36.6 // indirect
 )
 
-replace github.com/tradephantom/axcp-spec/sdk/go/axcp => ./sdk/go/axcp
+replace github.com/tradephantomllc/axcp-spec/sdk/go/axcp => ./sdk/go/axcp
 
-replace github.com/tradephantom/axcp-spec/sdk/go/netquic => ./sdk/go/netquic
+replace github.com/tradephantomllc/axcp-spec/sdk/go/netquic => ./sdk/go/netquic
