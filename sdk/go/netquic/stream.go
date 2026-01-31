@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"io"
 
-	"github.com/tradephantom/axcp-spec/sdk/go/axcp"
+	"github.com/tradephantomllc/axcp-spec/sdk/go/axcp"
 )
 
 func (c *Client) SendEnvelope(env *axcp.Envelope) error {
