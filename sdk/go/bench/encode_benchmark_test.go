@@ -5,7 +5,7 @@ import (
     "path/filepath"
     "testing"
     "google.golang.org/protobuf/proto"
-    pb "github.com/tradephantom/axcp-spec/sdk/go/axcp/pb"
+    pb "github.com/tradephantomllc/axcp-spec/sdk/go/axcp/pb"
 )
 
 func BenchmarkEncode(b *testing.B) {
