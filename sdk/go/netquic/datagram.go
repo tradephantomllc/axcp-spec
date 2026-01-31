@@ -3,8 +3,8 @@ package netquic
 import (
 	"fmt"
 
-	"github.com/tradephantom/axcp-spec/sdk/go/axcp"
-	pb "github.com/tradephantom/axcp-spec/sdk/go/axcp/pb"
+	"github.com/tradephantomllc/axcp-spec/sdk/go/axcp"
+	pb "github.com/tradephantomllc/axcp-spec/sdk/go/axcp/pb"
 	"google.golang.org/protobuf/proto"
 )
 

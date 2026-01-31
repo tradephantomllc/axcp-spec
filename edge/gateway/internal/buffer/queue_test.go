@@ -11,7 +11,7 @@ import (
 
 	bolt "go.etcd.io/bbolt"
 
-	"github.com/tradephantom/axcp-spec/edge/gateway/internal/buffer"
+	"github.com/tradephantomllc/axcp-spec/edge/gateway/internal/buffer"
 )
 
 func TestQueue(t *testing.T) {

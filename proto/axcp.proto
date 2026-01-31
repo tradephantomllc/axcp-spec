@@ -24,7 +24,13 @@ message AxcpEnvelope {
     TelemetryDatagram   telemetry      = 11; // QUIC DATAGRAM
   }
 
-  bytes  signature          = 100; // detached sig (profile ≥1)
+  // Auth fields for Secure Baseline (profile ≥1)
+  string sender_did       = 20;  // sender's DID (e.g., did:key:z...)
+  uint64 timestamp_ms     = 21;  // unix timestamp in milliseconds
+  uint64 sequence         = 22;  // monotonic sequence number for replay protection
+  string recipient_did    = 23;  // optional: intended recipient DID for directed messages
+
+  bytes  signature          = 100; // detached sig over auth transcript (profile ≥1)
   bytes  attestation_proof  = 101; // SGX / SEV quote (profile ≥2)
 }
 
@@ -82,7 +88,8 @@ message CapabilityDescriptor {
   string  resource_hint     = 5;
   repeated string auth_scope = 6;
   string  descriptor_version = 7;
-  DpParams dp               = 8;   // profile ≥3
+  // Field 8 reserved (was: DpParams dp for profile ≥3, moved to Advanced/Enterprise)
+  reserved 8;
 }
 
 /* ─────────────  PROFILE HANDSHAKE (dynamic)  ──────────────────────── */
@@ -125,20 +132,8 @@ message TelemetryDatagram {
   }
 }
 
-/* ─────────────  DIFFERENTIAL-PRIVACY  ─────────────────────────────── */
-
-enum DpMechanism { LAPLACE = 0; GAUSSIAN = 1; }
-
-message DpParams {
-  double        epsilon   = 1;
-  double        delta     = 2;
-  DpMechanism   mech      = 3;
-  double        clip_norm = 4;
-  enum Granularity { RECORD = 0; BATCH = 1; TOKEN = 2; }
-  Granularity   gran      = 5;
-}
-
 /* ─────────────  ERROR HANDLING  ───────────────────────────────────── */
+// Note: Differential Privacy (DP) definitions moved to Advanced/Enterprise proto.
 
 enum ErrorCode {
   UNKNOWN                     = 0;
@@ -151,11 +146,16 @@ enum ErrorCode {
   PAYLOAD_TOO_LARGE           = 7;
   MALFORMED_REQUEST           = 8;
   TOO_MANY_REQUESTS           = 9;
+  // Auth error codes (Secure Baseline)
+  AUTH_SIGNATURE_INVALID      = 10; // Ed25519 signature verification failed
+  AUTH_REPLAY_DETECTED        = 11; // replay attack detected (sequence/nonce reuse)
   PROFILE_MISMATCH            = 12;
   PROFILE_UNSUPPORTED         = 13;
   PROFILE_NEGOTIATION_FAILED  = 14;
   MISSING_PATCH_RANGE         = 15;
-  DP_POLICY_CONFLICT          = 16;
+  // Error code 16 reserved (was: DP_POLICY_CONFLICT, moved to Advanced/Enterprise)
+  AUTH_DID_INVALID            = 17; // sender DID invalid or unresolvable
+  AUTH_TIMESTAMP_EXPIRED      = 18; // timestamp outside acceptable window
 }
 
 message ErrorMessage {

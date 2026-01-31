@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tradephantom/axcp-spec/sdk/go/axcp"
+	"github.com/tradephantomllc/axcp-spec/sdk/go/axcp"
 )
 
 // RetryBufferConfig contiene le configurazioni per il buffer di retry
