@@ -1,12 +1,17 @@
 # AXCP v0.1 – Adaptive eXchange Context Protocol
 
+> **⚠️ SUPERSEDED**: This document is superseded by **[AXCP Core Specification v1.0](./axcp-v1.0.md)**.
+> New implementations MUST use v1.0. This document is retained for historical reference only.
+
+---
+
 © 2025 TradePhantom LLC – BSL 1.1 / Apache-2.0 fallback
 
 _Work in progress – structure auto-generated._
 
-> This document defines the initial AXCP protocol specification.  
-> Version: **v0.1 Draft**  
-> Status: **Exploratory Draft (Do not implement)**  
+> This document defines the initial AXCP protocol specification.
+> Version: **v0.1 Draft**
+> Status: **SUPERSEDED by v1.0**
 > Last updated: {{INSERT_DATE}}
 
 ---
@@ -150,15 +155,15 @@ Enterprise-Privacy
  ✓ 
 |
 |
- Differential-Privacy module        
+ Differential-Privacy module (Enterprise)
 |
- ✗ 
+ ✗
 |
- ✗ 
+ ✗
 |
- optional 
+ ✗
 |
- ✓ 
+ See Enterprise
 |
 |
  Advanced metadata anonymisation    
@@ -377,14 +382,9 @@ The `AxcpEnvelope` may include an `attestation_proof` field for runtime validati
 
 ### 9.2 Differential Privacy Filter
 
-Nodes MAY enable differential privacy (DP) when handling context data.  
-The filter operates on outbound payloads and applies randomized noise based on:
-
-- `ε` (epsilon): privacy budget
-- `δ` (delta): confidence threshold
-- Output sensitivity class (e.g., exact count vs. mean estimate)
-
-The DP module MUST be declared in capability metadata and MUST be tunable per session.
+> **Enterprise Feature:** Differential Privacy (DP) capabilities are available
+> in the AXCP Enterprise Edition. See the [Enterprise documentation](../enterprise/README.md)
+> for details on privacy budget management, noise mechanisms, and parameter negotiation.
 
 ### 9.3 Audit & Logging
 
@@ -460,7 +460,7 @@ _(To be compiled after first pass)_
 (TODO: Define envelope fields for attestation reports, measurement hashes, and enclave identity)
 
 ### 9.2 Differential-Privacy Filter
-(TODO: Specify filter schemas, privacy budgets, and token-based access)
+(See Enterprise Edition for DP capabilities)
 
 ### 9.3 Audit & Logging
 (TODO: Describe tamper-resistant audit trails for envelope usage, including log formats and retention)

@@ -1,12 +1,17 @@
 # AXCP v0.3-edge-beta – Adaptive eXchange Context Protocol
 
+> **⚠️ SUPERSEDED**: This document is superseded by **[AXCP Core Specification v1.0](./axcp-v1.0.md)**.
+> New implementations MUST use v1.0. This document is retained for historical reference only.
+
+---
+
 © 2025 TradePhantom LLC – BSL 1.1 / Apache-2.0 fallback
 
 _Work in progress – structure auto-generated._
 
 > This document defines the initial AXCP protocol specification.
 > Version: **0.3-edge-beta**
-> Status: **Draft**
+> Status: **SUPERSEDED by v1.0**
 > Last updated: 2025-05-30
 
 ---
@@ -18,7 +23,7 @@ _Work in progress – structure auto-generated._
 - [3. Protocol Basics](#3-protocol-basics)
 - [4. Message Types](#4-message-types)
 - [5. Transport Layer](#5-transport-layer)
-- [6. Differential Privacy](#6-differential-privacy)
+- [6. Differential Privacy (Enterprise)](#6-differential-privacy-enterprise)
 - [7. Security Considerations](#7-security-considerations)
 - [8. Error Handling](#8-error-handling)
 - [9. Extensibility](#9-extensibility)
@@ -94,8 +99,8 @@ message NetworkStats {
    - The remaining bytes MUST be a valid `TelemetryDatagram` protobuf message.
 
 2. **Privacy Considerations**:
-   - If the `profile` field is ≥ 3, the receiver SHOULD apply differential privacy noise before processing or forwarding the telemetry data.
-   - The noise parameters (ε, δ) SHOULD be configured according to the privacy requirements of the deployment.
+   - Privacy features (differential privacy noise, budget management) are available in AXCP Enterprise Edition.
+   - See Enterprise documentation for details on privacy-enhanced telemetry processing.
 
 3. **Error Handling**:
    - Malformed datagrams MUST be silently dropped.
@@ -118,7 +123,7 @@ sequenceDiagram
     participant B as Backend
     
     C->>G: QUIC DATAGRAM [0xA0] + TelemetryDatagram
-    G->>G: Apply DP noise if profile ≥ 3
+    G->>G: Process telemetry
     G->>B: MQTT telemetry/edge/{trace_id}
     B-->>G: ACK
     G-->>C: (implicit QUIC ACK)
@@ -128,27 +133,11 @@ sequenceDiagram
 
 - **Authentication**: The QUIC connection MUST be authenticated using TLS 1.3.
 - **Authorization**: Implementations SHOULD verify that clients are authorized to send telemetry data.
-- **Privacy**: When `profile` ≥ 3, differential privacy MUST be applied to protect sensitive metrics.
+- **Privacy**: Privacy-enhanced features are available in AXCP Enterprise Edition.
 - **Integrity**: The QUIC connection provides integrity protection for datagrams.
 
-### 5.9 Differential Privacy Integration
+### 5.9 Differential Privacy Integration (Enterprise)
 
-When processing telemetry datagrams with `profile` ≥ 3, the following differential privacy mechanisms MUST be applied:
-
-1. **CPU Percentage**:
-   - Apply Laplace noise with ε=1.0, δ=1e-5
-   - Sensitivity: 1.0 (1% CPU)
-   - Formula: `noisy_value = value + Laplace(1.0/ε)`
-
-2. **Memory Usage**:
-   - Apply Gaussian noise with ε=1.0, δ=1e-5
-   - Sensitivity: 1% of the value
-   - Formula: `noisy_value = value + Gaussian(0.01*value, σ)`
-   
-   Where σ is calculated based on the privacy budget.
-
-3. **Network Metrics**:
-   - Apply Laplace noise with ε=0.5, δ=1e-5
-   - Sensitivity: 1.0 (1 byte/packet)
-
-Implementations SHOULD use a privacy budget mechanism to prevent privacy loss from repeated queries.
+> **Enterprise Feature:** Differential Privacy (DP) capabilities including noise mechanisms,
+> privacy budget management, and parameter negotiation are available in the AXCP Enterprise Edition.
+> See the [Enterprise documentation](../enterprise/README.md) for implementation details.

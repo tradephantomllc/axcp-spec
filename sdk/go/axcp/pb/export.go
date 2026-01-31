@@ -3,7 +3,7 @@
 
 package pb
 
-import internal "github.com/tradephantom/axcp-spec/sdk/go/internal/pb"
+import internal "github.com/tradephantomllc/axcp-spec/sdk/go/internal/pb"
 
 // ---- re-export core types we actually use ----
 type (
@@ -23,6 +23,7 @@ type (
 	// Context and patch types
 	ContextPatch         = internal.ContextPatch
 	DeltaOp              = internal.DeltaOp
+	DeltaOp_OpType       = internal.DeltaOp_OpType
 	RetryEnvelope        = internal.RetryEnvelope
 	
 	// Profile and routing types
@@ -33,10 +34,6 @@ type (
 	// Error handling
 	ErrorMessage         = internal.ErrorMessage
 	ErrorCode            = internal.ErrorCode
-	
-	// Differential privacy
-	DpParams             = internal.DpParams
-	DpMechanism          = internal.DpMechanism
 )
 
 // Re-export constants
@@ -51,14 +48,20 @@ const (
 	ErrorCode_PAYLOAD_TOO_LARGE           = internal.ErrorCode_PAYLOAD_TOO_LARGE
 	ErrorCode_MALFORMED_REQUEST           = internal.ErrorCode_MALFORMED_REQUEST
 	ErrorCode_TOO_MANY_REQUESTS           = internal.ErrorCode_TOO_MANY_REQUESTS
+	ErrorCode_AUTH_SIGNATURE_INVALID      = internal.ErrorCode_AUTH_SIGNATURE_INVALID
+	ErrorCode_AUTH_REPLAY_DETECTED        = internal.ErrorCode_AUTH_REPLAY_DETECTED
 	ErrorCode_PROFILE_MISMATCH            = internal.ErrorCode_PROFILE_MISMATCH
 	ErrorCode_PROFILE_UNSUPPORTED         = internal.ErrorCode_PROFILE_UNSUPPORTED
 	ErrorCode_PROFILE_NEGOTIATION_FAILED  = internal.ErrorCode_PROFILE_NEGOTIATION_FAILED
 	ErrorCode_MISSING_PATCH_RANGE         = internal.ErrorCode_MISSING_PATCH_RANGE
-	ErrorCode_DP_POLICY_CONFLICT          = internal.ErrorCode_DP_POLICY_CONFLICT
-	
-	DpMechanism_LAPLACE                   = internal.DpMechanism_LAPLACE
-	DpMechanism_GAUSSIAN                  = internal.DpMechanism_GAUSSIAN
+	ErrorCode_AUTH_DID_INVALID            = internal.ErrorCode_AUTH_DID_INVALID
+	ErrorCode_AUTH_TIMESTAMP_EXPIRED      = internal.ErrorCode_AUTH_TIMESTAMP_EXPIRED
+
+	// DeltaOp OpType enum values
+	DeltaOp_ADD     = internal.DeltaOp_ADD
+	DeltaOp_REPLACE = internal.DeltaOp_REPLACE
+	DeltaOp_REMOVE  = internal.DeltaOp_REMOVE
+	DeltaOp_MERGE   = internal.DeltaOp_MERGE
 )
 
 // Re-export oneof wrapper types for AxcpEnvelope
