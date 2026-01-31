@@ -1,4 +1,4 @@
-module github.com/tradephantom/axcp-spec/sdk/go/netquic
+module github.com/tradephantomllc/axcp-spec/sdk/go/netquic
 
 go 1.23.4
 

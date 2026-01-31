@@ -16,8 +16,8 @@ import (
 	"time"
 
 	"github.com/quic-go/quic-go"
-	"github.com/tradephantom/axcp-spec/sdk/go/axcp"
-	"github.com/tradephantom/axcp-spec/sdk/go/netquic"
+	"github.com/tradephantomllc/axcp-spec/sdk/go/axcp"
+	"github.com/tradephantomllc/axcp-spec/sdk/go/netquic"
 )
 
 // generateTLSConfig creates a basic TLS configuration for testing

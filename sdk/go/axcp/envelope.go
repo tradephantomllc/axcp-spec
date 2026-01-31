@@ -1,7 +1,7 @@
 package axcp
 
 import (
-	"github.com/tradephantom/axcp-spec/sdk/go/internal/pb"
+	"github.com/tradephantomllc/axcp-spec/sdk/go/internal/pb"
 )
 
 // Envelope is a minimal façade around the generated AxcpEnvelope.
