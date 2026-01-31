@@ -86,7 +86,7 @@ dependencies = [
  "opentelemetry",
  "opentelemetry-otlp",
  "opentelemetry_sdk",
- "prost 0.12.6",
+ "prost 0.13.5",
  "prost-build",
  "prost-types 0.12.6",
  "pyo3",
