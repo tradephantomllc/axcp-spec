@@ -86,7 +86,7 @@ dependencies = [
  "mockall",
  "mockito",
  "proptest",
- "prost 0.11.9",
+ "prost 0.14.1",
  "prost-types",
  "reqwest",
  "serde",
@@ -1403,11 +1403,11 @@ dependencies = [
 
 [[package]]
 name = "prost-types"
-version = "0.14.1"
+version = "0.11.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b9b4db3d6da204ed77bb26ba83b6122a73aeb2e87e25fbf7ad2e84c4ccbf8f72"
+checksum = "213622a1460818959ac1181aaeb2dc9c7f63df720db7d788b3e24eacd1983e13"
 dependencies = [
- "prost 0.14.1",
+ "prost 0.11.9",
 ]
 
 [[package]]
