@@ -88,7 +88,7 @@ For organizations requiring advanced capabilities, TradePhantom LLC offers comme
 | **AXCP Advanced** | mTLS with DID-bound certificates, Hardware attestation (SGX/SEV), Rate limiting middleware, Context-Sync (CRDT), Differential Privacy (optional) |
 | **AXCP Enterprise** | Secure telemetry ingestion, Differential Privacy (mandatory), PII filtering & redaction, Compliance reporting (GDPR/HIPAA/SOC2), Ed25519 audit trails, Prometheus & OpenTelemetry metrics |
 
-For licensing inquiries: [licensing@tradephantom.com](mailto:licensing@tradephantom.com)
+For licensing inquiries: [enterprise@getaxcp.com](mailto:enterprise@getaxcp.com)
 
 See [docs/licensing/](./docs/licensing/) for detailed licensing information.
 
