@@ -69,7 +69,7 @@ Advanced features require a commercial license from TradePhantom LLC.
 ### How to Get a Commercial License
 
 Contact TradePhantom LLC:
-- Email: licensing@tradephantom.com
+- Email: enterprise@getaxcp.com
 - Website: https://tradephantom.com
 
 ---
