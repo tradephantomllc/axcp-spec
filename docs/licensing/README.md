@@ -30,4 +30,4 @@ AXCP uses a tiered licensing model:
 
 ## Contact
 
-For commercial licensing inquiries: licensing@tradephantom.com
+For commercial licensing inquiries: enterprise@getaxcp.com

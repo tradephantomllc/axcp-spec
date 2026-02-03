@@ -55,10 +55,10 @@
 - TRI-AI Orchestration System
 
 ### Q: Can I evaluate Advanced/Enterprise features before buying?
-**A:** Contact us at licensing@tradephantom.com to discuss evaluation options.
+**A:** Contact us at enterprise@getaxcp.com to discuss evaluation options.
 
 ### Q: How is the commercial license priced?
-**A:** Pricing depends on your use case and scale. Contact licensing@tradephantom.com for a quote.
+**A:** Pricing depends on your use case and scale. Contact enterprise@getaxcp.com for a quote.
 
 ---
 
@@ -91,5 +91,5 @@
 ## Contact
 
 For licensing questions not answered here:
-- Email: licensing@tradephantom.com
+- Email: enterprise@getaxcp.com
 - Website: https://tradephantom.com
