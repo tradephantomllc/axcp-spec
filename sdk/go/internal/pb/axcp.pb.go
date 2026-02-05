@@ -427,7 +427,7 @@ type DeltaOp struct {
 	Op            DeltaOp_OpType         `protobuf:"varint,1,opt,name=op,proto3,enum=axcp.v0_1.DeltaOp_OpType" json:"op,omitempty"`
 	Path          string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"` // JSON Pointer
 	Data          []byte                 `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"` // gz-compressed payload
-	Ts            uint64                 `protobuf:"varint,4,opt,name=ts,proto3" json:"ts,omitempty"`    // lamport / microseconds
+	Ts            uint64                 `protobuf:"varint,4,opt,name=ts,proto3" json:"ts,omitempty"`    // logical timestamp (microseconds)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
