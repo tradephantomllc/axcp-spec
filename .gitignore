@@ -103,3 +103,6 @@ Thumbs.db
 # Internal documentation (local only, not for remote)
 CLAUDE.md
 *.internal.md
+RESTRUCTURING_PLAN.md
+*_PLAN.md
+*_ROADMAP_INTERNAL.md
