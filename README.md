@@ -4,6 +4,10 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/tradephantomllc/axcp-spec/sdk/go.svg)](https://pkg.go.dev/github.com/tradephantomllc/axcp-spec/sdk/go)
 ![License](https://img.shields.io/badge/license-Apache_2.0-green)
 
+## Demo
+
+[![AXCP Demo](https://img.youtube.com/vi/8rw4d-xnWks/maxresdefault.jpg)](https://youtu.be/8rw4d-xnWks)
+
 > **Quick Start**: see [`docs/getting-started.md`](docs/getting-started.md)
 
 AXCP – Adaptive eXchange Context Protocol. An open specification for ultra-efficient AI agent orchestration.
