@@ -353,18 +353,18 @@ Each node is a *Context Segment* (JSON object, max 64 KiB).
 Edges are causal links (`parent_id`).  A graph version is identified by
 `<context_id>:<uint64 version>`.
 
-### 6.2 Delta Patch Format (CRDT-inspired)
+### 6.2 Delta Patch Format
 
 A patch is an **ordered list of `DeltaOp`**:
 
 | Field | Type | Meaning |
 |-------|------|---------|
-| `op`      | enum {ADD, REPLACE, REMOVE, MERGE} | `MERGE` is new: CRDT LWW merge |
+| `op`      | enum {ADD, REPLACE, REMOVE, MERGE} | Operation type |
 | `path`    | JSON-Pointer | segment/key affected |
-| `data`    | bytes (gz)   | payload or CRDT payload |
-| `ts`      | uint64 micros | Lamport timestamp |
+| `data`    | bytes (gz)   | payload |
+| `ts`      | uint64 micros | timestamp |
 
-Conflict resolution: **last-writer-wins** by `(ts, node_id)`.
+> **Note:** Advanced conflict resolution mechanisms are available in AXCP Advanced Edition.
 
 ### 6.3 Subscription / Invalidation
 
