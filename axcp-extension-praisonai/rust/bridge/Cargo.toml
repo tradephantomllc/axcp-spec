@@ -15,7 +15,7 @@ anyhow = "1"
 uuid = { version = "1", features = ["v4"] }
 # OpenTelemetry
 opentelemetry = { version = "0.30", features = ["metrics"] }
-opentelemetry_sdk = { version = "0.30", features = ["metrics", "rt-tokio"] }
+opentelemetry_sdk = { version = "0.31", features = ["metrics", "rt-tokio"] }
 opentelemetry-otlp = { version = "0.30", features = ["grpc-tonic", "metrics"] }
 once_cell = "1"
 tonic = { version = "0.11", features = ["tls"] }
