@@ -71,7 +71,7 @@ jobs:
 
       # ── Upload generated protobuf artifacts for reuse ──────────────
       - name: Upload protobuf artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: go-protobuf-stubs
           path: sdk/go/internal/pb/
