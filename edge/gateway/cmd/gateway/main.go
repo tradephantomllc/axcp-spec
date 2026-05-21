@@ -2,15 +2,19 @@ package main
 
 import (
 	"context"
+	"crypto/ed25519"
+	"encoding/base64"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/tradephantomllc/axcp-spec/edge/gateway/internal"
+	"github.com/tradephantomllc/axcp-spec/sdk/go/auth"
 	"github.com/tradephantomllc/axcp-spec/sdk/go/axcp"
 	pb "github.com/tradephantomllc/axcp-spec/sdk/go/axcp/pb"
 	"github.com/tradephantomllc/axcp-spec/sdk/go/negotiate"
@@ -18,6 +22,73 @@ import (
 )
 
 var BuildVersion = "dev" // overridden at build time with -ldflags "-X main.BuildVersion=<ver>"
+
+type trustedDIDFlag struct {
+	entries map[string]ed25519.PublicKey
+}
+
+func (f *trustedDIDFlag) String() string {
+	if f == nil {
+		return "0 trusted DIDs"
+	}
+	return fmt.Sprintf("%d trusted DIDs", len(f.entries))
+}
+
+func (f *trustedDIDFlag) Set(value string) error {
+	did, rawKey, ok := strings.Cut(value, "=")
+	if !ok || strings.TrimSpace(did) == "" || strings.TrimSpace(rawKey) == "" {
+		return fmt.Errorf("expected format did:key:...=<base64 raw Ed25519 public key>")
+	}
+	if _, err := auth.ParseDID(did); err != nil {
+		return fmt.Errorf("invalid trusted DID %q: %w", did, err)
+	}
+
+	key, err := decodePublicKey(rawKey)
+	if err != nil {
+		return fmt.Errorf("invalid public key for %s: %w", did, err)
+	}
+	if len(key) != ed25519.PublicKeySize {
+		return fmt.Errorf("invalid public key for %s: got %d bytes, want %d", did, len(key), ed25519.PublicKeySize)
+	}
+
+	if f.entries == nil {
+		f.entries = make(map[string]ed25519.PublicKey)
+	}
+	f.entries[did] = ed25519.PublicKey(append([]byte(nil), key...))
+	return nil
+}
+
+func (f *trustedDIDFlag) Len() int {
+	if f == nil {
+		return 0
+	}
+	return len(f.entries)
+}
+
+func (f *trustedDIDFlag) Resolver() *auth.MemoryDIDResolver {
+	resolver := auth.NewMemoryDIDResolver()
+	for did, key := range f.entries {
+		resolver.AddDID(did, key)
+	}
+	return resolver
+}
+
+func decodePublicKey(value string) ([]byte, error) {
+	value = strings.TrimSpace(value)
+	encodings := []*base64.Encoding{
+		base64.StdEncoding,
+		base64.RawStdEncoding,
+		base64.URLEncoding,
+		base64.RawURLEncoding,
+	}
+	for _, enc := range encodings {
+		key, err := enc.DecodeString(value)
+		if err == nil {
+			return key, nil
+		}
+	}
+	return nil, fmt.Errorf("must be standard or URL-safe base64")
+}
 
 func main() {
 	// Parse command line flags
@@ -29,6 +100,7 @@ func main() {
 	var maxRetryInterval time.Duration
 	var secureBaseline bool
 	var serverDID string
+	var trustedDIDs trustedDIDFlag
 
 	flag.StringVar(&addr, "addr", ":7143", "Address to listen on")
 	flag.BoolVar(&enableRetryBuffer, "retry", true, "Enable retry buffer for failed messages")
@@ -38,6 +110,7 @@ func main() {
 	flag.DurationVar(&maxRetryInterval, "retry-max-interval", 5*time.Minute, "Maximum retry interval")
 	flag.BoolVar(&secureBaseline, "secure-baseline", false, "Enable Secure Baseline authentication (DID + Ed25519 + replay protection)")
 	flag.StringVar(&serverDID, "server-did", "", "Server DID for auth transcript binding (required with -secure-baseline)")
+	flag.Var(&trustedDIDs, "trusted-did", "Trusted sender DID and raw Ed25519 public key; repeatable format did:key:...=<base64-public-key>")
 
 	flag.Parse()
 
@@ -69,10 +142,11 @@ func main() {
 			MaxAttempts:      maxRetryAttempts,
 		}
 
-		// Crea il buffer di retry con la funzione di pubblicazione del broker
 		retryBuffer = internal.NewRetryBuffer(&retryConfig, nil, func(env *axcp.Envelope) error {
-			// Qui andrebbe la conversione da axcp.Envelope a pb.AxcpEnvelope
-			return fmt.Errorf("not implemented")
+			if env == nil {
+				return fmt.Errorf("retry envelope is nil")
+			}
+			return broker.Publish(&env.AxcpEnvelope)
 		})
 
 		// Avvia il buffer di retry
@@ -118,13 +192,19 @@ func main() {
 		if serverDID == "" {
 			log.Fatal("--server-did is required when --secure-baseline is enabled")
 		}
+		if _, err := auth.ParseDID(serverDID); err != nil {
+			log.Fatalf("--server-did is invalid: %v", err)
+		}
+		if trustedDIDs.Len() == 0 {
+			log.Fatal("--trusted-did is required at least once when --secure-baseline is enabled")
+		}
 
 		log.Printf("Starting AXCP gateway server %s on %s (Secure Baseline)...", BuildVersion, addr)
 
 		// Initialize authenticator
-		// Note: In production, a real DID resolver would be injected here
+		resolver := trustedDIDs.Resolver()
 		authConfig := internal.DefaultAuthConfig()
-		authenticator, err := internal.NewEnvelopeAuthenticator(nil, serverDID, authConfig, nil)
+		authenticator, err := internal.NewEnvelopeAuthenticator(resolver, serverDID, authConfig, nil)
 		if err != nil {
 			log.Fatalf("Failed to create authenticator: %v", err)
 		}
@@ -157,6 +237,7 @@ func main() {
 			TLSConf:       tlsConf,
 			Profile:       negotiate.ProfileSecureBaseline,
 			Authenticator: authenticator,
+			DIDResolver:   resolver,
 			ServerDID:     serverDID,
 		}
 

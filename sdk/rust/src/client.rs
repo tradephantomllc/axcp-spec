@@ -37,8 +37,10 @@ impl Client {
     /// Sends a batch of telemetry data to the server.
     pub async fn send_telemetry(&self, batch: TelemetryBatch) -> Result<()> {
         let url = format!("{}/api/v1/telemetry", self.inner.config.base_url);
-        
-        let response = self.inner.http_client
+
+        let response = self
+            .inner
+            .http_client
             .post(&url)
             .json(&batch)
             .send()
@@ -47,9 +49,7 @@ impl Client {
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
-            return Err(Error::Server(format!(
-                "Server returned {status}: {body}"
-            )));
+            return Err(Error::Server(format!("Server returned {status}: {body}")));
         }
 
         Ok(())
@@ -124,7 +124,7 @@ mod tests {
     async fn test_send_telemetry() {
         // Start a mock server
         let mut server = Server::new_async().await;
-        
+
         // Create a mock for the telemetry endpoint
         let _m = server
             .mock("POST", "/api/v1/telemetry")
@@ -140,11 +140,11 @@ mod tests {
 
         let client = Client::new(config).unwrap();
         let batch = TelemetryBatch { points: vec![] };
-        
+
         // Send telemetry and verify the result
         let result = client.send_telemetry(batch).await;
         assert!(result.is_ok());
-        
+
         // Verify the mock was called
         _m.assert_async().await;
     }

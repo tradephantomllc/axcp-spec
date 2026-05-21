@@ -113,7 +113,13 @@ func handleConnection(conn *netquic.ServerConnection, serverDID string, serverPr
 		resp.Sequence = 1
 
 		// Sign response
-		transcript := buildTranscript(resp)
+		transcript, err := buildTranscript(resp)
+		if err != nil {
+			log.Printf("Failed to build response auth transcript: %v", err)
+			perr := axcp.ErrMalformedRequest.WithReason("failed to build response auth transcript")
+			_ = conn.SendEnvelope(axcp.NewErrorEnvelope(env.TraceId, serverDID, env.SenderDid, perr))
+			continue
+		}
 		resp.Signature = ed25519.Sign(serverPriv, transcript)
 
 		// Send response
@@ -166,7 +172,10 @@ func runClient(serverAddr string) error {
 		env.Sequence = uint64(i)
 
 		// Sign envelope
-		transcript := buildTranscript(env)
+		transcript, err := buildTranscript(env)
+		if err != nil {
+			return fmt.Errorf("build auth transcript: %w", err)
+		}
 		env.Signature = ed25519.Sign(clientPriv, transcript)
 
 		log.Printf("[%d] Sending: TraceID=%s", i, traceID[:8])
@@ -198,13 +207,7 @@ func runClient(serverAddr string) error {
 	return nil
 }
 
-// buildTranscript creates the signing transcript for an envelope
-func buildTranscript(env *axcp.Envelope) []byte {
-	return []byte(fmt.Sprintf("AXCP-Envelope-v1|%s|%s|%d|%d|%s",
-		env.GetSenderDid(),
-		env.GetRecipientDid(),
-		env.GetTimestampMs(),
-		env.GetSequence(),
-		env.GetTraceId(),
-	))
+// buildTranscript creates the canonical DID auth transcript for an envelope.
+func buildTranscript(env *axcp.Envelope) ([]byte, error) {
+	return axcp.BuildAuthTranscript(env)
 }

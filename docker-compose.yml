@@ -1,11 +1,11 @@
-version: "3.8"
-
 services:
   gateway:
-    build: ./edge/gateway
-    ports: 
+    build:
+      context: .
+      dockerfile: edge/gateway/Dockerfile
+    ports:
       - "7143:7143/udp"
-    depends_on: 
+    depends_on:
       - mosquitto
 
   mosquitto:

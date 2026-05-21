@@ -1,5 +1,5 @@
 //! # AXCP Rust SDK
-//! 
+//!
 //! A Rust implementation of the AXCP client SDK.
 
 #![warn(missing_docs)]
@@ -32,8 +32,10 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub fn init() -> Result<()> {
     // Set up default tracing subscriber
     tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env()
-            .add_directive(tracing::Level::INFO.into()))
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::from_default_env()
+                .add_directive(tracing::Level::INFO.into()),
+        )
         .try_init()
         .map_err(|e| error::Error::Other(e.to_string()))
 }

@@ -1,23 +1,18 @@
+$ErrorActionPreference = "Stop"
+
 $protoc = "protoc"
-$proto_file = "proto/axcp.proto"
-$go_out = "--go_out=paths=source_relative:."
-$go_opt = "--go_opt=module=github.com/tradephantom/axcp-spec"
+$protoDir = "proto"
+$protoFile = "proto/axcp.proto"
+$goOutDir = "sdk/go/internal/pb"
 
-# Clean up existing files
-Remove-Item -Force -Recurse -ErrorAction SilentlyContinue proto/*.pb.go
-Remove-Item -Force -Recurse -ErrorAction SilentlyContinue edge/rpi-agent/internal/pb/*.pb.go
+Write-Host "Generating Go protobuf stubs..."
+New-Item -ItemType Directory -Force -Path $goOutDir | Out-Null
+& $protoc -I $protoDir `
+    --go_out=$goOutDir `
+    --go_opt=paths=source_relative `
+    $protoFile
 
-# Generate Go code
-Write-Host "Generating protobuf files..."
-& $protoc --go_out=paths=source_relative:. --go_opt=Mproto/axcp.proto=github.com/tradephantom/axcp-spec/edge/rpi-agent/internal/pb $proto_file
+Write-Host "Generating Python protobuf stubs..."
+python -m grpc_tools.protoc -I=$protoDir --python_out=$protoDir $protoFile
 
-# Move generated files to the correct location
-$generated_file = "proto/axcp.pb.go"
-if (Test-Path $generated_file) {
-    $target_dir = "edge/rpi-agent/internal/pb"
-    New-Item -ItemType Directory -Force -Path $target_dir | Out-Null
-    Move-Item -Force $generated_file $target_dir
-    Write-Host "Protobuf files generated successfully in $target_dir"
-} else {
-    Write-Error "Failed to generate protobuf files"
-}
+Write-Host "Protobuf files generated successfully."

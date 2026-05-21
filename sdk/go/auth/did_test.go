@@ -86,6 +86,13 @@ func TestParseDID_Invalid(t *testing.T) {
 	}
 }
 
+func TestResolveEd25519PublicKey_MissingResolver(t *testing.T) {
+	_, err := ResolveEd25519PublicKey(context.Background(), nil, "did:example:alice")
+	if err != ErrDIDResolverMissing {
+		t.Fatalf("error = %v, want %v", err, ErrDIDResolverMissing)
+	}
+}
+
 // --- Resolver Tests ---
 
 func TestResolveEd25519PublicKey_Success(t *testing.T) {

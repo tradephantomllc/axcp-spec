@@ -44,7 +44,6 @@ pub enum Error {
     #[error("Server error: {0}")]
     Server(String),
 
-
     /// Represents any other kind of error.
     #[error("Unexpected error: {0}")]
     Other(String),

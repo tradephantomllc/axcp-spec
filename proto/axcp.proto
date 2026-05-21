@@ -1,10 +1,10 @@
-// © 2025 TradePhantom LLC – BSL 1.1 / Apache-2.0 fallback
+// SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
 
 package axcp.v0_1;
 
-option go_package = "github.com/tradephantom/axcp-spec/sdk/go/internal/pb";
+option go_package = "github.com/tradephantomllc/axcp-spec/sdk/go/internal/pb";
 
 /* ─────────────  ENVELOPE  ─────────────────────────────────────────── */
 

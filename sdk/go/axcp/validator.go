@@ -78,8 +78,10 @@ func (v *Validator) ValidateAndVerify(ctx context.Context, env *Envelope) *Proto
 		return v.QuickValidate(env)
 	}
 
-	// Build transcript for signature verification
-	transcript := buildEnvelopeTranscript(env)
+	transcript, err := BuildAuthTranscript(env)
+	if err != nil {
+		return ErrMalformedRequest.WithReason(err.Error())
+	}
 
 	// Use auth validator for full validation with signature verification
 	if err := v.authVal.ValidateAndVerifySignature(ctx, env, transcript); err != nil {
@@ -175,8 +177,13 @@ func (v *Validator) ValidateWithResult(ctx context.Context, env *Envelope) Valid
 		}
 	}
 
-	// Verify signature
-	transcript := buildEnvelopeTranscript(env)
+	transcript, err := BuildAuthTranscript(env)
+	if err != nil {
+		return ValidationResult{
+			Valid: false,
+			Error: ErrMalformedRequest.WithReason(err.Error()),
+		}
+	}
 	if !auth.VerifyEd25519(publicKey, transcript, env.GetSignature()) {
 		return ValidationResult{
 			Valid: false,

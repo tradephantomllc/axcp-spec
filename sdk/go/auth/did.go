@@ -12,16 +12,17 @@ import (
 
 // DID errors
 var (
-	ErrInvalidDIDFormat     = errors.New("auth: invalid DID format, expected did:<method>:<id>")
-	ErrDIDMethodEmpty       = errors.New("auth: DID method cannot be empty")
-	ErrDIDIDEmpty           = errors.New("auth: DID identifier cannot be empty")
-	ErrDIDContainsInvalid   = errors.New("auth: DID contains invalid characters (spaces or control chars)")
-	ErrDIDNotFound          = errors.New("auth: DID not found by resolver")
-	ErrDIDMismatch          = errors.New("auth: resolved document ID does not match requested DID")
-	ErrNoAcceptableKey      = errors.New("auth: no acceptable Ed25519 public key found in DID document")
-	ErrInvalidKeyType       = errors.New("auth: key type not in allowlist")
-	ErrInvalidKeyLength     = errors.New("auth: public key length does not match Ed25519 key size")
-	ErrVerificationFailed   = errors.New("auth: DID auth signature verification failed")
+	ErrInvalidDIDFormat   = errors.New("auth: invalid DID format, expected did:<method>:<id>")
+	ErrDIDMethodEmpty     = errors.New("auth: DID method cannot be empty")
+	ErrDIDIDEmpty         = errors.New("auth: DID identifier cannot be empty")
+	ErrDIDContainsInvalid = errors.New("auth: DID contains invalid characters (spaces or control chars)")
+	ErrDIDNotFound        = errors.New("auth: DID not found by resolver")
+	ErrDIDMismatch        = errors.New("auth: resolved document ID does not match requested DID")
+	ErrNoAcceptableKey    = errors.New("auth: no acceptable Ed25519 public key found in DID document")
+	ErrInvalidKeyType     = errors.New("auth: key type not in allowlist")
+	ErrInvalidKeyLength   = errors.New("auth: public key length does not match Ed25519 key size")
+	ErrVerificationFailed = errors.New("auth: DID auth signature verification failed")
+	ErrDIDResolverMissing = errors.New("auth: DID resolver is not configured")
 )
 
 // Allowed Ed25519 key types for DID documents
@@ -135,6 +136,10 @@ type DIDResolver interface {
 //   - At least one key has an allowed Ed25519 type
 //   - The key length matches ed25519.PublicKeySize (32 bytes)
 func ResolveEd25519PublicKey(ctx context.Context, r DIDResolver, did string) (ed25519.PublicKey, error) {
+	if r == nil {
+		return nil, ErrDIDResolverMissing
+	}
+
 	// Parse and validate DID format
 	parsedDID, err := ParseDID(did)
 	if err != nil {
