@@ -29,7 +29,7 @@ reqwest = { version = "0.11", features = ["json", "stream"] }
 # For WebSocket support
 tokio-tungstenite = { version = "0.19", features = ["native-tls"], optional = true }
 # For configuration
-config = { version = "0.13", optional = true }
+config = { version = "0.15", optional = true }
 # For logging
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
