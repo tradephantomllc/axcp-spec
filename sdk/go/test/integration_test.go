@@ -608,30 +608,11 @@ func TestIntegration_ErrorEnvelope(t *testing.T) {
 	<-serverDone
 }
 
-// buildEnvelopeTranscript builds the transcript for signing/verifying.
-// This must match the format used in axcp.middleware.buildEnvelopeTranscript.
+// buildEnvelopeTranscript builds the canonical transcript for signing/verifying.
 func buildEnvelopeTranscript(env *axcp.Envelope) []byte {
-	if env == nil {
-		return nil
+	transcript, err := axcp.BuildAuthTranscript(env)
+	if err != nil {
+		panic(err)
 	}
-	return []byte("AXCP-Envelope-v1|" +
-		env.GetSenderDid() + "|" +
-		env.GetRecipientDid() + "|" +
-		itoa(env.GetTimestampMs()) + "|" +
-		itoa(env.GetSequence()) + "|" +
-		env.GetTraceId())
-}
-
-func itoa(n uint64) string {
-	if n == 0 {
-		return "0"
-	}
-	var buf [20]byte
-	i := len(buf)
-	for n > 0 {
-		i--
-		buf[i] = byte(n%10) + '0'
-		n /= 10
-	}
-	return string(buf[i:])
+	return transcript
 }

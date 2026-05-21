@@ -35,7 +35,7 @@ jobs:
             cache-key: nightly
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
@@ -46,20 +46,20 @@ jobs:
           components: rustfmt, clippy
 
       - name: Cache cargo registry
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            target
+            sdk/rust/target
           key: ${{ runner.os }}-cargo-${{ matrix.cache-key }}-${{ hashFiles('sdk/rust/**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-${{ matrix.cache-key }}-
 
       # ---------- formatter & clippy solo su stable ----------
-      - name: Format code (auto-fix)
+      - name: Check formatting
         if: matrix.rust == 'stable'
-        run: cargo fmt --all    # NO --check per non bloccare la CI
+        run: cargo fmt --all --check
 
       - name: Run clippy (deny warnings)
         if: matrix.rust == 'stable'
@@ -81,7 +81,7 @@ jobs:
     if: always()                # mostra esito anche se test fallisse
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Install stable Rust
         uses: actions-rs/toolchain@v1
@@ -89,13 +89,6 @@ jobs:
           toolchain: stable
           profile: minimal
           override: true
-
-      # --- dipendenza url mancante -------------------------
-      - name: Ensure crate `url` present
-        run: |
-          if ! grep -qE '^\s*url\s*=' Cargo.toml; then
-            cargo add url@2 --quiet
-          fi
 
       # --- documentazione e dead-links --------------------
       - name: Build docs & check links

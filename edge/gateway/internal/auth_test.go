@@ -314,6 +314,51 @@ func TestEnvelopeAuthenticator_InvalidSignature(t *testing.T) {
 	}
 }
 
+func TestEnvelopeAuthenticator_RecipientDIDMismatch(t *testing.T) {
+	now := time.Now()
+	clock := &mockClock{now: now}
+	config := DefaultAuthConfig()
+
+	pub, priv, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatalf("GenerateKey failed: %v", err)
+	}
+
+	resolver := newMockResolver()
+	senderDID := "did:key:sender123"
+	serverDID := "did:key:server"
+	otherDID := "did:key:other"
+	payload := []byte("payload")
+	resolver.AddKey(senderDID, pub)
+
+	ea, err := NewEnvelopeAuthenticator(resolver, serverDID, config, clock)
+	if err != nil {
+		t.Fatalf("NewEnvelopeAuthenticator failed: %v", err)
+	}
+
+	transcript := auth.BuildDIDAuthTranscript(senderDID, otherDID, payload, now)
+	signature := ed25519.Sign(priv, transcript)
+
+	result := ea.VerifyEnvelope(context.Background(), negotiate.ProfileSecureBaseline, EnvelopeAuth{
+		SenderDID:    senderDID,
+		RecipientDID: otherDID,
+		TimestampMs:  uint64(now.UnixMilli()),
+		Sequence:     1,
+		Signature:    signature,
+		PayloadBytes: payload,
+	})
+
+	if result.Authenticated {
+		t.Error("expected authentication to fail")
+	}
+	if !errors.Is(result.Error, ErrRecipientDIDMismatch) {
+		t.Fatalf("error = %v, want %v", result.Error, ErrRecipientDIDMismatch)
+	}
+	if result.ErrorCode != ErrorCodeAuthDIDInvalid {
+		t.Fatalf("ErrorCode = %d, want %d", result.ErrorCode, ErrorCodeAuthDIDInvalid)
+	}
+}
+
 func TestEnvelopeAuthenticator_DIDNotFound(t *testing.T) {
 	now := time.Now()
 	clock := &mockClock{now: now}

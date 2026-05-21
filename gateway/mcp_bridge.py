@@ -113,6 +113,19 @@ def build_auth_transcript(sender_did: str, recipient_did: str, payload: bytes, t
     return transcript.encode('utf-8')
 
 
+def signing_payload(env: axcp.AxcpEnvelope) -> bytes:
+    """Return the canonical envelope bytes covered by the auth transcript."""
+    env_copy = axcp.AxcpEnvelope()
+    env_copy.CopyFrom(env)
+    env_copy.ClearField('signature')
+    env_copy.ClearField('timestamp_ms')
+    env_copy.ClearField('sequence')
+    env_copy.ClearField('sender_did')
+    env_copy.ClearField('recipient_did')
+    env_copy.ClearField('attestation_proof')
+    return env_copy.SerializeToString(deterministic=True)
+
+
 def sign_envelope(session: BridgeSession, payload: bytes) -> Tuple[bytes, int, int]:
     """
     Sign a payload for secure-baseline profile.
@@ -170,8 +183,7 @@ def mcp_to_axcp(mcp_json: dict, session: Optional[BridgeSession] = None) -> axcp
         if session.remote_did:
             env.recipient_did = session.remote_did
 
-        # Serialize payload for signing (envelope without auth fields)
-        payload = env.SerializeToString()
+        payload = signing_payload(env)
 
         try:
             signature, timestamp_ms, sequence = sign_envelope(session, payload)
@@ -231,17 +243,7 @@ def verify_envelope_signature(env: axcp.AxcpEnvelope, resolver: dict) -> bool:
         print(f"Warning: DID not found in resolver: {env.sender_did}", file=sys.stderr)
         return False
 
-    # Build transcript (need to recreate payload without auth fields)
-    # Note: In practice, the payload bytes would be provided separately
-    # This is a simplified verification that uses the serialized envelope
-    env_copy = axcp.AxcpEnvelope()
-    env_copy.CopyFrom(env)
-    env_copy.ClearField('signature')
-    env_copy.ClearField('timestamp_ms')
-    env_copy.ClearField('sequence')
-    env_copy.ClearField('sender_did')
-    env_copy.ClearField('recipient_did')
-    payload = env_copy.SerializeToString()
+    payload = signing_payload(env)
 
     transcript = build_auth_transcript(
         env.sender_did,

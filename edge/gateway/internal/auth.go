@@ -26,6 +26,9 @@ var (
 
 	// ErrTimestampInFuture indicates the message timestamp is in the future
 	ErrTimestampInFuture = errors.New("auth: timestamp in the future")
+
+	// ErrRecipientDIDMismatch indicates the envelope targets a different gateway DID
+	ErrRecipientDIDMismatch = errors.New("auth: recipient DID does not match gateway DID")
 )
 
 // AuthConfig holds configuration for envelope authentication.
@@ -153,6 +156,13 @@ func (ea *EnvelopeAuthenticator) VerifyEnvelope(ctx context.Context, profile neg
 		return AuthResult{
 			Error:     ErrMissingSignature,
 			ErrorCode: ErrorCodeAuthSignatureInvalid,
+		}
+	}
+
+	if ea.serverDID != "" && envAuth.RecipientDID != "" && envAuth.RecipientDID != ea.serverDID {
+		return AuthResult{
+			Error:     ErrRecipientDIDMismatch,
+			ErrorCode: ErrorCodeAuthDIDInvalid,
 		}
 	}
 

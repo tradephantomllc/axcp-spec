@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"math"
@@ -10,6 +11,8 @@ import (
 
 	"github.com/tradephantomllc/axcp-spec/sdk/go/axcp"
 )
+
+var errRetryPublisherNotConfigured = errors.New("retry buffer publisher is not configured")
 
 // RetryBufferConfig contiene le configurazioni per il buffer di retry
 type RetryBufferConfig struct {
@@ -120,6 +123,14 @@ func NewRetryBuffer(config *RetryBufferConfig, logger Logger, publishFn func(*ax
 		defaultConfig := DefaultRetryBufferConfig()
 		config = &defaultConfig
 	}
+	if logger == nil {
+		logger = NewStandardLogger("[retry-buffer] ")
+	}
+	if publishFn == nil {
+		publishFn = func(*axcp.Envelope) error {
+			return errRetryPublisherNotConfigured
+		}
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -167,11 +178,11 @@ func (rb *RetryBuffer) AddEnvelope(id string, env *axcp.Envelope) error {
 
 	// Crea un nuovo elemento
 	item := &RetryItem{
-		ID:               id,
-		Envelope:         env,
-		CreatedAt:        time.Now(),
-		LastAttempt:      time.Time{}, // Zero time
-		Attempts:         0,
+		ID:                id,
+		Envelope:          env,
+		CreatedAt:         time.Now(),
+		LastAttempt:       time.Time{}, // Zero time
+		Attempts:          0,
 		NextRetryInterval: rb.config.MinRetryInterval,
 	}
 
@@ -199,7 +210,7 @@ func (rb *RetryBuffer) Start() {
 
 	rb.wg.Add(1)
 	go rb.processRetries()
-	
+
 	// Effettua immediatamente un primo tentativo di elaborazione
 	// senza aspettare il ticker, per accelerare i test
 	go rb.retryPendingItems()
@@ -214,10 +225,10 @@ func (rb *RetryBuffer) Stop() {
 
 	// Annulliamo il contesto per tutte le operazioni pendenti
 	rb.cancelFunc()
-	
+
 	// Attendiamo che tutte le goroutine completino
 	rb.wg.Wait()
-	
+
 	// Log di debug
 	if rb.logger != nil {
 		rb.logger.Debug("Retry buffer stopped successfully")
@@ -242,7 +253,7 @@ func (rb *RetryBuffer) processRetries() {
 	if rb.logger != nil {
 		rb.logger.Debug("Retry worker started with interval", "interval_ms", 10)
 	}
-	
+
 	for {
 		select {
 		case <-rb.ctx.Done():
@@ -281,36 +292,33 @@ func (rb *RetryBuffer) processRetryItem(item *RetryItem) {
 	// e lo mantiene fino alla fine della funzione per evitare race condition
 	rb.mutex.Lock()
 	defer rb.mutex.Unlock()
-	
+
 	// Verifichiamo che l'item esista ancora nel buffer
 	// potrebbe essere stato rimosso da un'altra goroutine
 	if _, exists := rb.items[item.ID]; !exists {
 		return
 	}
-	
+
 	// Incrementa il contatore dei tentativi e registra l'ultimo tentativo
 	item.Attempts++
 	item.LastAttempt = time.Now()
-	
+
 	// Creiamo una copia dell'envelope per processarla
 	// senza bloccare il mutex durante la chiamata di rete
 	envelopeCopy := item.Envelope
-	
+
 	// Rilascia il mutex durante l'operazione di pubblicazione
 	rb.mutex.Unlock()
-	
+
 	// Prova a pubblicare l'envelope
 	err := rb.publishFn(envelopeCopy)
-	
+
 	// Riacquisisce il mutex per il resto della funzione
 	rb.mutex.Lock()
 
 	// Se la pubblicazione è riuscita, rimuovi l'elemento dal buffer
 	if err == nil {
 		rb.removeItemLocked(item.ID)
-		if rb.logger == nil {
-			rb.logger = NewStandardLogger("[retry-buffer] ")
-		}
 		rb.logger.Debug("Retry successful, removed from buffer", "id", item.ID, "attempts", item.Attempts)
 
 		if rb.metrics != nil {
@@ -328,8 +336,8 @@ func (rb *RetryBuffer) processRetryItem(item *RetryItem) {
 	// Se abbiamo raggiunto il numero massimo di tentativi, rimuovi l'elemento
 	if item.Attempts >= rb.config.MaxAttempts {
 		rb.removeItemLocked(item.ID)
-		rb.logger.Warn("Max retry attempts reached, dropped from buffer", 
-			"id", item.ID, 
+		rb.logger.Warn("Max retry attempts reached, dropped from buffer",
+			"id", item.ID,
 			"max_attempts", rb.config.MaxAttempts,
 			"error", err)
 
@@ -341,9 +349,9 @@ func (rb *RetryBuffer) processRetryItem(item *RetryItem) {
 	}
 
 	// Calcola il prossimo intervallo di retry con backoff esponenziale
-	nextInterval := time.Duration(float64(rb.config.MinRetryInterval) * 
+	nextInterval := time.Duration(float64(rb.config.MinRetryInterval) *
 		math.Pow(rb.config.BackoffFactor, float64(item.Attempts-1)))
-	
+
 	// Limita l'intervallo massimo
 	if nextInterval > rb.config.MaxRetryInterval {
 		nextInterval = rb.config.MaxRetryInterval
@@ -355,9 +363,9 @@ func (rb *RetryBuffer) processRetryItem(item *RetryItem) {
 		rb.metrics.RecordRetryDelay(rb.ctx, nextInterval.Seconds())
 	}
 
-	rb.logger.Debug("Retry failed, scheduled next attempt", 
-		"id", item.ID, 
-		"attempts", item.Attempts, 
+	rb.logger.Debug("Retry failed, scheduled next attempt",
+		"id", item.ID,
+		"attempts", item.Attempts,
 		"next_interval", nextInterval,
 		"error", err)
 }

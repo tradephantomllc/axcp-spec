@@ -11,7 +11,7 @@ This example demonstrates how to use the AXCP telemetry functionality to send an
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/tradephantom/axcp-spec.git
+   git clone https://github.com/tradephantomllc/axcp-spec.git
    cd axcp-spec/sdk/go/examples/telemetry_example
    ```
 

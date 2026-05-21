@@ -3,12 +3,12 @@
 [package]
 name = "axcp-rs"
 version = "0.3.0"
-authors = ["AXCP Team"]
+authors = ["TradePhantom LLC"]
 edition = "2021"
 description = "Rust implementation of AXCP protocol"
 license = "Apache-2.0"
 license-file = "../../../LICENSE"
-repository = "https://github.com/tradephantom/axcp-spec"
+repository = "https://github.com/tradephantomllc/axcp-spec"
 
 [dependencies]
 # Core dependencies

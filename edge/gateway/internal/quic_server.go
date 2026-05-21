@@ -3,13 +3,25 @@ package internal
 import (
 	"context"
 	"crypto/tls"
+	"encoding/binary"
+	"errors"
+	"fmt"
+	"io"
 	"log"
 
 	"github.com/quic-go/quic-go"
 	"github.com/tradephantomllc/axcp-spec/sdk/go/auth"
-	"github.com/tradephantomllc/axcp-spec/sdk/go/negotiate"
+	"github.com/tradephantomllc/axcp-spec/sdk/go/axcp"
 	pb "github.com/tradephantomllc/axcp-spec/sdk/go/axcp/pb"
+	"github.com/tradephantomllc/axcp-spec/sdk/go/negotiate"
 	"google.golang.org/protobuf/proto"
+)
+
+const maxEnvelopeBytes = 10 * 1024 * 1024
+
+var (
+	errEnvelopeFrameEmpty    = errors.New("empty AXCP envelope frame")
+	errEnvelopeFrameTooLarge = errors.New("AXCP envelope frame exceeds maximum size")
 )
 
 // EnvelopeHandler gestisce i messaggi AXCP in arrivo
@@ -68,7 +80,19 @@ func RunQuicServer(addr string, tlsConf *tls.Config, h EnvelopeHandler, dgram Te
 				// Gestisci lo stream in una goroutine separata
 				go func(s quic.Stream) {
 					defer s.Close()
-					// TODO: Implementa la gestione del messaggio AXCP
+					for {
+						env, err := readFramedEnvelope(s)
+						if err != nil {
+							if !errors.Is(err, io.EOF) {
+								log.Printf("[quic] errore lettura envelope: %v", err)
+								sendErrorResponse(s, uint32(pb.ErrorCode_MALFORMED_REQUEST), err.Error())
+							}
+							return
+						}
+						if h != nil {
+							h(env)
+						}
+					}
 				}(stream)
 			}
 		}(conn)
@@ -89,7 +113,9 @@ func RunQuicServer(addr string, tlsConf *tls.Config, h EnvelopeHandler, dgram Te
 						// Log per debug con informazioni di base sul datagramma di telemetria
 						timestamp := td.GetTimestampMs()
 						log.Printf("[quic] ricevuto datagramma telemetria, timestamp: %d", timestamp)
-						dgram(&td)
+						if dgram != nil {
+							dgram(&td)
+						}
 					} else {
 						log.Printf("[quic] errore unmarshal telemetria: %v", err)
 					}
@@ -142,7 +168,9 @@ func RunAuthenticatedQuicServer(config ServerConfig, h AuthenticatedEnvelopeHand
 					var td pb.TelemetryDatagram
 					if err := proto.Unmarshal(data[1:], &td); err == nil {
 						log.Printf("[quic] received telemetry datagram, timestamp: %d", td.GetTimestampMs())
-						dgram(&td)
+						if dgram != nil {
+							dgram(&td)
+						}
 					} else {
 						log.Printf("[quic] telemetry unmarshal error: %v", err)
 					}
@@ -156,54 +184,57 @@ func RunAuthenticatedQuicServer(config ServerConfig, h AuthenticatedEnvelopeHand
 func handleAuthenticatedStream(s quic.Stream, config ServerConfig, h AuthenticatedEnvelopeHandler) {
 	defer s.Close()
 
-	// Read the envelope from stream
-	// TODO: Implement proper length-prefixed reading
-	buf := make([]byte, 64*1024) // 64KB max envelope size
-	n, err := s.Read(buf)
-	if err != nil {
-		log.Printf("[quic] stream read error: %v", err)
-		return
-	}
-
-	var env pb.AxcpEnvelope
-	if err := proto.Unmarshal(buf[:n], &env); err != nil {
-		log.Printf("[quic] envelope unmarshal error: %v", err)
-		sendErrorResponse(s, uint32(pb.ErrorCode_MALFORMED_REQUEST), "invalid envelope format")
-		return
-	}
-
-	// Authenticate if authenticator is configured
-	var authResult AuthResult
-	if config.Authenticator != nil {
-		envAuth := EnvelopeAuth{
-			SenderDID:    env.GetSenderDid(),
-			RecipientDID: env.GetRecipientDid(),
-			TimestampMs:  env.GetTimestampMs(),
-			Sequence:     env.GetSequence(),
-			Signature:    env.GetSignature(),
-			PayloadBytes: buf[:n], // Use serialized envelope as payload
-		}
-
-		authResult = config.Authenticator.VerifyEnvelope(context.Background(), config.Profile, envAuth)
-
-		if !authResult.Authenticated {
-			log.Printf("[quic] auth failed for envelope trace_id=%s: %v", env.GetTraceId(), authResult.Error)
-			sendErrorResponse(s, authResult.ErrorCode, authResult.Error.Error())
+	for {
+		env, err := readFramedEnvelope(s)
+		if err != nil {
+			if !errors.Is(err, io.EOF) {
+				log.Printf("[quic] envelope read error: %v", err)
+				sendErrorResponse(s, uint32(pb.ErrorCode_MALFORMED_REQUEST), err.Error())
+			}
 			return
 		}
-	} else if negotiate.IsSecureProfile(config.Profile) {
-		// No authenticator but secure profile required
-		log.Printf("[quic] auth required but no authenticator configured")
-		sendErrorResponse(s, uint32(pb.ErrorCode_UNAUTHORIZED), "authentication required")
-		return
-	}
 
-	// Call handler with authenticated envelope
-	h(&env, &authResult)
+		// Authenticate if authenticator is configured
+		var authResult AuthResult
+		if config.Authenticator != nil {
+			payloadBytes, err := axcp.SigningPayloadFromProto(env)
+			if err != nil {
+				log.Printf("[quic] signing payload build error: %v", err)
+				sendErrorResponse(s, uint32(pb.ErrorCode_MALFORMED_REQUEST), err.Error())
+				return
+			}
+
+			envAuth := EnvelopeAuth{
+				SenderDID:    env.GetSenderDid(),
+				RecipientDID: env.GetRecipientDid(),
+				TimestampMs:  env.GetTimestampMs(),
+				Sequence:     env.GetSequence(),
+				Signature:    env.GetSignature(),
+				PayloadBytes: payloadBytes,
+			}
+
+			authResult = config.Authenticator.VerifyEnvelope(context.Background(), config.Profile, envAuth)
+
+			if !authResult.Authenticated {
+				log.Printf("[quic] auth failed for envelope trace_id=%s: %v", env.GetTraceId(), authResult.Error)
+				sendErrorResponse(s, authResult.ErrorCode, authResult.Error.Error())
+				return
+			}
+		} else if negotiate.IsSecureProfile(config.Profile) {
+			// No authenticator but secure profile required
+			log.Printf("[quic] auth required but no authenticator configured")
+			sendErrorResponse(s, uint32(pb.ErrorCode_UNAUTHORIZED), "authentication required")
+			return
+		}
+
+		if h != nil {
+			h(env, &authResult)
+		}
+	}
 }
 
 // sendErrorResponse writes an error envelope response to the stream
-func sendErrorResponse(s quic.Stream, code uint32, reason string) {
+func sendErrorResponse(w io.Writer, code uint32, reason string) {
 	errEnv := &pb.AxcpEnvelope{
 		Version: 1,
 		Payload: &pb.AxcpEnvelope_Error{
@@ -214,13 +245,56 @@ func sendErrorResponse(s quic.Stream, code uint32, reason string) {
 		},
 	}
 
-	data, err := proto.Marshal(errEnv)
-	if err != nil {
-		log.Printf("[quic] failed to marshal error response: %v", err)
-		return
-	}
-
-	if _, err := s.Write(data); err != nil {
+	if err := writeFramedEnvelope(w, errEnv); err != nil {
 		log.Printf("[quic] failed to write error response: %v", err)
 	}
+}
+
+func readFramedEnvelope(r io.Reader) (*pb.AxcpEnvelope, error) {
+	var lenBuf [4]byte
+	if _, err := io.ReadFull(r, lenBuf[:]); err != nil {
+		return nil, err
+	}
+
+	frameLen := binary.LittleEndian.Uint32(lenBuf[:])
+	if frameLen == 0 {
+		return nil, errEnvelopeFrameEmpty
+	}
+	if frameLen > maxEnvelopeBytes {
+		return nil, fmt.Errorf("%w: %d > %d", errEnvelopeFrameTooLarge, frameLen, maxEnvelopeBytes)
+	}
+
+	buf := make([]byte, frameLen)
+	if _, err := io.ReadFull(r, buf); err != nil {
+		return nil, err
+	}
+
+	var env pb.AxcpEnvelope
+	if err := proto.Unmarshal(buf, &env); err != nil {
+		return nil, fmt.Errorf("invalid envelope format: %w", err)
+	}
+
+	return &env, nil
+}
+
+func writeFramedEnvelope(w io.Writer, env *pb.AxcpEnvelope) error {
+	if env == nil {
+		return errors.New("cannot write nil AXCP envelope")
+	}
+
+	data, err := proto.MarshalOptions{Deterministic: true}.Marshal(env)
+	if err != nil {
+		return err
+	}
+	if len(data) > maxEnvelopeBytes {
+		return fmt.Errorf("%w: %d > %d", errEnvelopeFrameTooLarge, len(data), maxEnvelopeBytes)
+	}
+
+	var lenBuf [4]byte
+	binary.LittleEndian.PutUint32(lenBuf[:], uint32(len(data)))
+	if _, err := w.Write(lenBuf[:]); err != nil {
+		return err
+	}
+	_, err = w.Write(data)
+	return err
 }

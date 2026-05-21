@@ -66,11 +66,7 @@ impl TelemetryClient {
     }
 
     /// Records a metric with the given name and value.
-    pub async fn record_metric(
-        &self,
-        metric: impl Into<String>,
-        value: f64,
-    ) -> Result<()> {
+    pub async fn record_metric(&self, metric: impl Into<String>, value: f64) -> Result<()> {
         let data = TelemetryBuilder::new(metric, value).build();
         self.client.telemetry().record(data).await
     }

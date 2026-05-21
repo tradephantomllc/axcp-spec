@@ -47,6 +47,7 @@ go.work
 # Binari e file eseguibili
 /bin/
 **/bin/
+examples/go/**/simple_chat
 *.exe
 *.exe~
 *.dll
@@ -77,9 +78,17 @@ debug/
 .DS_Store
 Thumbs.db
 
+# Python
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+**/.pytest_cache/
+
 # Build artifacts
 /target/
 **/target/
+out/
 
 # Crate packages
 **/target/package/

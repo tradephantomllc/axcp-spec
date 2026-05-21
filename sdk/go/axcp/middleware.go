@@ -172,9 +172,10 @@ func SignatureValidationMiddleware(resolver auth.DIDResolver) Middleware {
 				return nil, fmt.Errorf("failed to resolve sender public key: %w", err)
 			}
 
-			// Build transcript for envelope verification
-			// Envelope transcript includes: sender, recipient, timestamp, sequence, trace_id
-			transcript := buildEnvelopeTranscript(req)
+			transcript, err := BuildAuthTranscript(req)
+			if err != nil {
+				return nil, fmt.Errorf("failed to build auth transcript: %w", err)
+			}
 
 			if !auth.VerifyEd25519(publicKey, transcript, signature) {
 				return nil, auth.ErrVerificationFailed
@@ -185,22 +186,13 @@ func SignatureValidationMiddleware(resolver auth.DIDResolver) Middleware {
 	}
 }
 
-// buildEnvelopeTranscript builds the transcript for signing/verifying an envelope.
-// The transcript is a deterministic byte representation of the envelope's key fields.
+// buildEnvelopeTranscript builds the canonical auth transcript for an envelope.
 func buildEnvelopeTranscript(env *Envelope) []byte {
-	if env == nil {
+	transcript, err := BuildAuthTranscript(env)
+	if err != nil {
 		return nil
 	}
-
-	// Build transcript from key fields:
-	// "AXCP-Envelope-v1|sender|recipient|timestamp|sequence|trace_id"
-	return []byte(fmt.Sprintf("AXCP-Envelope-v1|%s|%s|%d|%d|%s",
-		env.GetSenderDid(),
-		env.GetRecipientDid(),
-		env.GetTimestampMs(),
-		env.GetSequence(),
-		env.GetTraceId(),
-	))
+	return transcript
 }
 
 // TimeoutMiddleware adds a timeout to handler execution.

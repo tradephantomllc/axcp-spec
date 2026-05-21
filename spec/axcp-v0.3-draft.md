@@ -5,7 +5,7 @@
 
 ---
 
-© 2025 TradePhantom LLC – BSL 1.1 / Apache-2.0 fallback
+SPDX-License-Identifier: Apache-2.0
 
 _Work in progress – structure auto-generated._
 
@@ -140,4 +140,4 @@ sequenceDiagram
 
 > **Enterprise Feature:** Differential Privacy (DP) capabilities including noise mechanisms,
 > privacy budget management, and parameter negotiation are available in the AXCP Enterprise Edition.
-> See the [Enterprise documentation](../enterprise/README.md) for implementation details.
+> Implementation details live in the private Enterprise repository, not in AXCP Core.

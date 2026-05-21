@@ -2,13 +2,13 @@
 [package]
 name = "axcp-sdk"
 version = "0.3.12-beta"
-publish = true
+publish = false
 edition = "2021"
-description = "Rust client SDK for AXCP protocol"
+description = "Rust telemetry adapter for AXCP Core experiments"
 license-file = "../../LICENSE"
-authors = ["AXCP Team"]
-repository = "https://github.com/tradephantom/axcp-spec"
-documentation = "https://docs.rs/axcp-rs"
+authors = ["TradePhantom LLC"]
+repository = "https://github.com/tradephantomllc/axcp-spec"
+documentation = "https://github.com/tradephantomllc/axcp-spec/tree/main/sdk/rust"
 readme = "README.md"
 keywords = ["axcp", "network", "protocol", "telemetry", "iot"]
 categories = ["network-programming", "api-bindings"]

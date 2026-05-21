@@ -15,20 +15,6 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 2
 
-  # --- Cargo (PraisonAI bridge crate) ---
-  - package-ecosystem: "cargo"
-    directory: "/axcp-extension-praisonai/rust/bridge"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 2
-
-  # --- Cargo (PraisonAI macro crate) ---
-  - package-ecosystem: "cargo"
-    directory: "/axcp-extension-praisonai/rust/tool_hook_macro"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 2
-
   # --- Cargo (legacy v0.3 crate) ---
   - package-ecosystem: "cargo"
     directory: "/v0.3/rust/axcp-rs"

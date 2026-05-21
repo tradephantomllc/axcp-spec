@@ -5,7 +5,7 @@
 
 ---
 
-© 2025 TradePhantom LLC – BSL 1.1 / Apache-2.0 fallback
+SPDX-License-Identifier: Apache-2.0
 
 _Work in progress – structure auto-generated._
 
@@ -508,8 +508,8 @@ The `AxcpEnvelope` may include an `attestation_proof` field for runtime validati
 ### 9.2 Differential Privacy Filter
 
 > **Enterprise Feature:** Differential Privacy (DP) capabilities are available
-> in the AXCP Enterprise Edition. See the [Enterprise documentation](../enterprise/README.md)
-> for details on privacy budget management, noise mechanisms, and parameter negotiation.
+> in the AXCP Enterprise Edition. Implementation details live in the private
+> Enterprise repository, not in AXCP Core.
 
 
 ### 9.3 Audit & Logging

@@ -70,15 +70,15 @@ var (
 	ErrMissingPatchRange = &ProtocolError{Code: pb.ErrorCode_MISSING_PATCH_RANGE}
 
 	// Authentication errors
-	ErrAuthSignatureInvalid  = &ProtocolError{Code: pb.ErrorCode_AUTH_SIGNATURE_INVALID}
-	ErrAuthReplayDetected    = &ProtocolError{Code: pb.ErrorCode_AUTH_REPLAY_DETECTED}
-	ErrAuthDIDInvalid        = &ProtocolError{Code: pb.ErrorCode_AUTH_DID_INVALID}
-	ErrAuthTimestampExpired  = &ProtocolError{Code: pb.ErrorCode_AUTH_TIMESTAMP_EXPIRED}
+	ErrAuthSignatureInvalid = &ProtocolError{Code: pb.ErrorCode_AUTH_SIGNATURE_INVALID}
+	ErrAuthReplayDetected   = &ProtocolError{Code: pb.ErrorCode_AUTH_REPLAY_DETECTED}
+	ErrAuthDIDInvalid       = &ProtocolError{Code: pb.ErrorCode_AUTH_DID_INVALID}
+	ErrAuthTimestampExpired = &ProtocolError{Code: pb.ErrorCode_AUTH_TIMESTAMP_EXPIRED}
 
 	// Profile negotiation errors
-	ErrProfileMismatch      = &ProtocolError{Code: pb.ErrorCode_PROFILE_MISMATCH}
-	ErrProfileUnsupported   = &ProtocolError{Code: pb.ErrorCode_PROFILE_UNSUPPORTED}
-	ErrProfileNegFailed     = &ProtocolError{Code: pb.ErrorCode_PROFILE_NEGOTIATION_FAILED}
+	ErrProfileMismatch    = &ProtocolError{Code: pb.ErrorCode_PROFILE_MISMATCH}
+	ErrProfileUnsupported = &ProtocolError{Code: pb.ErrorCode_PROFILE_UNSUPPORTED}
+	ErrProfileNegFailed   = &ProtocolError{Code: pb.ErrorCode_PROFILE_NEGOTIATION_FAILED}
 )
 
 // NewProtocolError creates a new ProtocolError with the given code and reason.
@@ -169,6 +169,8 @@ func ToProtocolError(err error) *ProtocolError {
 		return ErrMalformedRequest.WithReason("wrong recipient")
 	case errors.Is(err, auth.ErrSenderMissing):
 		return ErrAuthDIDInvalid.WithReason("sender missing")
+	case errors.Is(err, auth.ErrDIDResolverMissing):
+		return ErrAuthDIDInvalid.WithReason("DID resolver missing")
 	case errors.Is(err, auth.ErrDIDNotFound):
 		return ErrAuthDIDInvalid.WithReason("DID not found")
 	case errors.Is(err, auth.ErrEnvelopeNil):
