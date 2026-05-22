@@ -20,6 +20,7 @@ from axcp.profile import (
 )
 from axcp.replay import ReplayProtector
 from axcp.timestamp import TimestampValidator, now_ms
+from axcp.transport import QuicClient, QuicClientConfig, QuicServer, QuicServerConfig
 
 __all__ = [
     "Agent",
@@ -31,6 +32,10 @@ __all__ = [
     "InMemoryDIDResolver",
     "Profile",
     "PublicKeyRecord",
+    "QuicClient",
+    "QuicClientConfig",
+    "QuicServer",
+    "QuicServerConfig",
     "ReplayProtector",
     "ServerHello",
     "TimestampValidator",

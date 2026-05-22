@@ -11,9 +11,8 @@ This package covers the application-layer security surface:
 - timestamp validation
 - sequence replay protection
 - Secure Baseline profile negotiation
-
-QUIC transport is intentionally out of scope for Phase 1 and will be added as
-a separate transport package once the core envelope contract is stable.
+- async QUIC stream transport with AXCP envelope framing
+- QUIC DATAGRAM helpers for telemetry-sized payloads
 
 ## Install locally
 
@@ -38,6 +37,33 @@ env.context_patch.CopyFrom(
 alice.sign_message(env, recipient_did=bob.identity.did)
 bob.verify(env)
 ```
+
+## QUIC transport
+
+The transport module uses `aioquic` and preserves the Go SDK framing contract:
+
+- `send_message` / `receive_message`: 4-byte big-endian length prefix
+- `send_envelope` / `receive_envelope`: 4-byte little-endian length prefix
+- `send_datagram` / `receive_datagram`: QUIC DATAGRAM payloads without stream framing
+
+Minimal client usage:
+
+```python
+from axcp import QuicClient, QuicClientConfig
+
+client = await QuicClient.connect(
+    QuicClientConfig(host="127.0.0.1", port=61300, server_name="localhost")
+)
+try:
+    await client.send_envelope(env)
+    reply = await client.receive_envelope()
+finally:
+    await client.close()
+```
+
+Certificate verification is enabled by default. Use `ca_file` for private CA
+deployments. `insecure_skip_verify=True` is available only for explicit local
+development and tests.
 
 ## Verification
 

@@ -43,6 +43,7 @@ The Python SDK covers the Secure Baseline application-layer contract:
 - AXCP auth transcript signing and verification
 - timestamp and replay validation
 - profile negotiation primitives
+- async QUIC stream transport
 
 Install it locally from the repository:
 
@@ -67,8 +68,8 @@ alice.sign_message(env, recipient_did=bob.identity.did)
 bob.verify(env)
 ```
 
-Python QUIC transport is intentionally separate from this core SDK and will be
-added after the signing/protobuf/replay contract remains stable.
+Python QUIC transport is available through `axcp.transport` and preserves the
+Go SDK framing contract for both raw messages and protobuf envelopes.
 
 ## Running the Authenticated Chat Example
 
