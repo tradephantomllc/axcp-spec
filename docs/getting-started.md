@@ -71,6 +71,41 @@ bob.verify(env)
 Python QUIC transport is available through `axcp.transport` and preserves the
 Go SDK framing contract for both raw messages and protobuf envelopes.
 
+## TypeScript SDK Core
+
+The TypeScript SDK covers the same Secure Baseline application-layer contract
+for Node applications:
+
+- Ed25519 identity generation
+- `did:key` derivation
+- protobuf envelope encode/decode
+- AXCP auth transcript signing and verification
+- timestamp and replay validation
+- profile negotiation primitives
+
+Install it locally from the repository:
+
+```bash
+cd sdk/typescript
+npm install
+npm test
+```
+
+Minimal signed-envelope roundtrip:
+
+```typescript
+import { Agent, Identity } from "@tradephantom/axcp";
+
+const alice = new Agent(Identity.generate());
+const bob = new Agent(Identity.generate());
+
+const env = alice.newEnvelope({ traceId: "trace-001" });
+env.contextPatch = { contextId: "ctx", baseVersion: 1, ops: [] };
+
+alice.signMessage(env, { recipientDid: bob.identity.did });
+await bob.verify(env);
+```
+
 ## Running the Authenticated Chat Example
 
 The recommended way to experience AXCP is through the `authenticated_chat` example, which demonstrates the **Secure Baseline (`secure-baseline-v1`)** profile with:
