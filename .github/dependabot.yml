@@ -36,5 +36,12 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 2
 
+  # 5️⃣ npm (TypeScript SDK)
+  - package-ecosystem: "npm"
+    directory: "/sdk/typescript"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 2
+
 # No cosmetic version bumps, only CVE patches.
 # Max 1 PR per ecosystem per week.
