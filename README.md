@@ -41,6 +41,7 @@ This specification defines:
 | [Python SDK](sdk/python/README.md) | Core Python SDK for DID identity, signing, verification, replay, and profile negotiation |
 | [TypeScript SDK](sdk/typescript/README.md) | Core TypeScript SDK for DID identity, signing, verification, replay, and profile negotiation |
 | [TypeScript Transport](docs/typescript-transport.md) | TypeScript stream framing, TLS adapter, and QUIC adapter decision notes |
+| [SDK Release Readiness](docs/sdk-release-readiness.md) | Cross-SDK parity vector, package gates, and release checklist |
 
 ## What's New in v1.0
 
