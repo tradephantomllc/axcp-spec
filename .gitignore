@@ -85,6 +85,13 @@ __pycache__/
 .pytest_cache/
 **/.pytest_cache/
 
+# TypeScript / Node
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+*.tsbuildinfo
+
 # Build artifacts
 /target/
 **/target/
