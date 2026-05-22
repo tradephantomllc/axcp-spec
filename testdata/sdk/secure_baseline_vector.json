@@ -1,0 +1,33 @@
+{
+  "name": "secure-baseline-context-patch-v1",
+  "description": "AXCP Secure Baseline deterministic signing vector shared by Python and TypeScript SDK tests.",
+  "protocol_version": 1,
+  "profile": 1,
+  "trace_id": "trace-vector",
+  "recipient_did": "did:example:bob",
+  "timestamp_ms": 1700000000123,
+  "sequence": 42,
+  "identity": {
+    "private_seed_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "did": "did:key:z6MkehRgf7yJbgaGfYsdoAsKdBPE3dj2CYhowQdcjqSJgvVd",
+    "public_key_b64": "A6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg="
+  },
+  "context_patch": {
+    "context_id": "ctx",
+    "base_version": 7,
+    "ops": [
+      {
+        "op": "ADD",
+        "path": "/x",
+        "data_b64": "MQ==",
+        "ts": 1
+      }
+    ]
+  },
+  "expected": {
+    "signing_payload_b64": "CAESDHRyYWNlLXZlY3RvchgBIhIKA2N0eBAHGgkSAi94GgExIAE=",
+    "auth_transcript_b64": "QVhDUC1ESUQtQVVUSC12MQpkaWQ6a2V5Ono2TWtlaFJnZjd5SmJnYUdmWXNkb0FzS2RCUEUzZGoyQ1lob3dRZGNqcVNKZ3ZWZApkaWQ6ZXhhbXBsZTpib2IKQ0FFU0RIUnlZV05sTFhabFkzUnZjaGdCSWhJS0EyTjBlQkFIR2drU0FpOTRHZ0V4SUFFPQoyMDIzLTExLTE0VDIyOjEzOjIwWg==",
+    "signature_b64": "PJQax44TKAkSXgLmHviGE3ntoFqQ9h00Lk+NfGvq35uKjPVc9wV9BLRg6ByvhIHDYbaddAsSkcTtjcpm9xlsAg==",
+    "envelope_b64": "CAESDHRyYWNlLXZlY3RvchgBIhIKA2N0eBAHGgkSAi94GgExIAGiAThkaWQ6a2V5Ono2TWtlaFJnZjd5SmJnYUdmWXNkb0FzS2RCUEUzZGoyQ1lob3dRZGNqcVNKZ3ZWZKgB+9CV/7wxsAEqugEPZGlkOmV4YW1wbGU6Ym9iogZAPJQax44TKAkSXgLmHviGE3ntoFqQ9h00Lk+NfGvq35uKjPVc9wV9BLRg6ByvhIHDYbaddAsSkcTtjcpm9xlsAg=="
+  }
+}

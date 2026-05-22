@@ -140,6 +140,9 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}
         run: pytest -q scripts gateway sdk/python/tests
 
+      - name: SDK release-readiness check
+        run: python scripts/verify_sdk_release_readiness.py
+
       - name: QUIC RTT micro-bench
         if: ${{ github.actor != 'dependabot[bot]' }}
         run: python bench/quic/rtt_bench.py 20

@@ -1,5 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   Agent,
   DID_AUTH_TRANSCRIPT_VERSION,
@@ -21,6 +22,37 @@ import {
   type AxcpEnvelope,
 } from "../src/index.js";
 
+const VECTOR_URL = new URL("../../../../testdata/sdk/secure_baseline_vector.json", import.meta.url);
+
+interface SecureBaselineVector {
+  readonly trace_id: string;
+  readonly profile: number;
+  readonly recipient_did: string;
+  readonly timestamp_ms: number;
+  readonly sequence: number;
+  readonly identity: {
+    readonly private_seed_hex: string;
+    readonly did: string;
+    readonly public_key_b64: string;
+  };
+  readonly context_patch: {
+    readonly context_id: string;
+    readonly base_version: number;
+    readonly ops: Array<{
+      readonly op: keyof typeof DeltaOpType;
+      readonly path: string;
+      readonly data_b64: string;
+      readonly ts: number;
+    }>;
+  };
+  readonly expected: {
+    readonly signing_payload_b64: string;
+    readonly auth_transcript_b64: string;
+    readonly signature_b64: string;
+    readonly envelope_b64: string;
+  };
+}
+
 function contextEnvelope(): AxcpEnvelope {
   const envelope = newEnvelope({ traceId: "trace-123", profile: 1 });
   envelope.contextPatch = {
@@ -36,6 +68,25 @@ function contextEnvelope(): AxcpEnvelope {
     ],
   };
   return envelope;
+}
+
+function vectorEnvelope(vector: SecureBaselineVector): AxcpEnvelope {
+  const envelope = newEnvelope({ traceId: vector.trace_id, profile: vector.profile });
+  envelope.contextPatch = {
+    contextId: vector.context_patch.context_id,
+    baseVersion: vector.context_patch.base_version,
+    ops: vector.context_patch.ops.map((op) => ({
+      op: DeltaOpType[op.op],
+      path: op.path,
+      data: Buffer.from(op.data_b64, "base64"),
+      ts: op.ts,
+    })),
+  };
+  return envelope;
+}
+
+function loadVector(): SecureBaselineVector {
+  return JSON.parse(readFileSync(VECTOR_URL, "utf8")) as SecureBaselineVector;
 }
 
 describe("envelope", () => {
@@ -181,46 +232,37 @@ describe("envelope", () => {
     await bob.verify(envelope);
   });
 
-  it("matches the Python SDK canonical signature vector", () => {
-    const identity = Identity.fromSeed(Uint8Array.from([...Array(32).keys()]));
-    const envelope = contextEnvelope();
-    envelope.traceId = "trace-vector";
+  it("matches the shared Secure Baseline canonical signature vector", () => {
+    const vector = loadVector();
+    const identity = Identity.fromSeed(Buffer.from(vector.identity.private_seed_hex, "hex"));
+    const envelope = vectorEnvelope(vector);
 
     signEnvelope(envelope, identity, {
-      recipientDid: "did:example:bob",
-      sequence: 42,
-      timestampMs: 1_700_000_000_123,
+      recipientDid: vector.recipient_did,
+      sequence: vector.sequence,
+      timestampMs: vector.timestamp_ms,
     });
 
-    assert.equal(identity.did, "did:key:z6MkehRgf7yJbgaGfYsdoAsKdBPE3dj2CYhowQdcjqSJgvVd");
+    assert.equal(identity.did, vector.identity.did);
     assert.deepEqual(
       Buffer.from(identity.publicKey),
-      Buffer.from("A6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg=", "base64"),
+      Buffer.from(vector.identity.public_key_b64, "base64"),
     );
     assert.deepEqual(
       Buffer.from(signingPayload(envelope)),
-      Buffer.from("CAESDHRyYWNlLXZlY3RvchgBIhIKA2N0eBAHGgkSAi94GgExIAE=", "base64"),
+      Buffer.from(vector.expected.signing_payload_b64, "base64"),
     );
     assert.deepEqual(
       Buffer.from(buildAuthTranscript(envelope)),
-      Buffer.from(
-        "QVhDUC1ESUQtQVVUSC12MQpkaWQ6a2V5Ono2TWtlaFJnZjd5SmJnYUdmWXNkb0FzS2RCUEUzZGoyQ1lob3dRZGNqcVNKZ3ZWZApkaWQ6ZXhhbXBsZTpib2IKQ0FFU0RIUnlZV05sTFhabFkzUnZjaGdCSWhJS0EyTjBlQkFIR2drU0FpOTRHZ0V4SUFFPQoyMDIzLTExLTE0VDIyOjEzOjIwWg==",
-        "base64",
-      ),
+      Buffer.from(vector.expected.auth_transcript_b64, "base64"),
     );
     assert.deepEqual(
       Buffer.from(envelope.signature ?? new Uint8Array()),
-      Buffer.from(
-        "PJQax44TKAkSXgLmHviGE3ntoFqQ9h00Lk+NfGvq35uKjPVc9wV9BLRg6ByvhIHDYbaddAsSkcTtjcpm9xlsAg==",
-        "base64",
-      ),
+      Buffer.from(vector.expected.signature_b64, "base64"),
     );
     assert.deepEqual(
       Buffer.from(encodeEnvelope(envelope)),
-      Buffer.from(
-        "CAESDHRyYWNlLXZlY3RvchgBIhIKA2N0eBAHGgkSAi94GgExIAGiAThkaWQ6a2V5Ono2TWtlaFJnZjd5SmJnYUdmWXNkb0FzS2RCUEUzZGoyQ1lob3dRZGNqcVNKZ3ZWZKgB+9CV/7wxsAEqugEPZGlkOmV4YW1wbGU6Ym9iogZAPJQax44TKAkSXgLmHviGE3ntoFqQ9h00Lk+NfGvq35uKjPVc9wV9BLRg6ByvhIHDYbaddAsSkcTtjcpm9xlsAg==",
-        "base64",
-      ),
+      Buffer.from(vector.expected.envelope_b64, "base64"),
     );
   });
 });
