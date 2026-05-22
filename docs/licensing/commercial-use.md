@@ -39,7 +39,7 @@ When using AXCP Core, you must:
 - Capability negotiation & tool discovery
 - Basic telemetry
 - Gateway for MCP ↔ AXCP ↔ A2A ↔ ACP bridging
-- Go SDK, Rust SDK, Python bindings
+- Go SDK, Rust SDK, Python SDK, TypeScript SDK
 
 ---
 

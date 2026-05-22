@@ -25,6 +25,7 @@ on:
 env:
   GO_VERSION:  '1.23.4'
   PYTHON_VERSION: '3.11'
+  NODE_VERSION: '22'
   PROTOC_VERSION: '33.2'
   PROTOC_GEN_GO_VERSION: 'v1.36.11'
 
@@ -147,6 +148,38 @@ jobs:
         if: ${{ github.actor != 'dependabot[bot]' }}
         working-directory: sdk/go
         run: go test ./... -bench=. -benchtime=1x -benchmem
+
+# ------------------------------------------------------------
+# 2b TypeScript SDK Core
+# ------------------------------------------------------------
+  test-typescript:
+    name: Test TypeScript
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set-up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: sdk/typescript/package-lock.json
+
+      - name: Install TypeScript SDK deps
+        working-directory: sdk/typescript
+        run: npm ci
+
+      - name: Type-check TypeScript SDK
+        working-directory: sdk/typescript
+        run: npm run typecheck
+
+      - name: Run TypeScript SDK tests
+        working-directory: sdk/typescript
+        run: npm test
+
+      - name: Verify TypeScript package contents
+        working-directory: sdk/typescript
+        run: npm pack --dry-run
 
 # ------------------------------------------------------------ 
 # 3️⃣  GATEWAY TELEMETRY (integrazione) – verde
