@@ -1,5 +1,7 @@
 import base64
+import json
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
 
@@ -10,6 +12,7 @@ from axcp.envelope import (
     decode_envelope,
     encode_envelope,
     new_envelope,
+    sign_envelope,
     signing_payload,
     verify_envelope,
 )
@@ -21,6 +24,8 @@ from axcp.errors import (
 )
 from axcp.pb import axcp_pb2
 
+VECTOR_PATH = Path(__file__).resolve().parents[3] / "testdata" / "sdk" / "secure_baseline_vector.json"
+
 
 def _context_envelope():
     env = new_envelope(trace_id="trace-123", profile=1)
@@ -31,6 +36,23 @@ def _context_envelope():
             ops=[axcp_pb2.DeltaOp(op=axcp_pb2.DeltaOp.ADD, path="/x", data=b"1", ts=1)],
         )
     )
+    return env
+
+
+def _vector_envelope(vector: dict) -> axcp_pb2.AxcpEnvelope:
+    env = new_envelope(trace_id=vector["trace_id"], profile=vector["profile"])
+    patch = vector["context_patch"]
+    env.context_patch.context_id = patch["context_id"]
+    env.context_patch.base_version = patch["base_version"]
+    for op in patch["ops"]:
+        env.context_patch.ops.append(
+            axcp_pb2.DeltaOp(
+                op=getattr(axcp_pb2.DeltaOp, op["op"]),
+                path=op["path"],
+                data=base64.b64decode(op["data_b64"]),
+                ts=op["ts"],
+            )
+        )
     return env
 
 
@@ -182,3 +204,25 @@ def test_agent_verifies_non_key_sender_with_resolver() -> None:
 
     alice.sign_message(env, recipient_did=bob.identity.did)
     bob.verify(env)
+
+
+def test_shared_secure_baseline_vector_matches_python_sdk() -> None:
+    vector = json.loads(VECTOR_PATH.read_text(encoding="utf-8"))
+    identity = Identity.from_seed(bytes.fromhex(vector["identity"]["private_seed_hex"]))
+    env = _vector_envelope(vector)
+
+    sign_envelope(
+        env,
+        identity,
+        recipient_did=vector["recipient_did"],
+        sequence=vector["sequence"],
+        timestamp_ms=vector["timestamp_ms"],
+    )
+
+    expected = vector["expected"]
+    assert identity.did == vector["identity"]["did"]
+    assert base64.b64encode(identity.public_key).decode("ascii") == vector["identity"]["public_key_b64"]
+    assert base64.b64encode(signing_payload(env)).decode("ascii") == expected["signing_payload_b64"]
+    assert base64.b64encode(build_auth_transcript(env)).decode("ascii") == expected["auth_transcript_b64"]
+    assert base64.b64encode(env.signature).decode("ascii") == expected["signature_b64"]
+    assert base64.b64encode(encode_envelope(env)).decode("ascii") == expected["envelope_b64"]
