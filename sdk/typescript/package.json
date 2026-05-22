@@ -18,6 +18,10 @@
     "./pb": {
       "types": "./dist/src/pb/schema.d.ts",
       "import": "./dist/src/pb/schema.js"
+    },
+    "./transport": {
+      "types": "./dist/src/transport/index.d.ts",
+      "import": "./dist/src/transport/index.js"
     }
   },
   "files": [
@@ -36,7 +40,8 @@
     "agents",
     "did",
     "ed25519",
-    "protobuf"
+    "protobuf",
+    "transport"
   ],
   "dependencies": {
     "long": "^5.3.2",

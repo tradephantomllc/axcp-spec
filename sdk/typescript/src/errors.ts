@@ -139,3 +139,39 @@ export class InvalidEnvelopeError extends AXCPError {
     super(message, "invalid_envelope");
   }
 }
+
+export class TransportError extends AXCPError {
+  constructor(message: string, reasonCode = "transport_error") {
+    super(message, reasonCode);
+  }
+}
+
+export class TransportConfigError extends TransportError {
+  constructor(message: string) {
+    super(message, "transport_config_error");
+  }
+}
+
+export class TransportClosedError extends TransportError {
+  constructor(message: string) {
+    super(message, "transport_closed");
+  }
+}
+
+export class TransportFrameError extends TransportError {
+  constructor(message: string) {
+    super(message, "transport_frame_error");
+  }
+}
+
+export class TransportTimeoutError extends TransportError {
+  constructor(message: string) {
+    super(message, "transport_timeout");
+  }
+}
+
+export class TransportUnsupportedError extends TransportError {
+  constructor(message: string) {
+    super(message, "transport_unsupported");
+  }
+}

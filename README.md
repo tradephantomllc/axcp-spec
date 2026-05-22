@@ -40,6 +40,7 @@ This specification defines:
 | [Gateway Setup](docs/gateway-setup.md) | Configuring the gateway for Secure Baseline enforcement |
 | [Python SDK](sdk/python/README.md) | Core Python SDK for DID identity, signing, verification, replay, and profile negotiation |
 | [TypeScript SDK](sdk/typescript/README.md) | Core TypeScript SDK for DID identity, signing, verification, replay, and profile negotiation |
+| [TypeScript Transport](docs/typescript-transport.md) | TypeScript stream framing, TLS adapter, and QUIC adapter decision notes |
 
 ## What's New in v1.0
 
