@@ -38,6 +38,7 @@ This specification defines:
 | [Getting Started](docs/getting-started.md) | Installation, setup, and running the authenticated chat example |
 | [Authentication](docs/authentication.md) | DID model, Ed25519 signing, transcript format, replay protection |
 | [Gateway Setup](docs/gateway-setup.md) | Configuring the gateway for Secure Baseline enforcement |
+| [Python SDK](sdk/python/README.md) | Core Python SDK for DID identity, signing, verification, replay, and profile negotiation |
 
 ## What's New in v1.0
 
@@ -68,6 +69,7 @@ For privacy-preserving metrics collection with Differential Privacy, see **AXCP 
 - [AXCP Core Specification v1.0](spec/axcp-v1.0.md) (RFC-style)
 - Transport schema and Protobuf IDL (`proto/axcp.proto`)
 - Go SDK with authentication and negotiation (`sdk/go/`)
+- Python SDK Core with signing, verification, replay, and profile negotiation (`sdk/python/`)
 - Benchmark simulations and performance tests
 - License: Apache 2.0 (open source)
 

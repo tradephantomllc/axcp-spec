@@ -33,6 +33,43 @@ go test ./sdk/go/...
 
 All tests should pass. If you see import errors, ensure you're using Go 1.23+.
 
+## Python SDK Core
+
+The Python SDK covers the Secure Baseline application-layer contract:
+
+- Ed25519 identity generation
+- `did:key` derivation
+- protobuf envelope encode/decode
+- AXCP auth transcript signing and verification
+- timestamp and replay validation
+- profile negotiation primitives
+
+Install it locally from the repository:
+
+```bash
+python -m pip install -e sdk/python
+pytest -q sdk/python/tests
+```
+
+Minimal signed-envelope roundtrip:
+
+```python
+from axcp import Agent, Identity
+from axcp.pb import axcp_pb2
+
+alice = Agent(Identity.generate())
+bob = Agent(Identity.generate())
+
+env = alice.new_envelope(trace_id="trace-001")
+env.context_patch.CopyFrom(axcp_pb2.ContextPatch(context_id="ctx", base_version=1))
+
+alice.sign_message(env, recipient_did=bob.identity.did)
+bob.verify(env)
+```
+
+Python QUIC transport is intentionally separate from this core SDK and will be
+added after the signing/protobuf/replay contract remains stable.
+
 ## Running the Authenticated Chat Example
 
 The recommended way to experience AXCP is through the `authenticated_chat` example, which demonstrates the **Secure Baseline (`secure-baseline-v1`)** profile with:
