@@ -82,6 +82,7 @@ for Node applications:
 - AXCP auth transcript signing and verification
 - timestamp and replay validation
 - profile negotiation primitives
+- TLS stream transport and AXCP framing helpers
 
 Install it locally from the repository:
 
@@ -105,6 +106,11 @@ env.contextPatch = { contextId: "ctx", baseVersion: 1, ops: [] };
 alice.signMessage(env, { recipientDid: bob.identity.did });
 await bob.verify(env);
 ```
+
+TypeScript transport is available through `@tradephantom/axcp/transport`.
+It provides the stable AXCP stream framing surface and a Node TLS adapter.
+Native QUIC remains an optional adapter decision because the supported Node
+runtime does not expose a stable built-in QUIC module.
 
 ## Running the Authenticated Chat Example
 
