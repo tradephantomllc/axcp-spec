@@ -123,18 +123,21 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
+          python -m pip install -e sdk/python
           python -m pip install aioquic pytest-cov
 
       - name: Generate Python stubs
-        run: python -m grpc_tools.protoc -I=proto --python_out=proto proto/axcp.proto
+        run: |
+          python -m grpc_tools.protoc -I=proto --python_out=proto proto/axcp.proto
+          python -m grpc_tools.protoc -I=proto --python_out=sdk/python/src/axcp/pb proto/axcp.proto
 
       - name: Verify generated Python stubs are committed
-        run: git diff --exit-code proto/axcp_pb2.py
+        run: git diff --exit-code proto/axcp_pb2.py sdk/python/src/axcp/pb/axcp_pb2.py
 
       - name: Run Python tests
         env:
           PYTHONPATH: ${{ github.workspace }}
-        run: pytest -q scripts gateway
+        run: pytest -q scripts gateway sdk/python/tests
 
       - name: QUIC RTT micro-bench
         if: ${{ github.actor != 'dependabot[bot]' }}

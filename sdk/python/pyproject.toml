@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "axcp"
+version = "0.1.0"
+description = "AXCP Core Python SDK"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+authors = [
+  { name = "TradePhantom LLC", email = "enterprise@getaxcp.com" }
+]
+dependencies = [
+  "protobuf>=6.31.1",
+  "PyNaCl>=1.5.0"
+]
+keywords = ["axcp", "agents", "did", "ed25519", "protobuf"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Security :: Cryptography",
+  "Topic :: Software Development :: Libraries"
+]
+
+[project.urls]
+Homepage = "https://github.com/tradephantomllc/axcp-spec"
+Repository = "https://github.com/tradephantomllc/axcp-spec"
+Specification = "https://github.com/tradephantomllc/axcp-spec/tree/main/spec"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+axcp = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
