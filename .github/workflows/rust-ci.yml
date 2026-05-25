@@ -2,13 +2,11 @@ name: Rust CI
 
 on:
   push:
-    paths:
-      - 'sdk/rust/**'
-      - '.github/workflows/rust-ci.yml'
+    branches:
+      - main
   pull_request:
-    paths:
-      - 'sdk/rust/**'
-      - '.github/workflows/rust-ci.yml'
+    branches:
+      - main
   schedule:
     - cron: '0 0 * * *'   # daily
 
