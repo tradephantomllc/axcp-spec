@@ -2,7 +2,10 @@ module github.com/tradephantomllc/axcp-spec
 
 go 1.23.4
 
-require github.com/quic-go/quic-go v0.49.0
+require (
+	github.com/quic-go/quic-go v0.49.1
+	google.golang.org/protobuf v1.36.6
+)
 
 require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
@@ -22,7 +25,6 @@ require (
 	golang.org/x/sync v0.14.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/tools v0.22.0 // indirect
-	google.golang.org/protobuf v1.36.6 // indirect
 )
 
 replace github.com/tradephantomllc/axcp-spec/sdk/go/axcp => ./sdk/go/axcp

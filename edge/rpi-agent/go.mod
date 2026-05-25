@@ -5,13 +5,13 @@ go 1.23.4
 require (
 	github.com/google/uuid v1.6.0
 	github.com/shirou/gopsutil/v3 v3.23.12
+	github.com/tradephantomllc/axcp-spec/sdk/go v0.0.0-20260525101507-8e04ebf55565
 	google.golang.org/protobuf v1.36.6
 )
 
 require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
-	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
