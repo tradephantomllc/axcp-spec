@@ -74,6 +74,11 @@ updates:
       - "go"
     commit-message:
       prefix: "chore(deps)"
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
 
   - package-ecosystem: "npm"
     directory: "/sdk/typescript"
