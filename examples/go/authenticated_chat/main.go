@@ -50,7 +50,7 @@ func logProtobufEvidence(operation string, data []byte) {
 }
 
 // logQUICEvidence logs QUIC connection evidence
-func logQUICEvidence(conn quic.Connection, role string) {
+func logQUICEvidence(conn *quic.Conn, role string) {
 	state := conn.ConnectionState()
 	log.Printf("[QUIC] %s Connection Established", role)
 	log.Printf("[QUIC]   Local Addr:  %s", conn.LocalAddr())
