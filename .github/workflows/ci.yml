@@ -4,7 +4,8 @@
 # This workflow runs the Core test suite independently of Advanced/Enterprise.
 # It validates: Go SDK, Python bindings, Gateway telemetry, Rust SDK, examples.
 #
-# Required checks: "Test Go", "Test Python" (defined in branch protection)
+# Recommended required checks: Test Go, Test Python, Test TypeScript,
+# Test Gateway Telemetry, Test RPi Agent, Check Examples.
 # =============================================================================
 
 name: AXCP CI
@@ -30,7 +31,7 @@ env:
   PROTOC_GEN_GO_VERSION: 'v1.36.11'
 
 # ------------------------------------------------------------
-# 1️⃣  GO – unit tests  (verde)
+# 1. Go unit tests
 # ------------------------------------------------------------
 jobs:
   test-go:
@@ -115,7 +116,7 @@ jobs:
           cache: true
 
       - name: Set-up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
@@ -153,7 +154,7 @@ jobs:
         run: go test ./... -bench=. -benchtime=1x -benchmem
 
 # ------------------------------------------------------------
-# 2b TypeScript SDK Core
+# 2b. TypeScript SDK core
 # ------------------------------------------------------------
   test-typescript:
     name: Test TypeScript
@@ -185,7 +186,7 @@ jobs:
         run: npm pack --dry-run
 
 # ------------------------------------------------------------ 
-# 3️⃣  GATEWAY TELEMETRY (integrazione) – verde
+# 3. Gateway telemetry integration
 # ------------------------------------------------------------
   test-gateway-telemetry:
     name: Test Gateway Telemetry
@@ -219,7 +220,7 @@ jobs:
           (cd edge/gateway && go test -v -race ./internal/metrics/... -run TestPrometheusMetrics)
 
 # ------------------------------------------------------------
-# 4️⃣  RPI AGENT (Issue 21c) – usa stubs rigenerati & workspace
+# 4. RPi Agent using generated stubs and a Go workspace
 # ------------------------------------------------------------
   test-rpi-agent:
     name: Test RPi Agent
@@ -247,13 +248,13 @@ jobs:
           go work init ./sdk/go ./edge/rpi-agent || true
           go work use  ./sdk/go ./edge/rpi-agent
 
-      # ── Esegui test agent ---------------------------------------
+      # Run agent tests.
       - name: Run rpi-agent tests
         working-directory: edge/rpi-agent
         run: go test -v -race ./...
 
 # ------------------------------------------------------------ 
-# 5️⃣  EXAMPLES – build check
+# 5. Examples build check
 # ------------------------------------------------------------
   check-examples:
     name: Check Examples
