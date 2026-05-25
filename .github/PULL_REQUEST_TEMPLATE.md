@@ -1,10 +1,19 @@
-### Checklist
+## Summary
 
-* [ ] Title follows `type(scope): subject` convention
-* [ ] No source or manifest files modified
-* [ ] Docs and/or community assets updated
-* [ ] All CI jobs passing
+Describe the change and the problem it solves.
 
----
+## Validation
 
-> **N.B.** No source code or manifest files modified – merge safe, no publish triggered.
+List the local commands or CI jobs used to verify the change.
+
+## Risk
+
+Call out compatibility, security, release, or migration impact. Write `None` if
+there is no material risk.
+
+## Checklist
+
+- [ ] Title follows `type(scope): subject`
+- [ ] Commits include `Signed-off-by` for DCO compliance
+- [ ] Public docs or examples were updated when behavior changed
+- [ ] Relevant CI jobs pass
