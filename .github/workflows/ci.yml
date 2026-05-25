@@ -2,7 +2,7 @@
 # AXCP Core CI - Standalone Pipeline
 # =============================================================================
 # This workflow runs the Core test suite independently of Advanced/Enterprise.
-# It validates: Go SDK, Python bindings, Gateway telemetry, Rust SDK, examples.
+# It validates: Go SDK, Python bindings, Gateway telemetry, TypeScript SDK, examples.
 #
 # Recommended required checks: Test Go, Test Python, Test TypeScript,
 # Test Gateway Telemetry, Test RPi Agent, Check Examples.
