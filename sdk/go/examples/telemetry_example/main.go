@@ -83,11 +83,14 @@ func startServer(addr string) error {
 		}
 
 		// Handle the connection in a new goroutine
-		go func(session quic.Connection) {
+		go func(session *quic.Conn) {
 			defer session.CloseWithError(0, "closing connection")
 
-			// Create a client to handle this connection
-			client := &netquic.Client{Conn: session}
+			client, err := netquic.NewClientFromConn(session)
+			if err != nil {
+				log.Printf("Failed to wrap QUIC connection: %v", err)
+				return
+			}
 
 			log.Printf("New connection from %s\n", session.RemoteAddr())
 

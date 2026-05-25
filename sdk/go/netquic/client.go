@@ -31,8 +31,8 @@ var (
 
 // Client represents a QUIC client connection to an AXCP server
 type Client struct {
-	conn      quic.Connection
-	stream    quic.Stream
+	conn      *quic.Conn
+	stream    *quic.Stream
 	recvMutex sync.Mutex
 	sendMutex sync.Mutex
 }
@@ -65,6 +65,15 @@ func Dial(addr string, tlsConf *tls.Config) (*Client, error) {
 		conn:   conn,
 		stream: stream,
 	}, nil
+}
+
+// NewClientFromConn wraps an accepted QUIC connection for datagram-oriented
+// helpers. Stream methods return ErrNotConnected until a stream is attached.
+func NewClientFromConn(conn *quic.Conn) (*Client, error) {
+	if conn == nil {
+		return nil, ErrNotConnected
+	}
+	return &Client{conn: conn}, nil
 }
 
 // Close terminates the QUIC connection

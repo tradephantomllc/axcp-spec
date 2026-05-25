@@ -25,9 +25,9 @@ prost-types = { version = "0.14", optional = true }
 bytes = "1.11"
 url = "2.5.8"
 # For async HTTP client
-reqwest = { version = "0.11", features = ["json", "stream"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream"] }
 # For WebSocket support
-tokio-tungstenite = { version = "0.19", features = ["native-tls"], optional = true }
+tokio-tungstenite = { version = "0.28", default-features = false, features = ["rustls-tls-native-roots"], optional = true }
 # For configuration
 config = { version = "0.13", optional = true }
 # For logging
@@ -37,13 +37,13 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 futures-util = "0.3"
 
 [features]
-default      = ["native-tls"]               # SDK minimale
+default      = ["rustls"]                   # SDK minimale
 protobuf     = ["prost", "prost-types"]     # serializzazione Protobuf
 realtime-ws  = ["tokio-tungstenite"]        # WebSocket live telemetry
 conf         = ["config"]                   # lettura di axcp.toml
 full         = ["protobuf", "realtime-ws", "conf"]
 native-tls   = ["reqwest/native-tls"]       # Supporto TLS nativo
-rustls       = ["reqwest/rustls-tls"]       # Supporto TLS con rustls
+rustls       = ["reqwest/rustls-tls-native-roots"] # Supporto TLS con rustls
 
 # Configuration for cargo-udeps to ignore false positives in dev dependencies
 [package.metadata.cargo-udeps.ignore]
