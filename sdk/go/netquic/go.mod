@@ -16,7 +16,7 @@ require (
 	github.com/google/pprof v0.0.0-20230821062121-407c9e7a662f // indirect
 	github.com/onsi/ginkgo/v2 v2.12.0 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
-	github.com/stretchr/testify v1.10.0 // indirect
+	github.com/stretchr/testify v1.11.1 // indirect
 	go.uber.org/mock v0.5.0 // indirect
 	golang.org/x/crypto v0.38.0 // indirect
 	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842 // indirect

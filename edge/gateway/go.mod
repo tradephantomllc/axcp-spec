@@ -6,7 +6,7 @@ require (
 	github.com/eclipse/paho.mqtt.golang v1.4.3
 	github.com/prometheus/client_golang v1.19.1
 	github.com/quic-go/quic-go v0.49.0
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 	github.com/tradephantomllc/axcp-spec/sdk/go v0.0.0-00010101000000-000000000000
 	go.etcd.io/bbolt v1.3.8
 	go.opentelemetry.io/otel v1.36.0
@@ -55,6 +55,5 @@ require (
 replace github.com/tradephantomllc/axcp-spec/sdk/go => ../../sdk/go
 
 replace go.etcd.io/bbolt => go.etcd.io/bbolt v1.3.8
-
 
 replace github.com/tradephantomllc/axcp-spec/edge/gateway/internal => ./internal
