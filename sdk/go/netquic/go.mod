@@ -3,7 +3,7 @@ module github.com/tradephantomllc/axcp-spec/sdk/go/netquic
 go 1.23.4
 
 require (
-	github.com/quic-go/quic-go v0.49.0
+	github.com/quic-go/quic-go v0.49.1
 	google.golang.org/protobuf v1.36.6
 )
 
