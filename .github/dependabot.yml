@@ -80,12 +80,132 @@ updates:
           - "version-update:semver-major"
           - "version-update:semver-minor"
 
+  - package-ecosystem: "gomod"
+    directory: "/edge/gateway"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Europe/Rome"
+    open-pull-requests-limit: 1
+    labels:
+      - "dependencies"
+      - "go"
+      - "gateway"
+    commit-message:
+      prefix: "chore(deps)"
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+
+  - package-ecosystem: "gomod"
+    directory: "/edge/rpi-agent"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:15"
+      timezone: "Europe/Rome"
+    open-pull-requests-limit: 1
+    labels:
+      - "dependencies"
+      - "go"
+      - "rpi-agent"
+    commit-message:
+      prefix: "chore(deps)"
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+
+  - package-ecosystem: "gomod"
+    directory: "/sdk/go"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:30"
+      timezone: "Europe/Rome"
+    open-pull-requests-limit: 1
+    labels:
+      - "dependencies"
+      - "go"
+      - "sdk"
+    commit-message:
+      prefix: "chore(deps)"
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+
+  - package-ecosystem: "gomod"
+    directory: "/sdk/go/netquic"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:45"
+      timezone: "Europe/Rome"
+    open-pull-requests-limit: 1
+    labels:
+      - "dependencies"
+      - "go"
+      - "netquic"
+    commit-message:
+      prefix: "chore(deps)"
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+
+  - package-ecosystem: "gomod"
+    directory: "/sdk/go/examples/telemetry_example"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "10:00"
+      timezone: "Europe/Rome"
+    open-pull-requests-limit: 1
+    labels:
+      - "dependencies"
+      - "go"
+      - "examples"
+    commit-message:
+      prefix: "chore(deps)"
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+
+  - package-ecosystem: "gomod"
+    directory: "/test"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "10:15"
+      timezone: "Europe/Rome"
+    open-pull-requests-limit: 1
+    labels:
+      - "dependencies"
+      - "go"
+      - "tests"
+    commit-message:
+      prefix: "chore(deps)"
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+
   - package-ecosystem: "npm"
     directory: "/sdk/typescript"
     schedule:
       interval: "weekly"
       day: "monday"
-      time: "09:00"
+      time: "10:30"
       timezone: "Europe/Rome"
     open-pull-requests-limit: 1
     labels:
