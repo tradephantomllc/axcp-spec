@@ -69,7 +69,7 @@ func RunQuicServer(addr string, tlsConf *tls.Config, h EnvelopeHandler, dgram Te
 		}
 
 		// Gestione stream
-		go func(c quic.Connection) {
+		go func(c *quic.Conn) {
 			for {
 				stream, err := c.AcceptStream(context.Background())
 				if err != nil {
@@ -78,7 +78,7 @@ func RunQuicServer(addr string, tlsConf *tls.Config, h EnvelopeHandler, dgram Te
 				}
 
 				// Gestisci lo stream in una goroutine separata
-				go func(s quic.Stream) {
+				go func(s *quic.Stream) {
 					defer s.Close()
 					for {
 						env, err := readFramedEnvelope(s)
@@ -98,7 +98,7 @@ func RunQuicServer(addr string, tlsConf *tls.Config, h EnvelopeHandler, dgram Te
 		}(conn)
 
 		// Gestione datagrammi
-		go func(c quic.Connection) {
+		go func(c *quic.Conn) {
 			for {
 				data, err := c.ReceiveDatagram(context.Background())
 				if err != nil {
@@ -142,7 +142,7 @@ func RunAuthenticatedQuicServer(config ServerConfig, h AuthenticatedEnvelopeHand
 		}
 
 		// Handle streams (envelopes)
-		go func(c quic.Connection) {
+		go func(c *quic.Conn) {
 			for {
 				stream, err := c.AcceptStream(context.Background())
 				if err != nil {
@@ -155,7 +155,7 @@ func RunAuthenticatedQuicServer(config ServerConfig, h AuthenticatedEnvelopeHand
 		}(conn)
 
 		// Handle datagrams (telemetry) - no auth required for datagrams
-		go func(c quic.Connection) {
+		go func(c *quic.Conn) {
 			for {
 				data, err := c.ReceiveDatagram(context.Background())
 				if err != nil {
@@ -181,7 +181,7 @@ func RunAuthenticatedQuicServer(config ServerConfig, h AuthenticatedEnvelopeHand
 }
 
 // handleAuthenticatedStream processes a single stream with authentication
-func handleAuthenticatedStream(s quic.Stream, config ServerConfig, h AuthenticatedEnvelopeHandler) {
+func handleAuthenticatedStream(s *quic.Stream, config ServerConfig, h AuthenticatedEnvelopeHandler) {
 	defer s.Close()
 
 	for {

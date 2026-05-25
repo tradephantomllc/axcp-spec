@@ -12,8 +12,8 @@ import (
 
 // ServerConnection represents an incoming QUIC connection from a client.
 type ServerConnection struct {
-	quicConn quic.Connection
-	stream   quic.Stream
+	quicConn *quic.Conn
+	stream   *quic.Stream
 
 	// remoteDID is the authenticated peer's DID (set after handshake)
 	remoteDID string

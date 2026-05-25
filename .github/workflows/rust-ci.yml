@@ -90,14 +90,12 @@ jobs:
           profile: minimal
           override: true
 
-      # --- documentazione e dead-links --------------------
-      - name: Build docs & check links
+      # --- documentation ---------------------------------
+      - name: Build docs with warnings denied
         run: |
-          cargo doc --no-deps --document-private-items
-          if ! command -v cargo-deadlinks &>/dev/null; then
-            cargo install cargo-deadlinks
-          fi
-          cargo deadlinks --dir target/doc/axcp
+          # cargo-deadlinks 0.8.x misclassifies modern rustdoc source navigation
+          # as broken local links, so rustdoc warnings are the blocking signal.
+          RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --document-private-items
 
       # --- nightly toolchain per cargo-udeps --------------
       - name: Install nightly Rust (for udeps)

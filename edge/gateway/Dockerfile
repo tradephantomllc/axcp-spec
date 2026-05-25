@@ -1,4 +1,4 @@
-FROM golang:1.23.4-bookworm AS build
+FROM golang:1.25.6-bookworm AS build
 WORKDIR /src
 COPY go.mod go.sum go.work go.work.sum ./
 COPY proto ./proto
