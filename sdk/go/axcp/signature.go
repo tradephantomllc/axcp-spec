@@ -12,9 +12,9 @@ import (
 var errNilEnvelopeForSignature = errors.New("axcp: envelope is nil")
 
 // SigningPayload returns the canonical protobuf payload covered by the AXCP
-// DID authentication transcript. Authentication fields are deliberately
-// excluded because they are supplied as transcript bindings or as the detached
-// signature itself.
+// DID authentication transcript. Sender, recipient, and timestamp are supplied
+// as transcript bindings, and the detached signature is excluded from the
+// signed bytes. Sequence remains covered because replay protection consumes it.
 func SigningPayload(env *Envelope) ([]byte, error) {
 	if env == nil {
 		return nil, errNilEnvelopeForSignature
@@ -35,7 +35,6 @@ func SigningPayloadFromProto(env *pb.AxcpEnvelope) ([]byte, error) {
 	clone.SenderDid = ""
 	clone.RecipientDid = ""
 	clone.TimestampMs = 0
-	clone.Sequence = 0
 	clone.Signature = nil
 	clone.AttestationProof = nil
 
