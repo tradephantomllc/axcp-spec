@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/ed25519"
+	"crypto/tls"
 	"encoding/base64"
 	"flag"
 	"fmt"
@@ -101,6 +102,9 @@ func main() {
 	var secureBaseline bool
 	var serverDID string
 	var trustedDIDs trustedDIDFlag
+	var tlsCertFile string
+	var tlsKeyFile string
+	var allowInsecureDemoTLS bool
 
 	flag.StringVar(&addr, "addr", ":7143", "Address to listen on")
 	flag.BoolVar(&enableRetryBuffer, "retry", true, "Enable retry buffer for failed messages")
@@ -111,10 +115,16 @@ func main() {
 	flag.BoolVar(&secureBaseline, "secure-baseline", false, "Enable Secure Baseline authentication (DID + Ed25519 + replay protection)")
 	flag.StringVar(&serverDID, "server-did", "", "Server DID for auth transcript binding (required with -secure-baseline)")
 	flag.Var(&trustedDIDs, "trusted-did", "Trusted sender DID and raw Ed25519 public key; repeatable format did:key:...=<base64-public-key>")
+	flag.StringVar(&tlsCertFile, "tls-cert", "", "Server TLS certificate PEM file")
+	flag.StringVar(&tlsKeyFile, "tls-key", "", "Server TLS private key PEM file")
+	flag.BoolVar(&allowInsecureDemoTLS, "allow-insecure-demo-tls", false, "Allow ephemeral self-signed TLS for local demos only")
 
 	flag.Parse()
 
-	tlsConf := netquic.InsecureTLSConfig()
+	tlsConf, err := buildGatewayTLSConfig(tlsCertFile, tlsKeyFile, allowInsecureDemoTLS)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Set up context for graceful shutdown
 	_, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -271,4 +281,28 @@ func main() {
 			log.Fatalf("Server error: %v", err)
 		}
 	}
+}
+
+func buildGatewayTLSConfig(certFile, keyFile string, allowInsecureDemoTLS bool) (*tls.Config, error) {
+	if certFile != "" || keyFile != "" {
+		if certFile == "" || keyFile == "" {
+			return nil, fmt.Errorf("-tls-cert and -tls-key must be provided together")
+		}
+		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+		if err != nil {
+			return nil, fmt.Errorf("load server TLS keypair: %w", err)
+		}
+		return &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			MinVersion:   tls.VersionTLS13,
+			NextProtos:   []string{"axcp/1"},
+		}, nil
+	}
+
+	if allowInsecureDemoTLS {
+		log.Print("WARNING: using ephemeral self-signed TLS; this mode is for local demos only")
+		return netquic.InsecureTLSConfig(), nil
+	}
+
+	return nil, fmt.Errorf("server TLS requires -tls-cert and -tls-key; use -allow-insecure-demo-tls only for local demos")
 }
