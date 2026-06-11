@@ -10,7 +10,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func TestSigningPayloadExcludesAuthFields(t *testing.T) {
+func TestSigningPayloadExcludesDetachedAuthFields(t *testing.T) {
 	env := NewEnvelope("trace-123", 1)
 	env.SenderDid = "did:key:sender"
 	env.RecipientDid = "did:key:recipient"
@@ -44,8 +44,8 @@ func TestSigningPayloadExcludesAuthFields(t *testing.T) {
 	if decoded.GetTimestampMs() != 0 {
 		t.Fatalf("TimestampMs = %d, want 0", decoded.GetTimestampMs())
 	}
-	if decoded.GetSequence() != 0 {
-		t.Fatalf("Sequence = %d, want 0", decoded.GetSequence())
+	if decoded.GetSequence() != 42 {
+		t.Fatalf("Sequence = %d, want 42", decoded.GetSequence())
 	}
 	if len(decoded.GetSignature()) != 0 {
 		t.Fatalf("Signature length = %d, want 0", len(decoded.GetSignature()))
@@ -67,7 +67,7 @@ func TestSigningPayloadStableWhenAuthFieldsChange(t *testing.T) {
 	right.SenderDid = "did:key:right"
 	right.RecipientDid = "did:key:other"
 	right.TimestampMs = 1700000001000
-	right.Sequence = 2
+	right.Sequence = 1
 	right.Signature = []byte("right")
 
 	leftPayload, err := SigningPayload(left)
@@ -80,6 +80,26 @@ func TestSigningPayloadStableWhenAuthFieldsChange(t *testing.T) {
 	}
 	if !bytes.Equal(leftPayload, rightPayload) {
 		t.Fatal("signing payload changed when only auth fields changed")
+	}
+}
+
+func TestSigningPayloadChangesWhenSequenceChanges(t *testing.T) {
+	left := NewEnvelope("trace-123", 1)
+	left.Sequence = 1
+
+	right := NewEnvelope("trace-123", 1)
+	right.Sequence = 2
+
+	leftPayload, err := SigningPayload(left)
+	if err != nil {
+		t.Fatalf("SigningPayload(left) failed: %v", err)
+	}
+	rightPayload, err := SigningPayload(right)
+	if err != nil {
+		t.Fatalf("SigningPayload(right) failed: %v", err)
+	}
+	if bytes.Equal(leftPayload, rightPayload) {
+		t.Fatal("signing payload did not change when sequence changed")
 	}
 }
 

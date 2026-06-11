@@ -150,6 +150,34 @@ func TestValidator_ValidateAndVerify(t *testing.T) {
 	}
 }
 
+func TestValidator_ValidateAndVerifyRejectsSequenceTampering(t *testing.T) {
+	pub, priv, _ := ed25519.GenerateKey(nil)
+	senderDID := "did:key:sender"
+	localDID := "did:key:local"
+
+	resolver := auth.NewMemoryDIDResolver()
+	resolver.AddDID(senderDID, pub)
+
+	v := NewValidator(ValidatorConfig{
+		LocalDID: localDID,
+		Resolver: resolver,
+	})
+
+	env := NewEnvelope("trace-123", 1)
+	env.SenderDid = senderDID
+	env.RecipientDid = localDID
+	env.TimestampMs = auth.NowMs()
+	env.Sequence = 1
+	env.Signature = ed25519.Sign(priv, buildEnvelopeTranscript(env))
+
+	env.Sequence = 2
+
+	perr := v.ValidateAndVerify(context.Background(), env)
+	if !errors.Is(perr, ErrAuthSignatureInvalid) {
+		t.Fatalf("expected ErrAuthSignatureInvalid after sequence tamper, got %v", perr)
+	}
+}
+
 func TestValidator_ValidateAndVerify_InvalidSignature(t *testing.T) {
 	pub, _, _ := ed25519.GenerateKey(nil)
 	senderDID := "did:key:sender"
