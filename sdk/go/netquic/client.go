@@ -161,8 +161,8 @@ func (c *Client) SendDatagram(data []byte) error {
 		return fmt.Errorf("datagram too large: %d > %d", len(data), MaxDatagramSize)
 	}
 
-	// Check if datagram is supported
-	if !c.conn.ConnectionState().SupportsDatagrams {
+	// Sending datagrams requires remote support from the peer.
+	if !c.conn.ConnectionState().SupportsDatagrams.Remote {
 		return ErrDatagramNotSupported
 	}
 
@@ -176,8 +176,8 @@ func (c *Client) ReceiveDatagram() ([]byte, error) {
 		return nil, ErrNotConnected
 	}
 
-	// Check if datagram is supported
-	if !c.conn.ConnectionState().SupportsDatagrams {
+	// Receiving datagrams requires local support on this endpoint.
+	if !c.conn.ConnectionState().SupportsDatagrams.Local {
 		return nil, ErrDatagramNotSupported
 	}
 
