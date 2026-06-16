@@ -149,6 +149,22 @@ config := ServerConfig{
 err := RunAuthenticatedQuicServer(config, envelopeHandler, telemetryHandler)
 ```
 
+For the `edge/gateway/cmd/gateway` binary, production startup must provide a
+persistent server TLS keypair:
+
+```bash
+cd edge/gateway
+go run ./cmd/gateway \
+  -tls-cert /etc/axcp/server.crt \
+  -tls-key /etc/axcp/server.key \
+  -secure-baseline \
+  -server-did did:key:server \
+  -trusted-did did:key:agent=<base64-public-key>
+```
+
+Local demos that intentionally use an ephemeral self-signed certificate must opt
+in explicitly with `-allow-insecure-demo-tls`.
+
 ### 2. Run Authenticated Client
 
 Use the authenticated_chat example as a client:
