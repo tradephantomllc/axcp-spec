@@ -12,7 +12,7 @@
 **A:**
 - **Core** (Apache 2.0): Full protocol implementation with DID authentication, Ed25519 signatures, QUIC transport, and basic telemetry
 - **Advanced** (Commercial): Adds Context-Sync, mTLS, SGX/SEV enclaves, differential privacy options
-- **Enterprise** (Commercial): Adds mandatory privacy enforcement, compliance tools, audit trails, TRI-AI orchestration, dedicated support
+- **Enterprise** (Commercial): Adds configurable privacy controls, compliance tools, audit trails, TRI-AI orchestration, dedicated support
 
 ---
 
