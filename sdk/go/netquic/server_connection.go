@@ -213,7 +213,7 @@ func (c *ServerConnection) SendDatagram(data []byte) error {
 		return ErrDatagramTooLarge
 	}
 
-	if !c.quicConn.ConnectionState().SupportsDatagrams {
+	if !supportsOutboundDatagrams(c.quicConn.ConnectionState()) {
 		return ErrDatagramNotSupported
 	}
 
