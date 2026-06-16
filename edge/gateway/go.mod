@@ -5,7 +5,7 @@ go 1.25.6
 require (
 	github.com/eclipse/paho.mqtt.golang v1.5.1
 	github.com/prometheus/client_golang v1.19.1
-	github.com/quic-go/quic-go v0.57.1
+	github.com/quic-go/quic-go v0.59.1
 	github.com/stretchr/testify v1.11.1
 	github.com/tradephantomllc/axcp-spec/sdk/go v0.0.0
 	github.com/tradephantomllc/axcp-spec/sdk/go/netquic v0.0.0
