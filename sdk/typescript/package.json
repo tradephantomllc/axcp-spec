@@ -45,7 +45,7 @@
   ],
   "dependencies": {
     "long": "^5.3.2",
-    "protobufjs": "^8.6.0"
+    "protobufjs": "^8.6.4"
   },
   "devDependencies": {
     "@types/node": "^22.15.21",
