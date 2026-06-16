@@ -58,7 +58,7 @@ Advanced features require a commercial license from TradePhantom LLC.
 - Structured logging
 
 **AXCP Enterprise ($$)**
-- Differential Privacy (mandatory enforcement)
+- Configurable Differential Privacy controls
 - PII filtering & redaction
 - Compliance reporting (GDPR, HIPAA, SOC2)
 - Audit trails (Merkle tree verified)
