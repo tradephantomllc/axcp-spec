@@ -38,7 +38,7 @@ jobs:
     name: Test Go
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set-up Go
         uses: actions/setup-go@v6
@@ -100,7 +100,7 @@ jobs:
     needs: [test-go]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # ── Download protobuf artifacts from test-go job ──────────────
       - name: Download protobuf artifacts
@@ -160,10 +160,10 @@ jobs:
     name: Test TypeScript
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set-up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -193,7 +193,7 @@ jobs:
     needs: [test-go]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # ── Download protobuf artifacts from test-go job ──────────────
       - name: Download protobuf artifacts
@@ -227,7 +227,7 @@ jobs:
     needs: [test-go]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # ── Download protobuf artifacts from test-go job ──────────────
       - name: Download protobuf artifacts
@@ -261,7 +261,7 @@ jobs:
     needs: [test-go]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set-up Go
         uses: actions/setup-go@v6

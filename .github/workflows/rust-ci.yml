@@ -33,18 +33,15 @@ jobs:
             cache-key: nightly
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.rust }}
-          profile: minimal
-          override: true
-          components: rustfmt, clippy
+        run: |
+          rustup toolchain install "${{ matrix.rust }}" --profile minimal --component rustfmt --component clippy
+          rustup default "${{ matrix.rust }}"
 
       - name: Cache cargo registry
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
@@ -79,14 +76,12 @@ jobs:
     if: always()                # mostra esito anche se test fallisse
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install stable Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-          override: true
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
 
       # --- documentation ---------------------------------
       - name: Build docs with warnings denied
@@ -97,11 +92,7 @@ jobs:
 
       # --- nightly toolchain per cargo-udeps --------------
       - name: Install nightly Rust (for udeps)
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          profile: minimal
-          override: false
+        run: rustup toolchain install nightly --profile minimal
 
       - name: Install cargo-udeps
         run: cargo +nightly install cargo-udeps --quiet --locked
