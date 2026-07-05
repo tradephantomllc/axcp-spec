@@ -79,7 +79,7 @@ The signature is computed over a canonical transcript:
 AXCP-DID-AUTH-v1
 <sender_did>
 <recipient_did>
-<base64(payload_bytes)>
+<base64(canonical_signing_payload)>
 <timestamp_rfc3339>
 ```
 
