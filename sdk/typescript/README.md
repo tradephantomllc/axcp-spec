@@ -87,5 +87,6 @@ AXCP-DID-AUTH-v1
 ```
 
 The signed payload excludes `sender_did`, `recipient_did`, `timestamp_ms`,
-`sequence`, `signature`, and `attestation_proof`, matching the reference Go and
+`signature`, and `attestation_proof`. `sequence` remains covered by the
+signature because replay protection consumes it, matching the reference Go and
 Python implementations.
