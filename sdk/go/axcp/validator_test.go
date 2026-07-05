@@ -298,6 +298,47 @@ func TestValidator_WithReplayProtection(t *testing.T) {
 	}
 }
 
+func TestValidator_ValidateEnvelopeDoesNotConsumeReplaySequence(t *testing.T) {
+	pub, priv, _ := ed25519.GenerateKey(nil)
+	senderDID := "did:key:sender"
+	localDID := "did:key:local"
+
+	resolver := auth.NewMemoryDIDResolver()
+	resolver.AddDID(senderDID, pub)
+
+	rp, _ := auth.NewReplayProtector(5*time.Minute, 100, nil)
+
+	v := NewValidator(ValidatorConfig{
+		LocalDID:        localDID,
+		Resolver:        resolver,
+		ReplayProtector: rp,
+	})
+
+	env := NewEnvelope("trace-123", 1)
+	env.SenderDid = senderDID
+	env.RecipientDid = localDID
+	env.TimestampMs = auth.NowMs()
+	env.Sequence = 42
+	env.Signature = make([]byte, ed25519.SignatureSize)
+
+	// Preflight validation does not verify the signature and must not mark replay state.
+	perr := v.ValidateEnvelope(context.Background(), env)
+	if perr != nil {
+		t.Fatalf("ValidateEnvelope() unexpected error: %v", perr)
+	}
+
+	perr = v.ValidateEnvelope(context.Background(), env)
+	if perr != nil {
+		t.Fatalf("ValidateEnvelope() should remain non-mutating for replay state: %v", perr)
+	}
+
+	env.Signature = ed25519.Sign(priv, buildEnvelopeTranscript(env))
+	perr = v.ValidateAndVerify(context.Background(), env)
+	if perr != nil {
+		t.Fatalf("ValidateAndVerify() should accept same sequence after preflight-only validation: %v", perr)
+	}
+}
+
 func TestValidatorMiddleware(t *testing.T) {
 	pub, priv, _ := ed25519.GenerateKey(nil)
 	senderDID := "did:key:sender"

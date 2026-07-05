@@ -18,7 +18,7 @@ type ValidatorConfig struct {
 	// TimestampValidator validates message timestamps (nil uses default)
 	TimestampValidator *auth.TimestampValidator
 
-	// ReplayProtector checks for replay attacks (nil disables replay protection)
+	// ReplayProtector checks for replay attacks after signature verification (nil disables replay protection)
 	ReplayProtector *auth.ReplayProtector
 
 	// SkipSignatureVerification skips signature verification (for testing only)
@@ -50,7 +50,9 @@ func NewValidator(config ValidatorConfig) *Validator {
 	}
 }
 
-// ValidateEnvelope validates an envelope without signature verification.
+// ValidateEnvelope performs non-mutating preflight validation without signature verification.
+// Replay protection is intentionally not applied here because replay state must only
+// be mutated after successful signature verification.
 // Returns a ProtocolError if validation fails.
 func (v *Validator) ValidateEnvelope(ctx context.Context, env *Envelope) *ProtocolError {
 	if env == nil {
