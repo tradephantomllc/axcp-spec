@@ -3,7 +3,7 @@
 **Working title:** AXCP Core: Message-Level Identity, Authentication, and Replay Protection for Autonomous Agent Communication
 **Draft status:** Source draft for editorial review and LaTeX conversion
 **Target venue/artifact:** Updated Zenodo preprint replacing or versioning the February 2026 AXCP v1.0 paper
-**Prepared from repository state:** `tradephantomllc/axcp-spec` `main`, after PRs #254 and #255
+**Prepared from repository state:** `tradephantomllc/axcp-spec` `main`, after transcript-alignment PR #256 and replay-order verification updates
 **Date:** 2026-07-05
 **Scope:** AXCP Core only, Apache 2.0 open-source repository
 
@@ -39,7 +39,7 @@ Use this as the source of truth for the final manuscript metadata:
 | Paper version | AXCP Core Paper v1.1 / 2026 revision |
 | Protocol specification | AXCP Core Specification v1.0, Secure Baseline |
 | Repository | `tradephantomllc/axcp-spec` |
-| Repository state | `main` after transcript/spec/authentication alignment |
+| Repository state | `main` after transcript/spec/authentication alignment and replay-order verification |
 | Publication target | Zenodo updated version under the existing concept DOI |
 | Core boundary | Apache 2.0 public repository; no Advanced/Enterprise code |
 | SDKs covered | Go, Python, TypeScript |
@@ -603,7 +603,8 @@ Do not publish the final paper until these are checked:
 7. Commercial-tier feature wording matches the website and private product boundary.
 8. No private Enterprise implementation details are included.
 9. The DOI versioning strategy is chosen: new Zenodo version under the same concept DOI or separate record.
-10. The final LaTeX bibliography uses primary sources only for MCP, A2A, DID, Ed25519, QUIC/TLS, and Protobuf claims.
+10. A new protocol proof pack is generated from the final paper-ready commit; do not reuse the historical M7 proof pack as final evidence.
+11. The final LaTeX bibliography uses primary sources only for MCP, A2A, DID, Ed25519, QUIC/TLS, and Protobuf claims.
 
 ---
 
