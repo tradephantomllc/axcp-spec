@@ -1,0 +1,11 @@
+AXCP M8.0 Protocol Proof Pack Environment
+generated_at_utc=2026-07-05T21:08:13Z
+repo=https://github.com/tradephantomllc/axcp-spec.git
+branch=codex/generate-m8-proof-pack
+commit=8275a501b3b627f7c9273ebd4bbfbf65c811eece
+go=go version go1.25.6 darwin/arm64
+python=Python 3.14.2
+node=v25.9.0
+npm=11.12.1
+rustc=rustc 1.93.1 (01f6ddf75 2026-02-11)
+cargo=cargo 1.93.1 (083ac5135 2025-12-15)
