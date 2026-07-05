@@ -1,0 +1,33 @@
+2026/07/05 23:09:18 === AXCP Authenticated Chat Client ===
+2026/07/05 23:09:18 Profile: secure-baseline-v1
+2026/07/05 23:09:18 Client DID: did:key:axcp-auth-chat-client
+2026/07/05 23:09:18 Server DID: did:key:axcp-auth-chat-server
+2026/07/05 23:09:18 Client Public Key: f8aa889c15b4312b...
+2026/07/05 23:09:18 Connected to localhost:61301
+2026/07/05 23:09:18 [QUIC] Client Connection Established
+2026/07/05 23:09:18 [QUIC]   Local Addr:  [::]:58615
+2026/07/05 23:09:18 [QUIC]   Remote Addr: 127.0.0.1:61301
+2026/07/05 23:09:18 [QUIC]   ALPN:        axcp-auth-chat
+2026/07/05 23:09:18 [QUIC]   TLS Version: 0x0304
+2026/07/05 23:09:18 [QUIC]   Cipher Suite: 0x1301
+2026/07/05 23:09:18
+--- Sending Authenticated Envelope ---
+2026/07/05 23:09:18   TraceID:    auth-chat-001
+2026/07/05 23:09:18   SenderDID:  did:key:axcp-auth-chat-client
+2026/07/05 23:09:18   RecipientDID: did:key:axcp-auth-chat-server
+2026/07/05 23:09:18   TimestampMs: 1783285758202
+2026/07/05 23:09:18   Sequence:   1
+2026/07/05 23:09:18   Signature:  64 bytes
+2026/07/05 23:09:18 [PROTOBUF] proto.Marshal (request): bytes=260, sha256=a82b6084d2388bc3bcffebb47a89196922024f71c4b6ce7445b30dbdaf566312
+2026/07/05 23:09:18 [PROTOBUF] proto.Unmarshal (response): bytes=263, sha256=885313b989e8b341ff6bf2d4491c553de12992278d883833099d6ea0df6f9d6b
+2026/07/05 23:09:18
+--- Received Response ---
+2026/07/05 23:09:18   TraceID:    auth-chat-001-resp
+2026/07/05 23:09:18   SenderDID:  did:key:axcp-auth-chat-server
+2026/07/05 23:09:18   Sequence:   1
+2026/07/05 23:09:18
+--- Verifying Server Signature ---
+2026/07/05 23:09:18   Server Signature VALID
+2026/07/05 23:09:18
+Bidirectional authenticated exchange completed!
+exit_code=0

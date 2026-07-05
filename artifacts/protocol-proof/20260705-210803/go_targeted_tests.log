@@ -1,0 +1,5 @@
+$ go test ./edge/gateway/internal ./sdk/go/auth ./sdk/go/axcp
+ok  	github.com/tradephantomllc/axcp-spec/edge/gateway/internal	(cached)
+ok  	github.com/tradephantomllc/axcp-spec/sdk/go/auth	(cached)
+ok  	github.com/tradephantomllc/axcp-spec/sdk/go/axcp	(cached)
+exit_code=0

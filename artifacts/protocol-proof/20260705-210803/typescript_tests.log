@@ -1,0 +1,63 @@
+$ cd sdk/typescript && npm test
+
+> @tradephantom/axcp@0.1.0 test
+> npm run build && node --test "dist/tests/**/*.test.js"
+
+
+> @tradephantom/axcp@0.1.0 build
+> tsc -p tsconfig.json
+
+▶ envelope
+  ✔ excludes detached auth fields from signing payload (3.515125ms)
+  ✔ keeps signing payload stable when auth fields change (0.69375ms)
+  ✔ changes signing payload when sequence changes (0.175166ms)
+  ✔ builds the Go/Python DID auth transcript shape (0.726583ms)
+  ✔ signs, verifies, encodes, and decodes an envelope (2.588083ms)
+  ✔ rejects replay after a valid signature (0.861583ms)
+  ✔ rejects tampered payloads (0.522375ms)
+  ✔ rejects tampered sequences (0.537292ms)
+  ✔ enforces timestamp expiry after signature verification (0.650916ms)
+  ✔ allows explicit public key verification (0.397417ms)
+  ✔ rejects explicit key mismatch for did:key (0.39675ms)
+  ✔ rejects wrong recipients (0.685417ms)
+  ✔ verifies non-key senders through a resolver (0.637834ms)
+  ✔ matches the shared Secure Baseline canonical signature vector (0.425916ms)
+✔ envelope (13.487541ms)
+▶ identity
+  ✔ generates a did:key identity (3.421875ms)
+  ✔ roundtrips seed JSON (0.655541ms)
+  ✔ signs and verifies payloads (0.998667ms)
+  ✔ rejects did:key private key mismatches (0.394625ms)
+  ✔ allows non-key DID labels (0.237833ms)
+  ✔ rejects invalid DID values (0.071208ms)
+✔ identity (6.319583ms)
+▶ profile negotiation
+  ✔ negotiates secure baseline (0.933042ms)
+  ✔ rejects transport-only by default (0.30625ms)
+  ✔ rejects missing profile overlap (0.064916ms)
+✔ profile negotiation (2.034333ms)
+▶ replay protection
+  ✔ enforces sequence windows (0.655209ms)
+  ✔ cleans nonce entries after ttl (0.091458ms)
+✔ replay protection (0.812125ms)
+▶ transport framing
+  ✔ encodes raw messages with big-endian length prefixes (1.30325ms)
+  ✔ encodes envelopes with little-endian length prefixes (0.069583ms)
+  ✔ rejects oversized frames before allocation (0.162375ms)
+✔ transport framing (2.00175ms)
+▶ transport connections
+  ✔ roundtrips signed envelopes over the development TCP adapter (14.466583ms)
+  ✔ roundtrips signed envelopes over the TLS adapter with ALPN (65.953666ms)
+✔ transport connections (80.51725ms)
+▶ QUIC availability
+  ✔ reports native Node QUIC capability explicitly (0.244375ms)
+✔ QUIC availability (0.291167ms)
+ℹ tests 31
+ℹ suites 7
+ℹ pass 31
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 174.72325
+exit_code=0

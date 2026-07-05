@@ -1,0 +1,3 @@
+$ /tmp/axcp-m8-python-venv-20260705-210803/bin/python scripts/verify_sdk_release_readiness.py
+release-readiness: ok
+exit_code=0
