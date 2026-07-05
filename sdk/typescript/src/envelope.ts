@@ -66,7 +66,6 @@ export function signingPayload(envelope: AxcpEnvelope): Uint8Array {
   delete clone.senderDid;
   delete clone.recipientDid;
   delete clone.timestampMs;
-  delete clone.sequence;
   delete clone.signature;
   delete clone.attestationProof;
   return encodeEnvelope(clone as AxcpEnvelope);

@@ -90,7 +90,7 @@ function loadVector(): SecureBaselineVector {
 }
 
 describe("envelope", () => {
-  it("excludes auth fields from signing payload", () => {
+  it("excludes detached auth fields from signing payload", () => {
     const envelope = contextEnvelope();
     envelope.senderDid = "did:key:sender";
     envelope.recipientDid = "did:key:recipient";
@@ -105,7 +105,7 @@ describe("envelope", () => {
     assert.equal(decoded.senderDid, "");
     assert.equal(decoded.recipientDid, "");
     assert.equal(toSafeNumber(decoded.timestampMs, "timestampMs"), 0);
-    assert.equal(toSafeNumber(decoded.sequence, "sequence"), 0);
+    assert.equal(toSafeNumber(decoded.sequence, "sequence"), 42);
     assert.equal((decoded.signature ?? new Uint8Array()).length, 0);
     assert.equal((decoded.attestationProof ?? new Uint8Array()).length, 0);
     assert.equal(decoded.contextPatch?.contextId, "ctx");
@@ -123,10 +123,20 @@ describe("envelope", () => {
     right.senderDid = "did:key:right";
     right.recipientDid = "did:key:other";
     right.timestampMs = 1_700_000_001_000;
-    right.sequence = 2;
+    right.sequence = 1;
     right.signature = new TextEncoder().encode("right");
 
     assert.deepEqual(signingPayload(left), signingPayload(right));
+  });
+
+  it("changes signing payload when sequence changes", () => {
+    const left = contextEnvelope();
+    left.sequence = 1;
+
+    const right = contextEnvelope();
+    right.sequence = 2;
+
+    assert.notDeepEqual(signingPayload(left), signingPayload(right));
   });
 
   it("builds the Go/Python DID auth transcript shape", () => {
@@ -175,6 +185,17 @@ describe("envelope", () => {
 
     alice.signMessage(envelope, { recipientDid: bob.identity.did });
     envelope.contextPatch!.contextId = "tampered";
+
+    await assert.rejects(() => bob.verify(envelope), SignatureVerificationError);
+  });
+
+  it("rejects tampered sequences", async () => {
+    const alice = new Agent(Identity.generate());
+    const bob = new Agent(Identity.generate());
+    const envelope = contextEnvelope();
+
+    alice.signMessage(envelope, { recipientDid: bob.identity.did });
+    envelope.sequence = toSafeNumber(envelope.sequence, "sequence") + 1;
 
     await assert.rejects(() => bob.verify(envelope), SignatureVerificationError);
   });
