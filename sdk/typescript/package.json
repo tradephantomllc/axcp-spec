@@ -48,7 +48,7 @@
     "protobufjs": "^8.6.4"
   },
   "devDependencies": {
-    "@types/node": "^22.15.21",
+    "@types/node": "^22.20.0",
     "typescript": "^6.0.3"
   }
 }
