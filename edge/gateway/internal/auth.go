@@ -101,7 +101,7 @@ type EnvelopeAuth struct {
 	TimestampMs  uint64
 	Sequence     uint64
 	Signature    []byte
-	PayloadBytes []byte // The serialized payload for signature verification
+	PayloadBytes []byte // Canonical signing payload bytes for signature verification
 }
 
 // AuthResult contains the result of authentication verification.
@@ -132,9 +132,9 @@ const (
 // For Secure Baseline profile:
 //  1. Validates sender_did is present and parseable
 //  2. Validates timestamp is within acceptable window
-//  3. Checks replay protection (sequence number)
-//  4. Resolves sender's public key via DID resolver
-//  5. Verifies Ed25519 signature over the auth transcript
+//  3. Resolves sender's public key via DID resolver
+//  4. Verifies Ed25519 signature over the auth transcript
+//  5. Checks replay protection (sequence number)
 //
 // Returns AuthResult with Authenticated=true on success, or with Error and ErrorCode on failure.
 func (ea *EnvelopeAuthenticator) VerifyEnvelope(ctx context.Context, profile negotiate.Profile, envAuth EnvelopeAuth) AuthResult {
@@ -174,18 +174,6 @@ func (ea *EnvelopeAuthenticator) VerifyEnvelope(ctx context.Context, profile neg
 		}
 	}
 
-	// Check replay protection
-	if err := ea.replay.CheckAndMark(envAuth.SenderDID, envAuth.Sequence); err != nil {
-		code := ErrorCodeAuthReplayDetected
-		if errors.Is(err, auth.ErrTooOld) {
-			code = ErrorCodeAuthTimestampExpired // Sequence too old is similar to timestamp expired
-		}
-		return AuthResult{
-			Error:     err,
-			ErrorCode: uint32(code),
-		}
-	}
-
 	// Build auth transcript for signature verification
 	timestamp := time.UnixMilli(int64(envAuth.TimestampMs))
 	recipientDID := envAuth.RecipientDID
@@ -206,6 +194,19 @@ func (ea *EnvelopeAuthenticator) VerifyEnvelope(ctx context.Context, profile neg
 		code := ErrorCodeAuthSignatureInvalid
 		if errors.Is(err, auth.ErrDIDNotFound) || errors.Is(err, auth.ErrInvalidDIDFormat) {
 			code = ErrorCodeAuthDIDInvalid
+		}
+		return AuthResult{
+			Error:     err,
+			ErrorCode: uint32(code),
+		}
+	}
+
+	// Check replay protection only after signature verification succeeds.
+	// Otherwise, unauthenticated traffic could burn valid sequence numbers.
+	if err := ea.replay.CheckAndMark(envAuth.SenderDID, envAuth.Sequence); err != nil {
+		code := ErrorCodeAuthReplayDetected
+		if errors.Is(err, auth.ErrTooOld) {
+			code = ErrorCodeAuthTimestampExpired // Sequence too old is similar to timestamp expired
 		}
 		return AuthResult{
 			Error:     err,
