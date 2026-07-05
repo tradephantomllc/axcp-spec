@@ -260,17 +260,32 @@ The authentication transcript MUST be constructed exactly as follows:
 **Format:**
 ```
 AXCP-DID-AUTH-v1\n
-<clientDID>\n
-<serverDID>\n
-<base64(challenge)>\n
+<senderDID>\n
+<recipientDID>\n
+<base64(canonicalSigningPayload)>\n
 <timestampRFC3339>
 ```
 
 Where:
 - `\n` is the newline character (0x0A)
 - Fields are joined with `\n` (no trailing newline)
-- `<base64(challenge)>` uses standard Base64 encoding (RFC 4648)
+- `<senderDID>` is the DID of the signing agent or gateway
+- `<recipientDID>` is the intended recipient DID
+- `<base64(canonicalSigningPayload)>` uses standard Base64 encoding (RFC 4648)
 - `<timestampRFC3339>` is UTC time formatted as RFC3339 (e.g., `2026-01-29T12:00:00Z`)
+
+The canonical signing payload is the deterministic Protobuf encoding of the
+AXCP envelope after clearing detached authentication fields:
+
+- `sender_did`
+- `recipient_did`
+- `timestamp_ms`
+- `signature`
+- `attestation_proof`
+
+The replay `sequence` field MUST remain in the canonical signing payload.
+Changing `sequence` MUST change the signing payload and MUST invalidate the
+detached signature before replay state is mutated.
 
 **Example transcript:**
 ```
@@ -437,19 +452,19 @@ Server (AllowDeprecated=false):
 ### A.2 Transcript Composition Example
 
 Given:
-- Client DID: `did:key:z6MkClient123`
-- Server DID: `did:key:z6MkServer456`
-- Challenge: `[0x48, 0x65, 0x6c, 0x6c, 0x6f]` (ASCII "Hello")
+- Sender DID: `did:key:z6MkClient123`
+- Recipient DID: `did:key:z6MkServer456`
+- Canonical signing payload bytes: `[0x08, 0x01, 0x12, 0x09, 0x74, 0x72, 0x61, 0x63, 0x65, 0x2d, 0x31, 0x32, 0x33, 0x18, 0x01, 0xb0, 0x01, 0x2a]`
 - Timestamp: 2026-01-29T15:30:00Z
 
-Challenge Base64: `SGVsbG8=`
+Canonical signing payload Base64: `CAESCXRyYWNlLTEyMxgBsAEq`
 
 Transcript bytes (UTF-8):
 ```
 AXCP-DID-AUTH-v1
 did:key:z6MkClient123
 did:key:z6MkServer456
-SGVsbG8=
+CAESCXRyYWNlLTEyMxgBsAEq
 2026-01-29T15:30:00Z
 ```
 

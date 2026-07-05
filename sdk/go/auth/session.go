@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"errors"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -31,8 +32,8 @@ type Session struct {
 	mu sync.RWMutex
 
 	// Identity
-	localDID  string
-	remoteDID string
+	localDID   string
+	remoteDID  string
 	privateKey ed25519.PrivateKey
 
 	// Negotiation state
@@ -126,8 +127,17 @@ func (s *Session) CurrentSequence() uint64 {
 
 // SignatureInput contains the data needed to create a signed envelope.
 type SignatureInput struct {
-	// Payload is the serialized envelope payload (without auth fields)
+	// Payload is a prebuilt canonical signing payload.
+	//
+	// For AXCP Secure Baseline envelope signing, the payload must include the
+	// final replay sequence. Prefer PayloadForSequence when the session owns
+	// sequence allocation.
 	Payload []byte
+
+	// PayloadForSequence builds the canonical signing payload after the session
+	// allocates the final replay sequence. This is the preferred path for
+	// envelope signing because sequence must be covered by the signature.
+	PayloadForSequence func(sequence uint64) ([]byte, error)
 
 	// RecipientDID overrides the remote DID for directed messages (optional)
 	RecipientDID string
@@ -178,8 +188,17 @@ func (s *Session) SignEnvelope(ctx context.Context, input SignatureInput) (*Sign
 	timestampMs := uint64(now.UnixMilli())
 	sequence := s.NextSequence()
 
+	signingPayload := input.Payload
+	if input.PayloadForSequence != nil {
+		var err error
+		signingPayload, err = input.PayloadForSequence(sequence)
+		if err != nil {
+			return nil, fmt.Errorf("auth: build signing payload: %w", err)
+		}
+	}
+
 	// Build transcript for signing
-	transcript := BuildDIDAuthTranscript(localDID, recipientDID, input.Payload, now)
+	transcript := BuildDIDAuthTranscript(localDID, recipientDID, signingPayload, now)
 
 	// Sign the transcript
 	signature := ed25519.Sign(privateKey, transcript)

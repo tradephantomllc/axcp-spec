@@ -92,19 +92,36 @@ The signature is computed over a **canonical transcript** that includes all auth
 **Format**:
 ```
 AXCP-DID-AUTH-v1
-<clientDID>
-<serverDID>
-<base64(challenge)>
+<senderDID>
+<recipientDID>
+<base64(canonicalSigningPayload)>
 <timestampRFC3339>
 ```
 
-**Important**: Do not construct transcripts manually. Use the SDK function:
+The canonical signing payload is the deterministic Protobuf encoding of the
+envelope after clearing detached authentication fields:
+
+- `sender_did`
+- `recipient_did`
+- `timestamp_ms`
+- `signature`
+- `attestation_proof`
+
+The replay `sequence` field remains covered by the signing payload. This means
+sequence tampering invalidates the signature before replay state is checked or
+mutated.
+
+**Important**: Do not construct envelope transcripts manually. Use the SDK
+envelope helper:
 
 ```go
-transcript := auth.BuildDIDAuthTranscript(clientDID, serverDID, challenge, timestamp)
+transcript, err := axcp.BuildAuthTranscript(envelope)
 ```
 
-This ensures the transcript matches the specification exactly.
+For lower-level integrations, `auth.BuildDIDAuthTranscript(senderDID,
+recipientDID, canonicalSigningPayload, timestamp)` remains the transcript
+primitive. Its third argument is the canonical signing payload bytes, not a
+standalone challenge in Secure Baseline envelope signing.
 
 ## Replay Protection
 
@@ -156,6 +173,7 @@ There is no retry logic for authentication failures. Implementations must **fail
 | Component | Location |
 |-----------|----------|
 | DID types and transcript | `sdk/go/auth/did.go` |
+| Envelope signing payload | `sdk/go/axcp/signature.go` |
 | Ed25519 operations | `sdk/go/auth/ed25519.go` |
 | Replay protection | `sdk/go/auth/replay.go` |
 | Session management | `sdk/go/auth/session.go` |

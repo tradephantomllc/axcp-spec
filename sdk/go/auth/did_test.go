@@ -299,11 +299,11 @@ func TestResolveEd25519PublicKey_Accepts2018KeyType(t *testing.T) {
 func TestBuildDIDAuthTranscript_Deterministic(t *testing.T) {
 	clientDID := "did:example:client"
 	serverDID := "did:example:server"
-	challenge := []byte("random-challenge-bytes")
+	signingPayload := []byte("canonical-signing-payload")
 	ts := time.Date(2026, 1, 27, 12, 0, 0, 0, time.UTC)
 
-	transcript1 := BuildDIDAuthTranscript(clientDID, serverDID, challenge, ts)
-	transcript2 := BuildDIDAuthTranscript(clientDID, serverDID, challenge, ts)
+	transcript1 := BuildDIDAuthTranscript(clientDID, serverDID, signingPayload, ts)
+	transcript2 := BuildDIDAuthTranscript(clientDID, serverDID, signingPayload, ts)
 
 	if string(transcript1) != string(transcript2) {
 		t.Error("transcripts should be deterministic")
@@ -313,10 +313,10 @@ func TestBuildDIDAuthTranscript_Deterministic(t *testing.T) {
 func TestBuildDIDAuthTranscript_Format(t *testing.T) {
 	clientDID := "did:example:client"
 	serverDID := "did:example:server"
-	challenge := []byte("test")
+	signingPayload := []byte("test")
 	ts := time.Date(2026, 1, 27, 12, 0, 0, 0, time.UTC)
 
-	transcript := BuildDIDAuthTranscript(clientDID, serverDID, challenge, ts)
+	transcript := BuildDIDAuthTranscript(clientDID, serverDID, signingPayload, ts)
 	transcriptStr := string(transcript)
 
 	// Expected format:
@@ -330,10 +330,10 @@ func TestBuildDIDAuthTranscript_Format(t *testing.T) {
 
 func TestBuildDIDAuthTranscript_DifferentInputsProduceDifferentTranscripts(t *testing.T) {
 	ts := time.Now()
-	challenge := []byte("challenge")
+	signingPayload := []byte("canonical-signing-payload")
 
-	t1 := BuildDIDAuthTranscript("did:example:a", "did:example:b", challenge, ts)
-	t2 := BuildDIDAuthTranscript("did:example:c", "did:example:b", challenge, ts) // Different client
+	t1 := BuildDIDAuthTranscript("did:example:a", "did:example:b", signingPayload, ts)
+	t2 := BuildDIDAuthTranscript("did:example:c", "did:example:b", signingPayload, ts) // Different client
 
 	if string(t1) == string(t2) {
 		t.Error("different clients should produce different transcripts")
@@ -368,10 +368,10 @@ func TestVerifyDIDAuthSignature_Success(t *testing.T) {
 	// Build transcript
 	clientDID := "did:example:alice"
 	serverDID := "did:example:server"
-	challenge := []byte("server-challenge-12345")
+	signingPayload := []byte("server-payload-12345")
 	ts := time.Now()
 
-	transcript := BuildDIDAuthTranscript(clientDID, serverDID, challenge, ts)
+	transcript := BuildDIDAuthTranscript(clientDID, serverDID, signingPayload, ts)
 
 	// Sign transcript with alice's private key
 	signature, err := SignEd25519(privateKey, transcript)
@@ -500,8 +500,8 @@ func TestVerifyDIDAuthSignature_WrongSigner(t *testing.T) {
 	}
 }
 
-func TestVerifyDIDAuthSignature_ChallengeBinding(t *testing.T) {
-	// This test verifies that the signature is bound to the specific challenge
+func TestVerifyDIDAuthSignature_PayloadBinding(t *testing.T) {
+	// This test verifies that the signature is bound to the specific signing payload
 	publicKey, privateKey, _ := GenerateEd25519Keypair()
 
 	resolver := &FakeResolver{
@@ -517,26 +517,26 @@ func TestVerifyDIDAuthSignature_ChallengeBinding(t *testing.T) {
 
 	clientDID := "did:example:alice"
 	serverDID := "did:example:server"
-	challenge1 := []byte("challenge-1")
-	challenge2 := []byte("challenge-2")
+	signingPayload1 := []byte("payload-1")
+	signingPayload2 := []byte("payload-2")
 	ts := time.Now()
 
-	// Sign with challenge1
-	transcript1 := BuildDIDAuthTranscript(clientDID, serverDID, challenge1, ts)
+	// Sign with signingPayload1
+	transcript1 := BuildDIDAuthTranscript(clientDID, serverDID, signingPayload1, ts)
 	signature, _ := SignEd25519(privateKey, transcript1)
 
-	// Verify with challenge1 - should succeed
+	// Verify with signingPayload1 - should succeed
 	ctx := context.Background()
 	err := VerifyDIDAuthSignature(ctx, resolver, clientDID, transcript1, signature)
 	if err != nil {
-		t.Errorf("verification with correct challenge failed: %v", err)
+		t.Errorf("verification with correct signing payload failed: %v", err)
 	}
 
-	// Verify with challenge2 - should fail (different transcript)
-	transcript2 := BuildDIDAuthTranscript(clientDID, serverDID, challenge2, ts)
+	// Verify with signingPayload2 - should fail (different transcript)
+	transcript2 := BuildDIDAuthTranscript(clientDID, serverDID, signingPayload2, ts)
 	err = VerifyDIDAuthSignature(ctx, resolver, clientDID, transcript2, signature)
 	if err != ErrVerificationFailed {
-		t.Errorf("expected ErrVerificationFailed for wrong challenge, got %v", err)
+		t.Errorf("expected ErrVerificationFailed for wrong signing payload, got %v", err)
 	}
 }
 
@@ -601,12 +601,12 @@ func TestDIDAuth_FullFlow(t *testing.T) {
 	clientDID := "did:example:client"
 	serverDID := "did:example:server"
 
-	// Step 1: Server generates challenge
-	challenge := []byte("server-random-challenge-xyz")
+	// Step 1: Build canonical signing payload bytes
+	signingPayload := []byte("server-canonical-payload-xyz")
 	ts := time.Now()
 
 	// Step 2: Client builds and signs transcript
-	clientTranscript := BuildDIDAuthTranscript(clientDID, serverDID, challenge, ts)
+	clientTranscript := BuildDIDAuthTranscript(clientDID, serverDID, signingPayload, ts)
 	clientSignature, err := SignEd25519(clientPrivate, clientTranscript)
 	if err != nil {
 		t.Fatalf("client signing failed: %v", err)
@@ -619,7 +619,7 @@ func TestDIDAuth_FullFlow(t *testing.T) {
 	}
 
 	// Step 4: Server responds with its own signature (mutual auth)
-	serverTranscript := BuildDIDAuthTranscript(serverDID, clientDID, challenge, ts)
+	serverTranscript := BuildDIDAuthTranscript(serverDID, clientDID, signingPayload, ts)
 	serverSignature, err := SignEd25519(serverPrivate, serverTranscript)
 	if err != nil {
 		t.Fatalf("server signing failed: %v", err)
@@ -639,12 +639,12 @@ func TestDIDAuth_FullFlow(t *testing.T) {
 func BenchmarkBuildDIDAuthTranscript(b *testing.B) {
 	clientDID := "did:example:client"
 	serverDID := "did:example:server"
-	challenge := make([]byte, 32)
+	signingPayload := make([]byte, 32)
 	ts := time.Now()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = BuildDIDAuthTranscript(clientDID, serverDID, challenge, ts)
+		_ = BuildDIDAuthTranscript(clientDID, serverDID, signingPayload, ts)
 	}
 }
 
@@ -662,7 +662,7 @@ func BenchmarkVerifyDIDAuthSignature(b *testing.B) {
 		},
 	}
 
-	transcript := BuildDIDAuthTranscript("did:example:alice", "did:example:server", []byte("challenge"), time.Now())
+	transcript := BuildDIDAuthTranscript("did:example:alice", "did:example:server", []byte("signing payload"), time.Now())
 	signature, _ := SignEd25519(privateKey, transcript)
 
 	ctx := context.Background()

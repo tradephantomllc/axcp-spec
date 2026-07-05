@@ -182,26 +182,27 @@ const (
 )
 
 // BuildDIDAuthTranscript creates a canonical payload for DID authentication signing.
-// The transcript binds the signature to specific parties, challenge, and timestamp.
+// The transcript binds the signature to specific parties, canonical signing
+// payload bytes, and timestamp.
 //
 // Format:
 //
 //	AXCP-DID-AUTH-v1\n
-//	<clientDID>\n
-//	<serverDID>\n
-//	<base64(challenge)>\n
+//	<senderDID>\n
+//	<recipientDID>\n
+//	<base64(canonicalSigningPayload)>\n
 //	<timestampRFC3339>
 //
 // This deterministic format ensures both parties compute identical transcripts.
-func BuildDIDAuthTranscript(clientDID, serverDID string, challenge []byte, ts time.Time) []byte {
-	challengeB64 := base64.StdEncoding.EncodeToString(challenge)
+func BuildDIDAuthTranscript(senderDID, recipientDID string, canonicalSigningPayload []byte, ts time.Time) []byte {
+	payloadB64 := base64.StdEncoding.EncodeToString(canonicalSigningPayload)
 	timestampStr := ts.UTC().Format(time.RFC3339)
 
 	transcript := strings.Join([]string{
 		DIDAuthTranscriptVersion,
-		clientDID,
-		serverDID,
-		challengeB64,
+		senderDID,
+		recipientDID,
+		payloadB64,
 		timestampStr,
 	}, "\n")
 
