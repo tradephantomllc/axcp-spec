@@ -1,0 +1,14 @@
+$ go test ./edge/gateway/internal/... ./sdk/go/...
+ok  	github.com/tradephantomllc/axcp-spec/edge/gateway/internal	(cached)
+ok  	github.com/tradephantomllc/axcp-spec/edge/gateway/internal/buffer	(cached)
+ok  	github.com/tradephantomllc/axcp-spec/edge/gateway/internal/metrics	(cached)
+ok  	github.com/tradephantomllc/axcp-spec/sdk/go/auth	(cached)
+ok  	github.com/tradephantomllc/axcp-spec/sdk/go/axcp	(cached)
+?   	github.com/tradephantomllc/axcp-spec/sdk/go/axcp/pb	[no test files]
+ok  	github.com/tradephantomllc/axcp-spec/sdk/go/bench	(cached) [no tests to run]
+ok  	github.com/tradephantomllc/axcp-spec/sdk/go/bench/codec	(cached) [no tests to run]
+?   	github.com/tradephantomllc/axcp-spec/sdk/go/examples/secure_baseline	[no test files]
+?   	github.com/tradephantomllc/axcp-spec/sdk/go/internal/pb	[no test files]
+ok  	github.com/tradephantomllc/axcp-spec/sdk/go/negotiate	(cached)
+ok  	github.com/tradephantomllc/axcp-spec/sdk/go/test	(cached)
+exit_code=0

@@ -1,0 +1,31 @@
+$ go run ./examples/go/authenticated_chat -replay
+2026/07/05 23:09:23 === AXCP Replay Protection Test ===
+2026/07/05 23:09:23 This test demonstrates that replayed messages are REJECTED
+2026/07/05 23:09:23
+2026/07/05 23:09:23 [PROTOBUF] proto.Marshal (test envelope): bytes=215, sha256=9c870eeb7d74abd9aecdac400f48ee7dfae15b0d167c7e5ee8e7ab8cbb057e45
+2026/07/05 23:09:23
+2026/07/05 23:09:23 --- Test 1: First Request (should PASS) ---
+2026/07/05 23:09:23 [REPLAY] Checking sequence=1 for DID=did:key:axcp-auth-chat-client
+2026/07/05 23:09:23 [REPLAY] ACCEPTED - Sequence 1 is new, recording
+2026/07/05 23:09:23 [AUTH] Signature verification: VALID (64 bytes Ed25519)
+2026/07/05 23:09:23 [RESULT] First request: PASS
+2026/07/05 23:09:23
+2026/07/05 23:09:23 --- Test 2: Replay Attack (SAME envelope, should FAIL) ---
+2026/07/05 23:09:23 [REPLAY] Checking sequence=1 for DID=did:key:axcp-auth-chat-client
+2026/07/05 23:09:23 [REPLAY] REJECTED - Sequence 1 already seen (REPLAY ATTACK BLOCKED)
+2026/07/05 23:09:23 [RESULT] Replay attack: BLOCKED (as expected)
+2026/07/05 23:09:23
+2026/07/05 23:09:23 --- Test 3: New Sequence (should PASS) ---
+2026/07/05 23:09:23 [REPLAY] Checking sequence=2 for DID=did:key:axcp-auth-chat-client
+2026/07/05 23:09:23 [REPLAY] ACCEPTED - Sequence 2 is new, recording
+2026/07/05 23:09:23 [RESULT] New sequence: PASS
+2026/07/05 23:09:23
+2026/07/05 23:09:23 === Replay Protection Test Complete ===
+2026/07/05 23:09:23
+2026/07/05 23:09:23 Summary:
+2026/07/05 23:09:23   - First request (seq=1): ACCEPTED
+2026/07/05 23:09:23   - Replay attack (seq=1): REJECTED
+2026/07/05 23:09:23   - New request (seq=2):   ACCEPTED
+2026/07/05 23:09:23
+2026/07/05 23:09:23 Replay protection is working correctly!
+exit_code=0

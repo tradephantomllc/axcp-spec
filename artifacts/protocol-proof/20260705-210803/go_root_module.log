@@ -1,0 +1,5 @@
+$ go test ./...
+?   	github.com/tradephantomllc/axcp-spec/examples/go/authenticated_chat	[no test files]
+?   	github.com/tradephantomllc/axcp-spec/examples/go/simple_chat	[no test files]
+?   	github.com/tradephantomllc/axcp-spec/v0.3/edge/gateway	[no test files]
+exit_code=0

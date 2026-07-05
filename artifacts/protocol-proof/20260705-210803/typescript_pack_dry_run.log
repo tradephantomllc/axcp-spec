@@ -1,0 +1,77 @@
+$ cd sdk/typescript && npm pack --dry-run
+
+> @tradephantom/axcp@0.1.0 prepack
+> npm run build
+
+
+> @tradephantom/axcp@0.1.0 build
+> tsc -p tsconfig.json
+
+npm notice
+npm notice 📦  @tradephantom/axcp@0.1.0
+npm notice Tarball Contents
+npm notice 2.5kB README.md
+npm notice 945B dist/src/agent.d.ts
+npm notice 1.5kB dist/src/agent.js
+npm notice 1.5kB dist/src/agent.js.map
+npm notice 129B dist/src/base58.d.ts
+npm notice 1.5kB dist/src/base58.js
+npm notice 1.8kB dist/src/base58.js.map
+npm notice 399B dist/src/bytes.d.ts
+npm notice 1.1kB dist/src/bytes.js
+npm notice 1.3kB dist/src/bytes.js.map
+npm notice 1.3kB dist/src/envelope.d.ts
+npm notice 5.2kB dist/src/envelope.js
+npm notice 5.4kB dist/src/envelope.js.map
+npm notice 3.1kB dist/src/errors.d.ts
+npm notice 4.3kB dist/src/errors.js
+npm notice 3.4kB dist/src/errors.js.map
+npm notice 2.0kB dist/src/identity.d.ts
+npm notice 9.2kB dist/src/identity.js
+npm notice 8.3kB dist/src/identity.js.map
+npm notice 3.0kB dist/src/index.d.ts
+npm notice 2.0kB dist/src/index.js
+npm notice 1.5kB dist/src/index.js.map
+npm notice 3.5kB dist/src/pb/schema.d.ts
+npm notice 8.9kB dist/src/pb/schema.js
+npm notice 9.4kB dist/src/pb/schema.js.map
+npm notice 1.0kB dist/src/profile.d.ts
+npm notice 3.9kB dist/src/profile.js
+npm notice 3.3kB dist/src/profile.js.map
+npm notice 562B dist/src/replay.d.ts
+npm notice 3.2kB dist/src/replay.js
+npm notice 3.4kB dist/src/replay.js.map
+npm notice 677B dist/src/timestamp.d.ts
+npm notice 2.1kB dist/src/timestamp.js
+npm notice 2.0kB dist/src/timestamp.js.map
+npm notice 1.1kB dist/src/transport/connection.d.ts
+npm notice 6.5kB dist/src/transport/connection.js
+npm notice 6.6kB dist/src/transport/connection.js.map
+npm notice 1.0kB dist/src/transport/framing.d.ts
+npm notice 2.3kB dist/src/transport/framing.js
+npm notice 2.3kB dist/src/transport/framing.js.map
+npm notice 694B dist/src/transport/index.d.ts
+npm notice 485B dist/src/transport/index.js
+npm notice 460B dist/src/transport/index.js.map
+npm notice 251B dist/src/transport/quic.d.ts
+npm notice 821B dist/src/transport/quic.js
+npm notice 721B dist/src/transport/quic.js.map
+npm notice 1.1kB dist/src/transport/tcp.d.ts
+npm notice 5.3kB dist/src/transport/tcp.js
+npm notice 5.4kB dist/src/transport/tcp.js.map
+npm notice 1.5kB dist/src/transport/tls.d.ts
+npm notice 7.2kB dist/src/transport/tls.js
+npm notice 6.8kB dist/src/transport/tls.js.map
+npm notice 1.2kB package.json
+npm notice Tarball Details
+npm notice name: @tradephantom/axcp
+npm notice version: 0.1.0
+npm notice filename: tradephantom-axcp-0.1.0.tgz
+npm notice package size: 30.4 kB
+npm notice unpacked size: 155.1 kB
+npm notice shasum: 8ba52a8ded58ce78cd6285921037cd924cc5d5ad
+npm notice integrity: sha512-DtyzqD0e46VV+[...]8yBojqso07FuA==
+npm notice total files: 53
+npm notice
+tradephantom-axcp-0.1.0.tgz
+exit_code=0
