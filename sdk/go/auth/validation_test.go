@@ -16,11 +16,11 @@ type mockEnvelope struct {
 	signature    []byte
 }
 
-func (m *mockEnvelope) GetSenderDid() string     { return m.senderDID }
-func (m *mockEnvelope) GetRecipientDid() string  { return m.recipientDID }
-func (m *mockEnvelope) GetTimestampMs() uint64   { return m.timestampMs }
-func (m *mockEnvelope) GetSequence() uint64      { return m.sequence }
-func (m *mockEnvelope) GetSignature() []byte     { return m.signature }
+func (m *mockEnvelope) GetSenderDid() string    { return m.senderDID }
+func (m *mockEnvelope) GetRecipientDid() string { return m.recipientDID }
+func (m *mockEnvelope) GetTimestampMs() uint64  { return m.timestampMs }
+func (m *mockEnvelope) GetSequence() uint64     { return m.sequence }
+func (m *mockEnvelope) GetSignature() []byte    { return m.signature }
 
 func TestValidateRecipient_Valid(t *testing.T) {
 	env := &mockEnvelope{
@@ -316,7 +316,7 @@ func TestEnvelopeValidator_ValidateEnvelope_Errors(t *testing.T) {
 	}
 }
 
-func TestEnvelopeValidator_WithReplayProtector(t *testing.T) {
+func TestEnvelopeValidator_ValidateEnvelopeDoesNotMutateReplayProtector(t *testing.T) {
 	pub, _, _ := ed25519.GenerateKey(nil)
 
 	resolver := NewMemoryDIDResolver()
@@ -338,23 +338,95 @@ func TestEnvelopeValidator_WithReplayProtector(t *testing.T) {
 		signature:    make([]byte, 64),
 	}
 
-	// First call should succeed
+	// ValidateEnvelope is preflight-only and should not mark replay state.
 	err = v.ValidateEnvelope(context.Background(), env)
 	if err != nil {
 		t.Errorf("first call should succeed: %v", err)
 	}
 
-	// Second call with same sequence should fail (replay)
-	err = v.ValidateEnvelope(context.Background(), env)
-	if err == nil {
-		t.Error("second call should fail due to replay detection")
-	}
-
-	// New sequence should succeed
-	env.sequence = 2
 	err = v.ValidateEnvelope(context.Background(), env)
 	if err != nil {
+		t.Errorf("second preflight call with same sequence should not fail as replay: %v", err)
+	}
+}
+
+func TestEnvelopeValidator_WithReplayProtector(t *testing.T) {
+	pub, priv, _ := ed25519.GenerateKey(nil)
+
+	resolver := NewMemoryDIDResolver()
+	resolver.AddDID("did:key:sender", pub)
+
+	rp, err := NewReplayProtector(5*time.Minute, 100, nil)
+	if err != nil {
+		t.Fatalf("failed to create replay protector: %v", err)
+	}
+
+	v := NewEnvelopeValidator(resolver, "did:key:recipient").
+		WithReplayProtector(rp)
+
+	transcript := []byte("test-transcript-data")
+	signature := ed25519.Sign(priv, transcript)
+	env := &mockEnvelope{
+		senderDID:    "did:key:sender",
+		recipientDID: "did:key:recipient",
+		timestampMs:  NowMs(),
+		sequence:     1,
+		signature:    signature,
+	}
+
+	// First verified call should succeed and mark replay state.
+	err = v.ValidateAndVerifySignature(context.Background(), env, transcript)
+	if err != nil {
+		t.Errorf("first call should succeed: %v", err)
+	}
+
+	// Second verified call with same sequence should fail.
+	err = v.ValidateAndVerifySignature(context.Background(), env, transcript)
+	if err == nil {
+		t.Fatal("second call should fail due to replay detection")
+	}
+
+	// New sequence should succeed.
+	env.sequence = 2
+	err = v.ValidateAndVerifySignature(context.Background(), env, transcript)
+	if err != nil {
 		t.Errorf("new sequence should succeed: %v", err)
+	}
+}
+
+func TestEnvelopeValidator_InvalidSignatureDoesNotConsumeReplaySequence(t *testing.T) {
+	pub, priv, _ := ed25519.GenerateKey(nil)
+
+	resolver := NewMemoryDIDResolver()
+	resolver.AddDID("did:key:sender", pub)
+
+	rp, err := NewReplayProtector(5*time.Minute, 100, nil)
+	if err != nil {
+		t.Fatalf("failed to create replay protector: %v", err)
+	}
+
+	v := NewEnvelopeValidator(resolver, "did:key:recipient").
+		WithReplayProtector(rp)
+
+	transcript := []byte("test-transcript-data")
+	validSignature := ed25519.Sign(priv, transcript)
+	env := &mockEnvelope{
+		senderDID:    "did:key:sender",
+		recipientDID: "did:key:recipient",
+		timestampMs:  NowMs(),
+		sequence:     42,
+		signature:    make([]byte, ed25519.SignatureSize),
+	}
+
+	err = v.ValidateAndVerifySignature(context.Background(), env, transcript)
+	if err != ErrVerificationFailed {
+		t.Fatalf("invalid signature error = %v, want %v", err, ErrVerificationFailed)
+	}
+
+	env.signature = validSignature
+	err = v.ValidateAndVerifySignature(context.Background(), env, transcript)
+	if err != nil {
+		t.Fatalf("valid signature with same sequence should succeed after invalid attempt: %v", err)
 	}
 }
 

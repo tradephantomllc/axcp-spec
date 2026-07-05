@@ -115,7 +115,7 @@ type EnvelopeValidator struct {
 	// TimestampValidator validates message timestamps
 	TimestampValidator *TimestampValidator
 
-	// ReplayProtector checks for replay attacks (optional)
+	// ReplayProtector checks for replay attacks after signature verification (optional)
 	ReplayProtector *ReplayProtector
 
 	// LocalDID is this node's DID (used for recipient validation)
@@ -137,13 +137,17 @@ func (v *EnvelopeValidator) WithTimestampValidator(tv *TimestampValidator) *Enve
 	return v
 }
 
-// WithReplayProtector sets a replay protector for replay attack detection.
+// WithReplayProtector sets a replay protector for post-signature replay attack detection.
+//
+// Replay state is mutated only by validation paths that verify the envelope signature
+// first, such as ValidateAndVerifySignature. ValidateEnvelope is intentionally
+// non-mutating and does not call the replay protector.
 func (v *EnvelopeValidator) WithReplayProtector(rp *ReplayProtector) *EnvelopeValidator {
 	v.ReplayProtector = rp
 	return v
 }
 
-// ValidateEnvelope performs comprehensive validation of an incoming envelope.
+// ValidateEnvelope performs non-mutating preflight validation of an incoming envelope.
 //
 // Validation steps (in order):
 //  1. Check envelope is not nil
@@ -152,11 +156,11 @@ func (v *EnvelopeValidator) WithReplayProtector(rp *ReplayProtector) *EnvelopeVa
 //  4. Validate timestamp is within acceptable window
 //  5. Validate signature is present
 //  6. Resolve sender's public key
-//  7. Verify signature (requires transcript)
-//  8. Check replay protection (if configured)
 //
 // Note: This method does NOT verify the signature because it doesn't have
-// access to the full transcript. Use ValidateAndVerify for complete validation.
+// access to the full transcript. It also does NOT mutate replay state. Use
+// ValidateAndVerifySignature for complete validation with post-signature replay
+// protection.
 func (v *EnvelopeValidator) ValidateEnvelope(ctx context.Context, env EnvelopeFields) error {
 	// 1. Check envelope not nil
 	if env == nil {
@@ -191,23 +195,15 @@ func (v *EnvelopeValidator) ValidateEnvelope(ctx context.Context, env EnvelopeFi
 		return err
 	}
 
-	// 7. Replay protection (if configured)
-	if v.ReplayProtector != nil {
-		peerID := env.GetSenderDid()
-		seq := env.GetSequence()
-		if err := v.ReplayProtector.CheckAndMark(peerID, seq); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
 // ValidateAndVerifySignature validates the envelope and verifies the signature.
 //
 // This is the complete validation flow:
-//  1. All basic validations from ValidateEnvelope
+//  1. All non-mutating preflight validations from ValidateEnvelope
 //  2. Verify Ed25519 signature over the provided transcript
+//  3. Check replay protection, mutating replay state only after successful signature verification
 //
 // The transcript should be built using BuildDIDAuthTranscript or similar
 // to ensure proper binding of the signature to the message context.
