@@ -3,7 +3,7 @@
 **Working title:** AXCP Core: Message-Level Identity, Authentication, and Replay Protection for Autonomous Agent Communication
 **Draft status:** Source draft for editorial review and LaTeX conversion
 **Target venue/artifact:** Updated Zenodo preprint replacing or versioning the February 2026 AXCP v1.0 paper
-**Prepared from repository state:** `tradephantomllc/axcp-spec` `main`, after transcript-alignment PR #256 and replay-order verification updates
+**Prepared from repository state:** `tradephantomllc/axcp-spec` `main`, after transcript-alignment PR #256, replay-order verification updates, and SDK preflight hardening
 **Date:** 2026-07-05
 **Scope:** AXCP Core only, Apache 2.0 open-source repository
 
@@ -39,7 +39,7 @@ Use this as the source of truth for the final manuscript metadata:
 | Paper version | AXCP Core Paper v1.1 / 2026 revision |
 | Protocol specification | AXCP Core Specification v1.0, Secure Baseline |
 | Repository | `tradephantomllc/axcp-spec` |
-| Repository state | `main` after transcript/spec/authentication alignment and replay-order verification |
+| Repository state | `main` after transcript/spec/authentication alignment, replay-order verification, and SDK preflight hardening |
 | Publication target | Zenodo updated version under the existing concept DOI |
 | Core boundary | Apache 2.0 public repository; no Advanced/Enterprise code |
 | SDKs covered | Go, Python, TypeScript |
