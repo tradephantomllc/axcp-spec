@@ -91,6 +91,45 @@ func TestSession_SequenceCounter(t *testing.T) {
 	}
 }
 
+func TestSession_SignEnvelopePayloadForSequence(t *testing.T) {
+	did, pubKey, privKey, err := GenerateTestIdentity()
+	if err != nil {
+		t.Fatalf("GenerateTestIdentity failed: %v", err)
+	}
+
+	remoteDID := "did:key:remote"
+	session := NewSession(SessionConfig{
+		LocalDID:   did,
+		PrivateKey: privKey,
+	})
+	session.SetNegotiated("secure-baseline-v1", remoteDID)
+
+	output, err := session.SignEnvelope(context.Background(), SignatureInput{
+		PayloadForSequence: func(sequence uint64) ([]byte, error) {
+			return []byte{byte(sequence), 'p', 'a', 'y', 'l', 'o', 'a', 'd'}, nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("SignEnvelope failed: %v", err)
+	}
+
+	if output.Sequence != 1 {
+		t.Fatalf("Sequence = %d, want 1", output.Sequence)
+	}
+
+	wantPayload := []byte{byte(output.Sequence), 'p', 'a', 'y', 'l', 'o', 'a', 'd'}
+	transcript := BuildDIDAuthTranscript(did, remoteDID, wantPayload, time.UnixMilli(int64(output.TimestampMs)))
+	if !VerifyEd25519(pubKey, transcript, output.Signature) {
+		t.Fatal("signature did not cover sequence-aware signing payload")
+	}
+
+	wrongPayload := []byte{byte(output.Sequence + 1), 'p', 'a', 'y', 'l', 'o', 'a', 'd'}
+	wrongTranscript := BuildDIDAuthTranscript(did, remoteDID, wrongPayload, time.UnixMilli(int64(output.TimestampMs)))
+	if VerifyEd25519(pubKey, wrongTranscript, output.Signature) {
+		t.Fatal("signature verified with payload for a different sequence")
+	}
+}
+
 func TestSession_RecipientOverride(t *testing.T) {
 	did, _, privKey, _ := GenerateTestIdentity()
 	session := NewSession(SessionConfig{
