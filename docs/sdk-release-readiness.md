@@ -13,14 +13,14 @@ The public package set currently covers:
 
 ## Cross-SDK Parity
 
-Python and TypeScript must both pass the shared Secure Baseline vector in
+Go, Python, and TypeScript must all pass the shared Secure Baseline vector in
 `testdata/sdk/secure_baseline_vector.json`.
 
 The vector locks:
 
 - deterministic Ed25519 seed and `did:key`
 - context patch payload
-- canonical signing payload bytes
+- canonical signing payload bytes, including the replay `sequence`
 - DID auth transcript bytes
 - detached signature bytes
 - full encoded envelope bytes

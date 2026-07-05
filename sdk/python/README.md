@@ -84,3 +84,7 @@ AXCP-DID-AUTH-v1
 <base64(deterministic protobuf payload without auth fields)>
 <timestamp RFC3339 seconds>
 ```
+
+The signed payload excludes `sender_did`, `recipient_did`, `timestamp_ms`,
+`signature`, and `attestation_proof`. `sequence` remains covered by the
+signature because replay protection consumes it.

@@ -49,14 +49,19 @@ def decode_envelope(data: bytes) -> axcp_pb2.AxcpEnvelope:
 
 
 def signing_payload(envelope: axcp_pb2.AxcpEnvelope) -> bytes:
-    """Return deterministic protobuf payload covered by AXCP DID auth."""
+    """Return deterministic protobuf payload covered by AXCP DID auth.
+
+    Sender DID, recipient DID, and timestamp are transcript bindings. Sequence
+    remains inside the signed payload because replay protection consumes it and
+    sequence tampering must invalidate the detached signature before replay
+    state is touched.
+    """
 
     clone = axcp_pb2.AxcpEnvelope()
     clone.CopyFrom(envelope)
     clone.sender_did = ""
     clone.recipient_did = ""
     clone.timestamp_ms = 0
-    clone.sequence = 0
     clone.ClearField("signature")
     clone.ClearField("attestation_proof")
     return clone.SerializeToString(deterministic=True)

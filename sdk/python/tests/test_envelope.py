@@ -56,7 +56,7 @@ def _vector_envelope(vector: dict) -> axcp_pb2.AxcpEnvelope:
     return env
 
 
-def test_signing_payload_excludes_auth_fields() -> None:
+def test_signing_payload_excludes_detached_auth_fields() -> None:
     env = _context_envelope()
     env.sender_did = "did:key:sender"
     env.recipient_did = "did:key:recipient"
@@ -72,7 +72,7 @@ def test_signing_payload_excludes_auth_fields() -> None:
     assert decoded.sender_did == ""
     assert decoded.recipient_did == ""
     assert decoded.timestamp_ms == 0
-    assert decoded.sequence == 0
+    assert decoded.sequence == 42
     assert decoded.signature == b""
     assert decoded.attestation_proof == b""
     assert decoded.context_patch.context_id == "ctx"
@@ -90,10 +90,20 @@ def test_signing_payload_stable_when_auth_fields_change() -> None:
     right.sender_did = "did:key:right"
     right.recipient_did = "did:key:other"
     right.timestamp_ms = 1_700_000_001_000
-    right.sequence = 2
+    right.sequence = 1
     right.signature = b"right"
 
     assert signing_payload(left) == signing_payload(right)
+
+
+def test_signing_payload_changes_when_sequence_changes() -> None:
+    left = _context_envelope()
+    left.sequence = 1
+
+    right = _context_envelope()
+    right.sequence = 2
+
+    assert signing_payload(left) != signing_payload(right)
 
 
 def test_auth_transcript_matches_go_format_shape() -> None:
@@ -144,6 +154,18 @@ def test_payload_tamper_rejects_signature() -> None:
 
     alice.sign_message(env, recipient_did=bob.identity.did)
     env.context_patch.context_id = "tampered"
+
+    with pytest.raises(SignatureVerificationError):
+        bob.verify(env)
+
+
+def test_sequence_tamper_rejects_signature() -> None:
+    alice = Agent(Identity.generate())
+    bob = Agent(Identity.generate())
+    env = _context_envelope()
+
+    alice.sign_message(env, recipient_did=bob.identity.did)
+    env.sequence += 1
 
     with pytest.raises(SignatureVerificationError):
         bob.verify(env)
