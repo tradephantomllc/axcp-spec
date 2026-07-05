@@ -21,6 +21,7 @@ import (
 	"encoding/pem"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"math/big"
 	"time"
@@ -35,8 +36,9 @@ import (
 )
 
 const (
-	defaultAddr = "localhost:61301"
-	alpnProto   = "axcp-auth-chat"
+	defaultAddr      = "localhost:61301"
+	alpnProto        = "axcp-auth-chat"
+	maxEnvelopeBytes = 64 * 1024
 )
 
 // sha256Hex computes SHA256 hash of data and returns hex string
@@ -59,6 +61,31 @@ func logQUICEvidence(conn *quic.Conn, role string) {
 	log.Printf("[QUIC]   ALPN:        %s", state.TLS.NegotiatedProtocol)
 	log.Printf("[QUIC]   TLS Version: 0x%04x", state.TLS.Version)
 	log.Printf("[QUIC]   Cipher Suite: 0x%04x", state.TLS.CipherSuite)
+}
+
+func readStreamMessage(r io.Reader) ([]byte, error) {
+	data, err := io.ReadAll(io.LimitReader(r, maxEnvelopeBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) == 0 {
+		return nil, fmt.Errorf("empty stream message")
+	}
+	if len(data) > maxEnvelopeBytes {
+		return nil, fmt.Errorf("stream message exceeds %d bytes", maxEnvelopeBytes)
+	}
+	return data, nil
+}
+
+func writeStreamMessage(w io.Writer, data []byte) error {
+	n, err := w.Write(data)
+	if err != nil {
+		return err
+	}
+	if n != len(data) {
+		return io.ErrShortWrite
+	}
+	return nil
 }
 
 // DeterministicKeyPair generates a deterministic Ed25519 keypair from a seed.
@@ -153,28 +180,28 @@ func runServer(tlsConf *tls.Config) {
 	// Log QUIC connection evidence
 	logQUICEvidence(conn, "Server")
 
-	// Accept stream
-	stream, err := conn.AcceptStream(context.Background())
+	// Accept request stream
+	reqStream, err := conn.AcceptStream(context.Background())
 	if err != nil {
 		log.Fatalf("Failed to accept stream: %v", err)
 	}
-	defer stream.Close()
+	defer reqStream.Close()
 
-	// Read envelope from client
-	buf := make([]byte, 8192)
-	n, err := stream.Read(buf)
+	// Read envelope from client. The client closes its request stream after
+	// sending one envelope, so ReadAll correctly handles data followed by EOF.
+	reqBytes, err := readStreamMessage(reqStream)
 	if err != nil {
-		log.Fatalf("Failed to read: %v", err)
+		log.Fatalf("Failed to read request envelope: %v", err)
 	}
 
 	// Deserialize envelope
 	var env pb.AxcpEnvelope
-	if err := proto.Unmarshal(buf[:n], &env); err != nil {
+	if err := proto.Unmarshal(reqBytes, &env); err != nil {
 		log.Fatalf("Failed to unmarshal envelope: %v", err)
 	}
 
 	// Log Protobuf evidence
-	logProtobufEvidence("proto.Unmarshal (received)", buf[:n])
+	logProtobufEvidence("proto.Unmarshal (received)", reqBytes)
 
 	log.Printf("\n--- Received Envelope ---")
 	log.Printf("  Version:    %d", env.Version)
@@ -260,13 +287,27 @@ func runServer(tlsConf *tls.Config) {
 	// Log Protobuf evidence
 	logProtobufEvidence("proto.Marshal (response)", respBytes)
 
-	if _, err := stream.Write(respBytes); err != nil {
+	respStream, err := conn.OpenStreamSync(context.Background())
+	if err != nil {
+		log.Fatalf("Failed to open response stream: %v", err)
+	}
+	if err := writeStreamMessage(respStream, respBytes); err != nil {
 		log.Fatalf("Failed to send response: %v", err)
+	}
+	if err := respStream.Close(); err != nil {
+		log.Fatalf("Failed to close response stream: %v", err)
 	}
 
 	log.Printf("\n--- Sent Authenticated Response ---")
 	log.Printf("  Sequence: %d", respEnv.Sequence)
 	log.Println("\nAuthentication flow completed successfully!")
+
+	select {
+	case <-conn.Context().Done():
+		log.Println("Client connection closed")
+	case <-time.After(5 * time.Second):
+		log.Fatalf("Timed out waiting for client connection close")
+	}
 }
 
 func runClient(tlsConf *tls.Config) {
@@ -366,25 +407,33 @@ func runClient(tlsConf *tls.Config) {
 	// Log Protobuf evidence
 	logProtobufEvidence("proto.Marshal (request)", reqBytes)
 
-	if _, err := stream.Write(reqBytes); err != nil {
+	if err := writeStreamMessage(stream, reqBytes); err != nil {
 		log.Fatalf("Failed to send: %v", err)
 	}
+	if err := stream.Close(); err != nil {
+		log.Fatalf("Failed to close request stream: %v", err)
+	}
 
-	// Read response
-	buf := make([]byte, 8192)
-	n, err := stream.Read(buf)
+	// Read response on a server-initiated stream.
+	respStream, err := conn.AcceptStream(context.Background())
+	if err != nil {
+		log.Fatalf("Failed to accept response stream: %v", err)
+	}
+	defer respStream.Close()
+
+	respBytes, err := readStreamMessage(respStream)
 	if err != nil {
 		log.Fatalf("Failed to read response: %v", err)
 	}
 
 	// Deserialize response
 	var respEnv pb.AxcpEnvelope
-	if err := proto.Unmarshal(buf[:n], &respEnv); err != nil {
+	if err := proto.Unmarshal(respBytes, &respEnv); err != nil {
 		log.Fatalf("Failed to unmarshal response: %v", err)
 	}
 
 	// Log Protobuf evidence
-	logProtobufEvidence("proto.Unmarshal (response)", buf[:n])
+	logProtobufEvidence("proto.Unmarshal (response)", respBytes)
 
 	log.Printf("\n--- Received Response ---")
 	log.Printf("  TraceID:    %s", respEnv.TraceId)
