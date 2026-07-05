@@ -29,6 +29,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/tradephantomllc/axcp-spec/sdk/go/auth"
+	"github.com/tradephantomllc/axcp-spec/sdk/go/axcp"
 	pb "github.com/tradephantomllc/axcp-spec/sdk/go/axcp/pb"
 	"github.com/tradephantomllc/axcp-spec/sdk/go/negotiate"
 )
@@ -196,18 +197,12 @@ func runServer(tlsConf *tls.Config) {
 	}
 	clientPubKey := doc.PublicKeys[0].PublicKeyBytes
 
-	// Rebuild transcript for verification
-	// Extract payload (envelope without auth fields)
-	envCopy := &pb.AxcpEnvelope{
-		Version: env.Version,
-		TraceId: env.TraceId,
-		Profile: env.Profile,
+	// Rebuild transcript for verification. The canonical signing payload
+	// excludes detached auth fields but retains replay sequence.
+	payloadBytes, err := axcp.SigningPayloadFromProto(&env)
+	if err != nil {
+		log.Fatalf("Failed to build client signing payload: %v", err)
 	}
-	if env.GetContextPatch() != nil {
-		envCopy.Payload = &pb.AxcpEnvelope_ContextPatch{ContextPatch: env.GetContextPatch()}
-	}
-	payloadBytes, _ := proto.Marshal(envCopy)
-
 	timestamp := time.UnixMilli(int64(env.TimestampMs))
 	transcript := auth.BuildDIDAuthTranscript(clientDID, env.RecipientDid, payloadBytes, timestamp)
 
@@ -240,11 +235,14 @@ func runServer(tlsConf *tls.Config) {
 		Payload: &pb.AxcpEnvelope_ContextPatch{ContextPatch: respPatch},
 	}
 
-	// Sign response
-	respPayloadBytes, _ := proto.Marshal(respEnv)
+	// Sign response. The session allocates sequence first, then the payload
+	// builder inserts that sequence into the canonical signing payload.
 	sigOutput, err := session.SignEnvelope(context.Background(), auth.SignatureInput{
-		Payload:      respPayloadBytes,
 		RecipientDID: clientDID,
+		PayloadForSequence: func(sequence uint64) ([]byte, error) {
+			respEnv.Sequence = sequence
+			return axcp.SigningPayloadFromProto(respEnv)
+		},
 	})
 	if err != nil {
 		log.Fatalf("Failed to sign response: %v", err)
@@ -335,10 +333,13 @@ func runClient(tlsConf *tls.Config) {
 		Payload: &pb.AxcpEnvelope_ContextPatch{ContextPatch: reqPatch},
 	}
 
-	// Sign the envelope
-	payloadBytes, _ := proto.Marshal(reqEnv)
+	// Sign the envelope. The sequence is part of the signed payload, so it must
+	// be assigned before canonical signing payload bytes are built.
 	sigOutput, err := session.SignEnvelope(context.Background(), auth.SignatureInput{
-		Payload: payloadBytes,
+		PayloadForSequence: func(sequence uint64) ([]byte, error) {
+			reqEnv.Sequence = sequence
+			return axcp.SigningPayloadFromProto(reqEnv)
+		},
 	})
 	if err != nil {
 		log.Fatalf("Failed to sign envelope: %v", err)
@@ -398,17 +399,12 @@ func runClient(tlsConf *tls.Config) {
 	}
 	serverPubKey := doc.PublicKeys[0].PublicKeyBytes
 
-	// Rebuild transcript
-	respCopy := &pb.AxcpEnvelope{
-		Version: respEnv.Version,
-		TraceId: respEnv.TraceId,
-		Profile: respEnv.Profile,
+	// Rebuild transcript. The canonical signing payload excludes detached auth
+	// fields but retains replay sequence.
+	respPayloadBytes, err := axcp.SigningPayloadFromProto(&respEnv)
+	if err != nil {
+		log.Fatalf("Failed to build response signing payload: %v", err)
 	}
-	if respEnv.GetContextPatch() != nil {
-		respCopy.Payload = &pb.AxcpEnvelope_ContextPatch{ContextPatch: respEnv.GetContextPatch()}
-	}
-	respPayloadBytes, _ := proto.Marshal(respCopy)
-
 	respTimestamp := time.UnixMilli(int64(respEnv.TimestampMs))
 	respTranscript := auth.BuildDIDAuthTranscript(respEnv.SenderDid, respEnv.RecipientDid, respPayloadBytes, respTimestamp)
 
@@ -476,9 +472,11 @@ func runReplayTest(tlsConf *tls.Config) {
 		Payload: &pb.AxcpEnvelope_ContextPatch{ContextPatch: reqPatch},
 	}
 
-	payloadBytes, _ := proto.Marshal(reqEnv)
 	sigOutput, _ := session.SignEnvelope(context.Background(), auth.SignatureInput{
-		Payload: payloadBytes,
+		PayloadForSequence: func(sequence uint64) ([]byte, error) {
+			reqEnv.Sequence = sequence
+			return axcp.SigningPayloadFromProto(reqEnv)
+		},
 	})
 
 	reqEnv.SenderDid = sigOutput.SenderDID
