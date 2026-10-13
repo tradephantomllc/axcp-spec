@@ -2,7 +2,7 @@
 
 use crate::client::Client;
 use crate::error::Result;
-use crate::models::TelemetryData;
+use crate::models::{TelemetryBatch, TelemetryData};
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -68,7 +68,9 @@ impl TelemetryClient {
     /// Records a metric with the given name and value.
     pub async fn record_metric(&self, metric: impl Into<String>, value: f64) -> Result<()> {
         let data = TelemetryBuilder::new(metric, value).build();
-        self.client.telemetry().record(data).await
+        self.client
+            .send_telemetry(TelemetryBatch { points: vec![data] })
+            .await
     }
 }
 

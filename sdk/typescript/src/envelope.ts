@@ -164,9 +164,17 @@ function stripProto3Defaults(value: unknown): unknown {
     return value.length === 0 ? undefined : value;
   }
   if (Array.isArray(value)) {
-    const normalizedItems = value
-      .map((item) => stripProto3Defaults(item))
-      .filter((item): item is NonNullable<unknown> => item !== undefined);
+    // A repeated scalar has presence even when its value is the scalar default.
+    // Only fields inside repeated messages are eligible for default omission.
+    const normalizedItems = value.map((item) => {
+      if (item === undefined || item === null) {
+        throw new InvalidEnvelopeError("repeated fields cannot contain null or undefined");
+      }
+      if (typeof item === "object" && !Long.isLong(item) && !(item instanceof Uint8Array)) {
+        return stripProto3Defaults(item);
+      }
+      return item;
+    });
     return normalizedItems.length === 0 ? undefined : normalizedItems;
   }
   if (typeof value === "object") {

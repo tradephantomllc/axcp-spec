@@ -1,11 +1,9 @@
-go 1.25.6
+go 1.26.9
 
 use (
 	.
 	./edge/gateway
 	./edge/rpi-agent
 	./sdk/go
-	./sdk/go/examples/telemetry_example
-	./sdk/go/netquic
 	./test
 )

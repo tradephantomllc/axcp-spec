@@ -4,14 +4,14 @@ This guide helps you set up and run AXCP Core with Secure Baseline authenticatio
 
 ## Prerequisites
 
-- **Go 1.25.6+** (CI uses Go 1.25.6)
+- **Go 1.26.9+** (CI uses Go 1.26.9)
 - Git
 
 Verify your Go installation:
 
 ```bash
 go version
-# Expected: go version go1.25.6 or later
+# Expected: go version go1.26.9 or later
 ```
 
 ## Installation
@@ -31,7 +31,7 @@ Run tests to verify everything is working:
 go test ./sdk/go/...
 ```
 
-All tests should pass. If you see import errors, ensure you're using Go 1.25.6+.
+All tests should pass. If you see import errors, ensure you're using Go 1.26.9+.
 
 ## Python SDK Core
 
@@ -48,8 +48,10 @@ The Python SDK covers the Secure Baseline application-layer contract:
 Install it locally from the repository:
 
 ```bash
-python -m pip install -e sdk/python
-pytest -q sdk/python/tests
+python -m venv .venv
+. .venv/bin/activate
+python -m pip install -e sdk/python pytest
+python -m pytest -q sdk/python/tests
 ```
 
 Minimal signed-envelope roundtrip:
@@ -88,7 +90,7 @@ Install it locally from the repository:
 
 ```bash
 cd sdk/typescript
-npm install
+npm ci
 npm test
 ```
 
@@ -114,7 +116,7 @@ runtime does not expose a stable built-in QUIC module.
 
 ## Running the Authenticated Chat Example
 
-The recommended way to experience AXCP is through the `authenticated_chat` example, which demonstrates the **Secure Baseline (`secure-baseline-v1`)** profile with:
+A localhost demonstration of AXCP is through the `authenticated_chat` example, which demonstrates the **Secure Baseline (`secure-baseline-v1`)** profile with:
 
 - DID-based identity
 - Ed25519 signature generation and verification
@@ -157,9 +159,11 @@ Server DID: did:key:axcp-auth-chat-server
 Bidirectional authenticated exchange completed!
 ```
 
+The deterministic example keys and self-signed TLS are for local testing only. This example uses its own stream format/ALPN and is not a client for the MQTT gateway.
+
 ### What Happens
 
-1. **Profile Negotiation**: Client and server agree on `secure-baseline-v1`
+1. **Profile Configuration**: Both example peers are configured for `secure-baseline-v1`; this demo does not execute the wire handshake
 2. **DID Resolution**: Both parties resolve each other's DIDs from the shared in-memory resolver
 3. **Message Signing**: Client signs its message with Ed25519
 4. **Signature Verification**: Server verifies the client's signature
@@ -172,9 +176,9 @@ Bidirectional authenticated exchange completed!
 
 Install Go from https://go.dev/dl/ and ensure it's in your PATH.
 
-### "go version" shows < 1.25.6
+### "go version" shows < 1.26.9
 
-Update Go to version 1.25.6 or later. AXCP Core requires Go 1.25.6+.
+Update Go to version 1.26.9 or later. AXCP Core requires Go 1.26.9+.
 
 ### Import errors when running tests
 

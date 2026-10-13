@@ -5,8 +5,8 @@
 **/target/**/*
 
 # File di blocco e cache di Cargo
-!sdk/rust/Cargo.lock
 Cargo.lock
+!sdk/rust/Cargo.lock
 *.crate
 .cargo/credentials
 .cargo-target/

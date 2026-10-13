@@ -8,59 +8,68 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// SendTelemetry sends a telemetry datagram over the QUIC connection.
-// It wraps the TelemetryDatagram in an AxcpEnvelope with the appropriate profile
-// and sends it as a datagram.
+// SendTelemetry sends legacy 0xA0 telemetry, accepted only by transport-only gateways.
+// For Secure Baseline use SendTelemetryEnvelope after signing the envelope.
 func (c *Client) SendTelemetry(d *pb.TelemetryDatagram) error {
-	if c == nil || c.conn == nil {
-		return fmt.Errorf("client is not connected")
+	if d == nil || d.Payload == nil {
+		return fmt.Errorf("telemetry payload is required")
 	}
-
-	// Create an envelope for the telemetry data
-	envelope := &pb.AxcpEnvelope{
-		Version: 1, // Current protocol version
-		Profile: 0, // Basic profile for telemetry
-		Payload: &pb.AxcpEnvelope_Telemetry{
-			Telemetry: d,
-		},
-	}
-
-	// Marshal the envelope to protobuf
-	payload, err := proto.Marshal(envelope)
+	data, err := proto.Marshal(d)
 	if err != nil {
-		return fmt.Errorf("failed to marshal telemetry envelope: %w", err)
+		return err
 	}
-
-	// Send as a datagram (unreliable but faster)
-	return c.SendDatagram(payload)
+	return c.SendDatagram(append([]byte{0xA0}, data...))
 }
 
-// ReceiveTelemetry waits for and receives a telemetry datagram from the QUIC connection.
-// It returns the received TelemetryDatagram or an error if the operation fails.
-func (c *Client) ReceiveTelemetry() (*pb.TelemetryDatagram, error) {
-	if c == nil || c.conn == nil {
-		return nil, fmt.Errorf("client is not connected")
+// SendTelemetryEnvelope sends a caller-signed envelope using the 0xA1 encoding.
+func (c *Client) SendTelemetryEnvelope(env *axcp.Envelope) error {
+	if env == nil || env.GetTelemetry() == nil || env.GetTelemetry().Payload == nil {
+		return fmt.Errorf("telemetry envelope is required")
 	}
+	data, err := axcp.ToBytes(env)
+	if err != nil {
+		return err
+	}
+	return c.SendDatagram(append([]byte{0xA1}, data...))
+}
 
-	// Receive a datagram
+// ReceiveTelemetry receives only legacy 0xA0 telemetry (no application authentication).
+func (c *Client) ReceiveTelemetry() (*pb.TelemetryDatagram, error) {
 	data, err := c.ReceiveDatagram()
 	if err != nil {
-		return nil, fmt.Errorf("failed to receive datagram: %w", err)
+		return nil, err
 	}
-
-	// Unmarshal the envelope
-	envelope := &pb.AxcpEnvelope{}
-	if err := proto.Unmarshal(data, envelope); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal envelope: %w", err)
+	if len(data) == 0 || data[0] != 0xA0 {
+		return nil, fmt.Errorf("expected legacy 0xA0 telemetry; use ReceiveTelemetryEnvelope for authenticated envelopes")
 	}
-
-	// Extract the telemetry data from the envelope
-	telemetry, ok := envelope.Payload.(*pb.AxcpEnvelope_Telemetry)
-	if !ok {
-		return nil, fmt.Errorf("received message is not a telemetry datagram")
+	td := &pb.TelemetryDatagram{}
+	if err := proto.Unmarshal(data[1:], td); err != nil {
+		return nil, err
 	}
+	if td.Payload == nil {
+		return nil, fmt.Errorf("telemetry payload is required")
+	}
+	return td, nil
+}
 
-	return telemetry.Telemetry, nil
+// ReceiveTelemetryEnvelope decodes 0xA1 without authenticating it. Callers MUST
+// verify signature, recipient, timestamp and replay state before using its payload.
+func (c *Client) ReceiveTelemetryEnvelope() (*axcp.Envelope, error) {
+	data, err := c.ReceiveDatagram()
+	if err != nil {
+		return nil, err
+	}
+	if len(data) == 0 || data[0] != 0xA1 {
+		return nil, fmt.Errorf("expected 0xA1 telemetry envelope")
+	}
+	env, err := axcp.FromBytes(data[1:])
+	if err != nil {
+		return nil, err
+	}
+	if env.GetTelemetry() == nil || env.GetTelemetry().Payload == nil {
+		return nil, fmt.Errorf("telemetry payload is required")
+	}
+	return env, nil
 }
 
 // WithSystemStats is a helper function to create and send a system stats telemetry datagram.

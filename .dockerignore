@@ -1,0 +1,15 @@
+**
+!go.mod
+!go.sum
+!sdk/
+!sdk/go/
+!sdk/go/**
+!edge/
+!edge/gateway/
+!edge/gateway/**
+!proto/
+!proto/**
+**/*.test
+**/*.out
+**/bin/
+**/__pycache__/

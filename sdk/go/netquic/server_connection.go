@@ -2,7 +2,6 @@ package netquic
 
 import (
 	"encoding/binary"
-	"io"
 	"net"
 	"sync"
 
@@ -83,7 +82,7 @@ func (c *ServerConnection) SendEnvelope(env *axcp.Envelope) error {
 	defer c.sendMutex.Unlock()
 
 	c.mu.Lock()
-	if c.closed {
+	if c.closed || c.stream == nil {
 		c.mu.Unlock()
 		return ErrNotConnected
 	}
@@ -94,13 +93,7 @@ func (c *ServerConnection) SendEnvelope(env *axcp.Envelope) error {
 		return err
 	}
 
-	var lenBuf [4]byte
-	binary.LittleEndian.PutUint32(lenBuf[:], uint32(len(raw)))
-	if _, err := c.stream.Write(lenBuf[:]); err != nil {
-		return err
-	}
-	_, err = c.stream.Write(raw)
-	return err
+	return writeFrame(c.stream, raw, binary.LittleEndian, true)
 }
 
 // RecvEnvelope receives an AXCP envelope from the connection.
@@ -109,30 +102,17 @@ func (c *ServerConnection) RecvEnvelope() (*axcp.Envelope, error) {
 	defer c.recvMutex.Unlock()
 
 	c.mu.Lock()
-	if c.closed {
+	if c.closed || c.stream == nil {
 		c.mu.Unlock()
 		return nil, ErrNotConnected
 	}
 	c.mu.Unlock()
 
-	var lenBuf [4]byte
-	if _, err := io.ReadFull(c.stream, lenBuf[:]); err != nil {
+	data, err := readFrame(c.stream, binary.LittleEndian, true)
+	if err != nil {
 		return nil, err
 	}
-
-	n := binary.LittleEndian.Uint32(lenBuf[:])
-
-	// Prevent allocating an excessively large buffer
-	if n > 10*1024*1024 { // 10MB max message size
-		return nil, ErrMessageTooLarge
-	}
-
-	buf := make([]byte, n)
-	if _, err := io.ReadFull(c.stream, buf); err != nil {
-		return nil, err
-	}
-
-	return axcp.FromBytes(buf)
+	return axcp.FromBytes(data)
 }
 
 // SendMessage sends raw bytes over the connection with length prefix.
@@ -141,27 +121,13 @@ func (c *ServerConnection) SendMessage(data []byte) error {
 	defer c.sendMutex.Unlock()
 
 	c.mu.Lock()
-	if c.closed {
+	if c.closed || c.stream == nil {
 		c.mu.Unlock()
 		return ErrNotConnected
 	}
 	c.mu.Unlock()
 
-	// Write message length as a 4-byte big-endian integer
-	msgLen := uint32(len(data))
-	header := []byte{
-		byte(msgLen >> 24),
-		byte(msgLen >> 16),
-		byte(msgLen >> 8),
-		byte(msgLen),
-	}
-
-	if _, err := c.stream.Write(header); err != nil {
-		return err
-	}
-
-	_, err := c.stream.Write(data)
-	return err
+	return writeFrame(c.stream, data, binary.BigEndian, false)
 }
 
 // ReceiveMessage receives raw bytes from the connection.
@@ -170,40 +136,19 @@ func (c *ServerConnection) ReceiveMessage() ([]byte, error) {
 	defer c.recvMutex.Unlock()
 
 	c.mu.Lock()
-	if c.closed {
+	if c.closed || c.stream == nil {
 		c.mu.Unlock()
 		return nil, ErrNotConnected
 	}
 	c.mu.Unlock()
 
-	// Read message length (4 bytes big-endian)
-	header := make([]byte, 4)
-	if _, err := io.ReadFull(c.stream, header); err != nil {
-		return nil, err
-	}
-
-	msgLen := uint32(header[0])<<24 |
-		uint32(header[1])<<16 |
-		uint32(header[2])<<8 |
-		uint32(header[3])
-
-	// Prevent allocating an excessively large buffer
-	if msgLen > 10*1024*1024 { // 10MB max message size
-		return nil, ErrMessageTooLarge
-	}
-
-	data := make([]byte, msgLen)
-	if _, err := io.ReadFull(c.stream, data); err != nil {
-		return nil, err
-	}
-
-	return data, nil
+	return readFrame(c.stream, binary.BigEndian, false)
 }
 
 // SendDatagram sends a datagram using QUIC's unreliable datagram transport.
 func (c *ServerConnection) SendDatagram(data []byte) error {
 	c.mu.Lock()
-	if c.closed {
+	if c.closed || c.quicConn == nil {
 		c.mu.Unlock()
 		return ErrNotConnected
 	}

@@ -1,61 +1,19 @@
-# Go Module Policy
+# Go module policy
 
-This document defines the binding rules for Go module structure in AXCP Core.
+`sdk/go` is one installable SDK module, including `axcp`, `auth`, `negotiate`, `netquic` and its examples. Do not introduce nested `go.mod` files under it. The repository root, gateway, Raspberry Pi collector and integration tests remain separate modules joined by `go.work` for repository development.
 
-## Single Module Rule
+Go's `internal` visibility is based on the import-path tree rooted above the `internal` directory. Public consumers use `github.com/tradephantomllc/axcp-spec/sdk/go/axcp/pb` re-exports, not `sdk/go/internal/pb`. There is no importable package at the SDK module root itself.
 
-**`sdk/go` is the single Go module for AXCP Core.**
+## Migration from the old nested netquic module
 
-### What this means
+Package import paths are unchanged. Remove an explicit requirement or replacement for the old `github.com/tradephantomllc/axcp-spec/sdk/go/netquic` module when upgrading to the consolidated SDK; otherwise Go may report an ambiguous import. Remove any separate telemetry-example module requirement too. Keep only the parent SDK module dependency at the selected reviewed revision.
 
-1. **No nested modules**: Do NOT create `go.mod` files inside `sdk/go/` subdirectories
-2. **Internal packages stay internal**: `internal/` packages can only be imported within `sdk/go`
-3. **External access via re-exports**: Public types are exposed via `axcp/pb/export.go`
-
-### Why this matters
-
-Go's `internal/` package visibility is scoped to the **module**, not the directory. If we create nested modules (e.g., `sdk/go/axcp/go.mod`), then `sdk/go/axcp` becomes a separate module and **cannot** import from `sdk/go/internal/pb`.
-
-This caused CI failures in the past and required a refactoring fix.
-
-## Correct Structure
-
-```
-sdk/go/
-├── go.mod                    # Single module: github.com/tradephantomllc/axcp-spec/sdk/go
-├── internal/
-│   └── pb/                   # Generated protobuf (internal only)
-├── axcp/
-│   ├── pb/
-│   │   └── export.go         # Re-exports internal/pb types for external use
-│   └── *.go                  # Public AXCP types
-├── auth/
-├── negotiate/
-└── netquic/
+```sh
+go mod edit -droprequire=github.com/tradephantomllc/axcp-spec/sdk/go/netquic
+go mod edit -dropreplace=github.com/tradephantomllc/axcp-spec/sdk/go/netquic
+go mod tidy
 ```
 
-## Import Patterns
+For an unreleased local checkout, a consumer may replace the parent SDK with its absolute path. No dependency-side replacement is required. Repository application modules use local replacements because they are built from this checkout; that does not imply the SDK needs unpublished `v0.0.0` dependencies.
 
-### From within sdk/go (OK)
-```go
-import pb "github.com/tradephantomllc/axcp-spec/sdk/go/internal/pb"
-```
-
-### From external packages (axcp-advanced, axcp-enterprise)
-```go
-// Use the public re-exports, NOT internal/pb directly
-import pb "github.com/tradephantomllc/axcp-spec/sdk/go/axcp/pb"
-```
-
-## Violations
-
-The following are **not allowed**:
-
-- Creating `sdk/go/*/go.mod` files
-- Importing `sdk/go/internal/*` from outside `sdk/go` module
-- Moving `internal/pb` to a public location
-
-## Enforcement
-
-- CI will fail if nested modules are detected
-- Code review must reject PRs that violate this policy
+Release acceptance must include a `GOWORK=off` consumer importing both `axcp` and `netquic`, followed by installation from the actual published revision. Local tests cannot certify a not-yet-published tag. CI runs the full SDK including netquic, and the release-readiness script checks that no nested SDK modules reappear.

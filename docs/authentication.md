@@ -192,3 +192,9 @@ This example demonstrates:
 - Shared in-memory DID resolver
 - Message signing and verification
 - Bidirectional authenticated exchange
+
+## Integration boundaries
+
+The reference gateway is configured for a fixed profile and defaults to Secure Baseline. SDK wire-handshake helpers must be explicitly integrated by applications; a fresh signed v1 hello is not bound to a client nonce. Authenticated datagrams (`0xA1`) and stream envelopes share the gateway's signature/replay boundary; raw legacy telemetry (`0xA0`) is rejected in secure mode.
+
+Replay state is in memory and keyed by sender. Coordinate sequence allocation when one identity has concurrent connections, and account for receiver restarts. The MCP conversion example uses Python SDK signing on the complete envelope after sequence allocation; absent keys or an unconfigured secure session fail explicitly. It is a conversion demo, not a full MCP protocol adapter.

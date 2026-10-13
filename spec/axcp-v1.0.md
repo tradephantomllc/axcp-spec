@@ -1,7 +1,7 @@
 # AXCP Core Specification v1.0 (Secure Baseline)
 
 **Version:** 1.0
-**Status:** Stable
+**Status:** Stable security contract; transport clarification below (2026-10-13)
 **Date:** 2026-01-29
 **License:** Apache 2.0
 
@@ -37,18 +37,17 @@ This specification defines **AXCP Core v1.0**, the open-source foundation for th
 
 The following capabilities are **NOT part of AXCP Core** and belong to commercial tiers:
 
-| Feature | Tier |
-|---------|------|
-| Differential Privacy (DP) noise mechanisms | Advanced / Enterprise |
-| Privacy budget management | Advanced / Enterprise |
-| Context synchronization (CRDT) | Advanced |
-| mTLS certificate management | Advanced |
-| SGX/SEV enclave integration | Advanced |
-| PII filtering and redaction | Enterprise |
-| Compliance reporting (GDPR/HIPAA/SOC2) | Enterprise |
-| Audit trails | Enterprise |
+| Feature | Distribution |
+|---------|--------------|
+| Differential privacy and privacy budgets | Private commercial product |
+| Automatic context synchronization (CRDT) | Private commercial product |
+| Managed mTLS certificates and attestation | Private commercial product |
+| PII filtering, governance and audit tooling | Private commercial product |
+| Automatic orchestration and routing | Private commercial product |
 
-Core implementations MUST NOT include these features. Core MUST NOT import code from Advanced or Enterprise tiers.
+Commercial capability availability is determined by license. Advanced/Enterprise are historical repository labels. Compliance tooling is not a certification claim.
+
+This public Core repository MUST NOT import proprietary commercial implementations. This product boundary does not restrict independently extending Apache-licensed Core.
 
 ---
 
@@ -170,12 +169,23 @@ The server performs negotiation as follows:
    - For `secure-baseline-v1`, server enforces `RequireAuth=true` and `RequireReplay=true`
 
 5. **Resolve signature algorithm**
-   - Find intersection of client and server algorithms
-   - Prefer `"ed25519"` if available
-   - If no intersection and either list is empty, default to `"ed25519"`
-   - If no intersection and both lists non-empty, return `ErrNoAlgoOverlap`
+   - Core supports only `"ed25519"`. An empty algorithm list in the Go v1 wire API means the implicit Ed25519 default for that peer. Python/TypeScript policy helpers require an explicit nonempty list.
+   - Resolve to Ed25519 only if supported by both peers; an explicit incompatible list MUST NOT be overridden by the other peer's empty/default list.
+   - Otherwise return `ErrNoAlgoOverlap`.
 
 6. **Return ServerHello**
+
+The client MUST verify the signed response, protocol version, timestamp freshness,
+selected profile membership in the sent offer, explicit permission for any
+deprecated profile, mandatory auth/replay flags and exactly one supported/offered
+signature algorithm. A recognized but unoffered profile is rejected with
+`ErrProfileNotOffered`.
+
+The Go v1 signed wire hello is an opt-in SDK primitive. Its ServerHello does not
+contain a client nonce or transcript binding, so timestamp freshness is not
+session binding. Deployments must authenticate the TLS peer and enforce envelope
+replay protection. The reference gateway uses a fixed configured profile and does
+not invoke this wire handshake.
 
 ### 5.3 No Silent Downgrade
 
@@ -385,6 +395,32 @@ When `secure-baseline-v1` is negotiated, implementations MUST reject messages th
 Implementations MUST fail fast on authentication errors. There is no retry logic for authentication failures.
 
 ---
+
+### 8.4 Reference transport and telemetry encoding
+
+The current protobuf schema is `proto/axcp.proto`; schemas in superseded drafts
+are historical. QUIC uses TLS 1.3 and ALPN `axcp/1`. Envelope stream frames are a
+four-byte little-endian length followed by the serialized envelope. Reference
+implementations cap frames at 10 MiB; the Go/gateway envelope reader rejects zero
+length. Raw Go/Python handshake frames use big-endian lengths instead.
+
+Authenticated telemetry datagrams MUST be `0xA1 || AxcpEnvelope` with protocol
+version 1, numeric profile 1 and a populated telemetry payload. All normal
+signature, recipient, freshness and replay checks MUST run before delivery to a
+handler. Streams and datagrams MUST share replay state for a sender.
+
+`0xA0 || TelemetryDatagram` is legacy transport-only telemetry and MUST be rejected
+in Secure Baseline. Unprefixed envelope datagrams are not a gateway wire format.
+The application limit is 1200 bytes including prefix, subject to the lower QUIC
+negotiated limit. DATAGRAM delivery may be lost or reordered and conveys no
+processing acknowledgement.
+
+The gateway forwards signed envelopes intact to MQTT. Publisher acknowledgement
+is not consumer execution; bounded in-memory retry can duplicate or lose messages.
+Replay state is also in memory and does not survive gateway restart. Applications
+needing durable idempotency must supply it. Core makes no automatic orchestration,
+context-synchronization or exactly-once delivery promise.
+
 
 ## 9. Deprecations
 

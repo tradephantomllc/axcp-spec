@@ -29,42 +29,15 @@ When using AXCP Core, you must:
 2. **Preserve notices**: Keep copyright and attribution notices intact
 3. **State changes**: If you modify the code, indicate that changes were made
 
-### What AXCP Core Includes
+### What AXCP Core includes
 
-- QUIC + TLS 1.3 + Protobuf transport
-- DID mutual authentication
-- Ed25519 message signatures
-- Replay attack protection
-- Profile negotiation
-- Capability negotiation & tool discovery
-- Basic telemetry
-- Gateway for MCP ↔ AXCP ↔ A2A ↔ ACP bridging
-- Go SDK, Rust SDK, Python SDK, TypeScript SDK
+See the maintained [Core scope matrix](../../README.md#what-core-provides) for per-SDK support and explicit limits. The gateway provides QUIC-to-MQTT forwarding; the MCP file is a narrow conversion demonstration. They do not constitute complete MCP/A2A/ACP protocol bridges or automatic tool discovery.
 
----
+## Private commercial product
 
-## AXCP Advanced & Enterprise (Commercial License Required)
+TradePhantom's commercial implementations are distributed under a separate license, with capabilities enabled according to that license. Advanced and Enterprise are historical repository/feature names. Automatic orchestration, CRDT synchronization, privacy controls, managed certificates/attestation, PII and governance capabilities are outside this public repository. This describes the vendor's product boundary and does not restrict independent implementations under Core's Apache 2.0 license.
 
-Advanced features require a commercial license from TradePhantom LLC.
-
-### Features Requiring Commercial License
-
-**AXCP Advanced ($)**
-- Context-Sync with delta patches (CRDT)
-- mTLS client certificates
-- SGX/SEV enclave support
-- Differential Privacy (optional)
-- Advanced rate limiting
-- Structured logging
-
-**AXCP Enterprise ($$)**
-- Configurable Differential Privacy controls
-- PII filtering & redaction
-- Compliance reporting (GDPR, HIPAA, SOC2)
-- Audit trails (Merkle tree verified)
-- TRI-AI Orchestration System
-- Multi-tenant isolation
-- Dedicated support + SLA
+Confirm delivered capabilities and support terms with TradePhantom. This repository does not certify GDPR, HIPAA or SOC 2 compliance.
 
 ### How to Get a Commercial License
 
@@ -80,7 +53,7 @@ Contact TradePhantom LLC:
 
 > "I want to build a SaaS platform that orchestrates AI agents using AXCP."
 
-**Answer:** You can use AXCP Core freely under Apache 2.0. If you need Context-Sync, Differential Privacy, or compliance features, contact us for an Advanced or Enterprise license.
+**Answer:** You can use AXCP Core freely under Apache 2.0. If you need Context-Sync, Differential Privacy, or compliance features, contact us for a commercial license.
 
 ### Example 2: Enterprise Internal Deployment
 
@@ -98,7 +71,7 @@ Contact TradePhantom LLC:
 
 > "I offer AI consulting and want to deploy AXCP for my clients."
 
-**Answer:** You can use and deploy AXCP Core for your clients under Apache 2.0. If clients need Advanced/Enterprise features, they should obtain their own commercial licenses.
+**Answer:** You can use and deploy AXCP Core for your clients under Apache 2.0. If clients need commercial capabilities, they should obtain their own commercial licenses.
 
 ---
 
@@ -111,4 +84,4 @@ Contact TradePhantom LLC:
 | Can I modify it? | Yes |
 | Can I keep modifications private? | Yes |
 | Do I need to pay anything? | No, for Core features |
-| What requires payment? | Advanced & Enterprise features |
+| What requires payment? | Vendor-provided commercial components |

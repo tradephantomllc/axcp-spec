@@ -289,37 +289,17 @@ func profileRequiresReplay(profile Profile) bool {
 // resolveSignatureAlgorithm finds the best common signature algorithm.
 // Returns ed25519 if available (Core only supports ed25519).
 func resolveSignatureAlgorithm(clientAlgos, serverAlgos []string) (string, error) {
-	// Handle empty algorithm lists
-	if len(clientAlgos) == 0 || len(serverAlgos) == 0 {
-		// If either side doesn't specify, default to ed25519
+	// Empty lists retain the v1 implicit Ed25519 default, independently per peer.
+	if len(clientAlgos) == 0 {
+		clientAlgos = []string{SigAlgoEd25519}
+	}
+	if len(serverAlgos) == 0 {
+		serverAlgos = []string{SigAlgoEd25519}
+	}
+	if slices.Contains(clientAlgos, SigAlgoEd25519) && slices.Contains(serverAlgos, SigAlgoEd25519) {
 		return SigAlgoEd25519, nil
 	}
-
-	// Build server set for O(1) lookup
-	serverSet := make(map[string]bool, len(serverAlgos))
-	for _, algo := range serverAlgos {
-		serverSet[algo] = true
-	}
-
-	// Find intersection
-	var intersection []string
-	for _, algo := range clientAlgos {
-		if serverSet[algo] {
-			intersection = append(intersection, algo)
-		}
-	}
-
-	if len(intersection) == 0 {
-		return "", ErrNoAlgoOverlap
-	}
-
-	// Prefer ed25519 if available (Core's native algorithm)
-	if slices.Contains(intersection, SigAlgoEd25519) {
-		return SigAlgoEd25519, nil
-	}
-
-	// Otherwise return first in intersection (deterministic: based on client order)
-	return intersection[0], nil
+	return "", ErrNoAlgoOverlap
 }
 
 // IsSecureProfile returns whether a profile provides application-layer security.

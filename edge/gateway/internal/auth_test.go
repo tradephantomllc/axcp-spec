@@ -155,9 +155,10 @@ func TestEnvelopeAuthenticator_TimestampValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := ea.VerifyEnvelope(context.Background(), negotiate.ProfileSecureBaseline, EnvelopeAuth{
-				SenderDID:   "did:key:sender123",
-				TimestampMs: tt.timestampMs,
-				Signature:   []byte("fake-signature"),
+				SenderDID:    "did:key:sender123",
+				RecipientDID: "did:key:server",
+				TimestampMs:  tt.timestampMs,
+				Signature:    []byte("fake-signature"),
 			})
 			if result.Authenticated {
 				t.Error("Expected authentication to fail")
@@ -300,6 +301,7 @@ func TestEnvelopeAuthenticator_InvalidSignature(t *testing.T) {
 	// Use invalid signature
 	result := ea.VerifyEnvelope(context.Background(), negotiate.ProfileSecureBaseline, EnvelopeAuth{
 		SenderDID:    senderDID,
+		RecipientDID: "did:key:server",
 		TimestampMs:  uint64(now.UnixMilli()),
 		Sequence:     1,
 		Signature:    make([]byte, 64), // Wrong signature
@@ -424,6 +426,7 @@ func TestEnvelopeAuthenticator_DIDNotFound(t *testing.T) {
 
 	result := ea.VerifyEnvelope(context.Background(), negotiate.ProfileSecureBaseline, EnvelopeAuth{
 		SenderDID:    "did:key:unknown",
+		RecipientDID: "did:key:server",
 		TimestampMs:  uint64(now.UnixMilli()),
 		Sequence:     1,
 		Signature:    make([]byte, 64),

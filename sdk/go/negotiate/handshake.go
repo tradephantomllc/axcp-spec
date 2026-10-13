@@ -6,6 +6,7 @@ import (
 	"crypto/ed25519"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/tradephantomllc/axcp-spec/sdk/go/auth"
@@ -30,6 +31,7 @@ var (
 
 	// ErrHandshakeRejected indicates the peer rejected the handshake
 	ErrHandshakeRejected = errors.New("negotiate: handshake rejected by peer")
+	ErrProfileNotOffered = errors.New("negotiate: selected profile was not offered")
 )
 
 // StreamIO defines the interface for reading/writing handshake messages.
@@ -82,7 +84,10 @@ type HandshakerConfig struct {
 
 // DefaultHandshakerConfig returns a config with production defaults.
 func DefaultHandshakerConfig(localDID string, privateKey ed25519.PrivateKey, resolver auth.DIDResolver) HandshakerConfig {
-	publicKey := privateKey.Public().(ed25519.PublicKey)
+	var publicKey ed25519.PublicKey
+	if len(privateKey) == ed25519.PrivateKeySize {
+		publicKey = privateKey.Public().(ed25519.PublicKey)
+	}
 	return HandshakerConfig{
 		LocalDID:         localDID,
 		PrivateKey:       privateKey,
@@ -144,8 +149,8 @@ func (h *Handshaker) ClientHandshake(ctx context.Context, stream StreamIO) (*Han
 	hello := &WireClientHello{
 		Version:      1,
 		SenderDID:    h.LocalDID,
-		Profiles:     h.Profiles,
-		Capabilities: h.Capabilities,
+		Profiles:     slices.Clone(h.Profiles),
+		Capabilities: Capabilities{RequireAuth: h.Capabilities.RequireAuth, RequireReplay: h.Capabilities.RequireReplay, SigAlgos: slices.Clone(h.Capabilities.SigAlgos)},
 		TimestampMs:  auth.NowMs(),
 	}
 
@@ -216,9 +221,8 @@ func (h *Handshaker) ClientHandshake(ctx context.Context, stream StreamIO) (*Han
 		return nil, ErrSignatureVerificationFailed
 	}
 
-	// Validate selected profile
-	if err := ValidateProfile(serverHello.SelectedProfile); err != nil {
-		return nil, fmt.Errorf("negotiate: server selected invalid profile: %w", err)
+	if err := validateServerHello(hello, serverHello, h.NegotiateOptions); err != nil {
+		return nil, err
 	}
 
 	return &HandshakeResult{
@@ -344,4 +348,38 @@ func (h *Handshaker) ServerHandshake(ctx context.Context, stream StreamIO) (*Han
 		Capabilities:    serverResult.Cap,
 		RemotePublicKey: publicKey,
 	}, nil
+}
+
+// validateServerHello checks the authenticated response against the exact sent offer.
+func validateServerHello(offer *WireClientHello, response *WireServerHello, opts NegotiateOptions) error {
+	if response.Version != 1 || response.Version != offer.Version {
+		return ErrInvalidVersion
+	}
+	if err := auth.ValidateTimestamp(response.TimestampMs); err != nil {
+		return fmt.Errorf("negotiate: server hello timestamp: %w", err)
+	}
+	if err := ValidateProfile(response.SelectedProfile); err != nil {
+		return err
+	}
+	if !slices.Contains(offer.Profiles, response.SelectedProfile) {
+		return ErrProfileNotOffered
+	}
+	if IsDeprecatedProfile(response.SelectedProfile) && !opts.AllowDeprecated {
+		return ErrDeprecatedProfile
+	}
+	cap := response.Capabilities
+	if (profileRequiresAuth(response.SelectedProfile) || offer.Capabilities.RequireAuth) && !cap.RequireAuth {
+		return ErrInvalidCapabilities
+	}
+	if (profileRequiresReplay(response.SelectedProfile) || offer.Capabilities.RequireReplay) && !cap.RequireReplay {
+		return ErrInvalidCapabilities
+	}
+	if len(cap.SigAlgos) != 1 {
+		return ErrInvalidCapabilities
+	}
+	// An empty offer means the documented Core default, Ed25519.
+	if cap.SigAlgos[0] != SigAlgoEd25519 || (len(offer.Capabilities.SigAlgos) > 0 && !slices.Contains(offer.Capabilities.SigAlgos, cap.SigAlgos[0])) {
+		return ErrNoAlgoOverlap
+	}
+	return nil
 }

@@ -22,6 +22,8 @@ def main() -> int:
     errors.extend(check_python_package())
     errors.extend(check_typescript_package())
     errors.extend(check_dependabot())
+    errors.extend(check_go_modules())
+    errors.extend(check_license_files())
 
     if errors:
         for error in errors:
@@ -72,10 +74,12 @@ def check_python_package() -> list[str]:
         errors.append("Python package name must remain axcp")
     if project.get("license") != "Apache-2.0":
         errors.append("Python SDK license must be Apache-2.0")
+    if set(project.get("license-files", [])) != {"LICENSE", "NOTICE"}:
+        errors.append("Python SDK must package LICENSE and NOTICE")
     if not project.get("readme"):
         errors.append("Python SDK must declare a README")
     dependencies = set(project.get("dependencies", []))
-    for required in ("protobuf>=6.31.1", "PyNaCl>=1.5.0"):
+    for required in ("protobuf>=6.33.5", "PyNaCl>=1.5.0"):
         if required not in dependencies:
             errors.append(f"Python SDK missing dependency {required}")
     package_data = pyproject.get("tool", {}).get("setuptools", {}).get("package-data", {})
@@ -96,13 +100,30 @@ def check_typescript_package() -> list[str]:
         if subpath not in exports:
             errors.append(f"TypeScript SDK missing export {subpath}")
     files = set(package.get("files", []))
-    if "dist/src" not in files or "README.md" not in files:
-        errors.append("TypeScript SDK files must include dist/src and README.md")
+    if not {"dist/src", "README.md", "LICENSE", "NOTICE"}.issubset(files):
+        errors.append("TypeScript SDK files must include dist/src, README.md, LICENSE and NOTICE")
     scripts = package.get("scripts", {})
     for script in ("build", "test", "typecheck", "prepack"):
         if script not in scripts:
             errors.append(f"TypeScript SDK missing npm script {script}")
     return errors
+
+
+def check_license_files() -> list[str]:
+    errors: list[str] = []
+    for language in ("go", "python", "typescript", "rust"):
+        for name in ("LICENSE", "NOTICE"):
+            path = ROOT / "sdk" / language / name
+            if not path.is_file():
+                errors.append(f"SDK {language} is missing {name}")
+            elif path.read_bytes() != (ROOT / name).read_bytes():
+                errors.append(f"SDK {language} {name} differs from the repository copy")
+    return errors
+
+
+def check_go_modules() -> list[str]:
+    nested = sorted(path for path in (ROOT / "sdk/go").rglob("go.mod") if path != ROOT / "sdk/go/go.mod")
+    return [f"nested SDK module is not allowed: {path.relative_to(ROOT)}" for path in nested]
 
 
 def check_dependabot() -> list[str]:

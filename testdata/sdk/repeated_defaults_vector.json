@@ -1,0 +1,21 @@
+{
+  "name": "repeated-string-presence",
+  "identity": {
+    "private_seed_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "did": "did:key:z6MkehRgf7yJbgaGfYsdoAsKdBPE3dj2CYhowQdcjqSJgvVd",
+    "public_key_b64": "A6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg="
+  },
+  "recipient_did": "did:example:bob",
+  "timestamp_ms": 1700000000123,
+  "sequence": 7,
+  "ids": [
+    "",
+    "read",
+    ""
+  ],
+  "expected": {
+    "envelope_b64": "CAESEXJlcGVhdGVkLWRlZmF1bHRzGAEqDBIKCgAKBHJlYWQKAKIBOGRpZDprZXk6ejZNa2VoUmdmN3lKYmdhR2ZZc2RvQXNLZEJQRTNkajJDWWhvd1FkY2pxU0pndlZkqAH70JX/vDGwAQe6AQ9kaWQ6ZXhhbXBsZTpib2KiBkCx3ag4W5JGSjkGnspN76gblnEYNBdDwquJRUkqrXtTcvwLSMectHnRUtSbiwIWSOc+ARVHF4YpTC/VAqAgH2sP",
+    "signing_payload_b64": "CAESEXJlcGVhdGVkLWRlZmF1bHRzGAEqDBIKCgAKBHJlYWQKALABBw==",
+    "signature_b64": "sd2oOFuSRko5Bp7KTe+oG5ZxGDQXQ8KriUVJKq17U3L8C0jHnLR50VLUm4sCFkjnPgEVRxeGKUwv1QKgIB9rDw=="
+  }
+}

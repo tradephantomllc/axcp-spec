@@ -2,34 +2,31 @@ package netquic
 
 import (
 	"encoding/binary"
-	"io"
-
 	"github.com/tradephantomllc/axcp-spec/sdk/go/axcp"
 )
 
 func (c *Client) SendEnvelope(env *axcp.Envelope) error {
+	if c == nil || c.stream == nil {
+		return ErrNotConnected
+	}
+	c.sendMutex.Lock()
+	defer c.sendMutex.Unlock()
 	raw, err := axcp.ToBytes(env)
 	if err != nil {
 		return err
 	}
-	var lenBuf [4]byte
-	binary.LittleEndian.PutUint32(lenBuf[:], uint32(len(raw)))
-	if _, err = c.stream.Write(lenBuf[:]); err != nil {
-		return err
-	}
-	_, err = c.stream.Write(raw)
-	return err
+	return writeFrame(c.stream, raw, binary.LittleEndian, true)
 }
 
 func (c *Client) RecvEnvelope() (*axcp.Envelope, error) {
-	var lenBuf [4]byte
-	if _, err := io.ReadFull(c.stream, lenBuf[:]); err != nil {
+	if c == nil || c.stream == nil {
+		return nil, ErrNotConnected
+	}
+	c.recvMutex.Lock()
+	defer c.recvMutex.Unlock()
+	data, err := readFrame(c.stream, binary.LittleEndian, true)
+	if err != nil {
 		return nil, err
 	}
-	n := binary.LittleEndian.Uint32(lenBuf[:])
-	buf := make([]byte, n)
-	if _, err := io.ReadFull(c.stream, buf); err != nil {
-		return nil, err
-	}
-	return axcp.FromBytes(buf)
+	return axcp.FromBytes(data)
 }

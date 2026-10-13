@@ -3,9 +3,9 @@ package netquic
 import (
 	"context"
 	"crypto/tls"
+	"encoding/binary"
 	"errors"
 	"fmt"
-	"io"
 	"sync"
 	"time"
 
@@ -89,76 +89,36 @@ func (c *Client) Close() error {
 
 // SendMessage sends a message over the QUIC stream
 func (c *Client) SendMessage(data []byte) error {
-	if c.stream == nil {
+	if c == nil || c.stream == nil {
 		return ErrNotConnected
 	}
 
 	c.sendMutex.Lock()
 	defer c.sendMutex.Unlock()
 
-	// Write message length as a 4-byte big-endian integer
-	msgLen := uint32(len(data))
-	header := []byte{
-		byte(msgLen >> 24),
-		byte(msgLen >> 16),
-		byte(msgLen >> 8),
-		byte(msgLen),
-	}
-
-	// Write header and data
-	if _, err := c.stream.Write(header); err != nil {
-		return fmt.Errorf("failed to write message header: %w", err)
-	}
-
-	if _, err := c.stream.Write(data); err != nil {
-		return fmt.Errorf("failed to write message data: %w", err)
-	}
-
-	return nil
+	return writeFrame(c.stream, data, binary.BigEndian, false)
 }
 
 // ReceiveMessage receives a message from the QUIC stream
 func (c *Client) ReceiveMessage() ([]byte, error) {
-	if c.stream == nil {
+	if c == nil || c.stream == nil {
 		return nil, ErrNotConnected
 	}
 
 	c.recvMutex.Lock()
 	defer c.recvMutex.Unlock()
 
-	// Read message length (4 bytes)
-	header := make([]byte, 4)
-	if _, err := io.ReadFull(c.stream, header); err != nil {
-		return nil, fmt.Errorf("failed to read message header: %w", err)
-	}
-
-	msgLen := uint32(header[0])<<24 |
-		uint32(header[1])<<16 |
-		uint32(header[2])<<8 |
-		uint32(header[3])
-
-	// Prevent allocating an excessively large buffer
-	if msgLen > 10*1024*1024 { // 10MB max message size
-		return nil, fmt.Errorf("message too large: %d bytes", msgLen)
-	}
-
-	// Read message data
-	data := make([]byte, msgLen)
-	if _, err := io.ReadFull(c.stream, data); err != nil {
-		return nil, fmt.Errorf("failed to read message data: %w", err)
-	}
-
-	return data, nil
+	return readFrame(c.stream, binary.BigEndian, false)
 }
 
 // SendDatagram sends a datagram using QUIC's unreliable datagram transport
 func (c *Client) SendDatagram(data []byte) error {
-	if c.conn == nil {
+	if c == nil || c.conn == nil {
 		return ErrNotConnected
 	}
 
 	if len(data) > MaxDatagramSize {
-		return fmt.Errorf("datagram too large: %d > %d", len(data), MaxDatagramSize)
+		return fmt.Errorf("%w: %d > %d", ErrDatagramTooLarge, len(data), MaxDatagramSize)
 	}
 
 	// Sending requires the peer to advertise QUIC DATAGRAM support.
@@ -172,7 +132,7 @@ func (c *Client) SendDatagram(data []byte) error {
 
 // ReceiveDatagram receives a datagram using QUIC's unreliable datagram transport
 func (c *Client) ReceiveDatagram() ([]byte, error) {
-	if c.conn == nil {
+	if c == nil || c.conn == nil {
 		return nil, ErrNotConnected
 	}
 

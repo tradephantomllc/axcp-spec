@@ -58,13 +58,13 @@ jobs:
 
       - name: Run clippy (deny warnings)
         if: matrix.rust == 'stable'
-        run: cargo clippy --all-targets -- -D warnings
+        run: cargo clippy --locked --all-targets --all-features -- -D warnings
 
       # ---------- test & build ----------
       - name: Run tests
-        run: cargo test --verbose
+        run: cargo test --locked --all-features --verbose
       - name: Build (release)
-        run: cargo build --release
+        run: cargo build --locked --all-features --release
 
 # -------------------------------------------------------- #
 # 2) ADDITIONAL CHECKS (solo stable)

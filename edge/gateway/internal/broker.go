@@ -2,17 +2,18 @@ package internal
 
 import (
 	"encoding/base64"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/tradephantomllc/axcp-spec/edge/gateway/internal/buffer"
 	pb "github.com/tradephantomllc/axcp-spec/sdk/go/axcp/pb"
 	"google.golang.org/protobuf/proto"
 )
 
 type Broker struct {
-	cli   mqtt.Client
-	queue *buffer.Queue
+	cli mqtt.Client
 }
 
 type BrokerConfig struct {
@@ -21,10 +22,13 @@ type BrokerConfig struct {
 
 func NewBroker(cfg BrokerConfig) (*Broker, error) {
 	// Set up MQTT client
-	opts := mqtt.NewClientOptions().AddBroker(cfg.URL).SetClientID("axcp-gateway")
+	opts := mqtt.NewClientOptions().AddBroker(cfg.URL).SetClientID("axcp-gateway").SetConnectTimeout(10 * time.Second).SetWriteTimeout(10 * time.Second)
 	cli := mqtt.NewClient(opts)
 	token := cli.Connect()
-	token.Wait()
+	if !token.WaitTimeout(15 * time.Second) {
+		cli.Disconnect(0)
+		return nil, errors.New("mqtt connect acknowledgement timed out")
+	}
 	if token.Error() != nil {
 		return nil, fmt.Errorf("mqtt connect error: %w", token.Error())
 	}
@@ -35,37 +39,63 @@ func NewBroker(cfg BrokerConfig) (*Broker, error) {
 }
 
 func (b *Broker) Publish(env *pb.AxcpEnvelope) error {
+	if env == nil {
+		return errors.New("cannot publish nil envelope")
+	}
 	raw, err := proto.Marshal(env)
 	if err != nil {
 		return err
 	}
 	// Uso un ID traccia generico poiché la struttura potrebbe essere cambiata
 	topic := "axcp/envelope"
-	return b.cli.Publish(topic, 0, false, base64.StdEncoding.EncodeToString(raw)).Error()
+	return b.publish(topic, base64.StdEncoding.EncodeToString(raw))
 }
 
 // PublishTelemetry publishes telemetry data to MQTT with the given trace ID
 func (b *Broker) PublishTelemetry(td *pb.TelemetryDatagram, trace string) error {
 	// Serialize and publish the telemetry data
+	if td == nil {
+		return errors.New("cannot publish nil telemetry")
+	}
 	raw, err := proto.Marshal(td)
 	if err != nil {
 		return fmt.Errorf("failed to marshal telemetry data: %w", err)
 	}
 
 	topic := "telemetry/" + trace
-	if token := b.cli.Publish(topic, 0, false, raw); token.Wait() && token.Error() != nil {
-		return fmt.Errorf("failed to publish telemetry: %w", token.Error())
-	}
-
-	return nil
+	return b.publish(topic, raw)
 }
 
 // PublishTelemetryData pubblica dati di telemetria generici in formato JSON
 func (b *Broker) PublishTelemetryData(data map[string]interface{}, trace string) error {
-	// In una implementazione reale, si dovrebbe usare json.Marshal per convertire la mappa in JSON
-	// Ma per semplicità, usiamo una stringa fissa di esempio
-	jsonMsg := `{"type":"telemetry","timestamp":"now","data":"sample"}`
+	if data == nil {
+		return errors.New("cannot publish nil telemetry data")
+	}
+	raw, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("encode telemetry JSON: %w", err)
+	}
+	return b.publish("telemetry/"+trace, raw)
+}
 
-	topic := "telemetry/" + trace
-	return b.cli.Publish(topic, 0, false, jsonMsg).Error()
+var ErrMQTTPublishTimeout = errors.New("mqtt publish acknowledgement timed out; delivery is uncertain")
+
+func (b *Broker) publish(topic string, payload interface{}) error {
+	if b == nil || b.cli == nil {
+		return errors.New("mqtt client is not configured")
+	}
+	token := b.cli.Publish(topic, 1, false, payload)
+	if !token.WaitTimeout(10 * time.Second) {
+		return ErrMQTTPublishTimeout
+	}
+	if err := token.Error(); err != nil {
+		return fmt.Errorf("mqtt publish %s: %w", topic, err)
+	}
+	return nil
+}
+
+func (b *Broker) Close() {
+	if b != nil && b.cli != nil {
+		b.cli.Disconnect(250)
+	}
 }

@@ -8,11 +8,8 @@
 ### Q: Is AXCP Core really free?
 **A:** Yes. AXCP Core is completely free for any use, including commercial products and SaaS platforms. No fees, no royalties, no special permissions needed.
 
-### Q: What's the difference between Core, Advanced, and Enterprise?
-**A:**
-- **Core** (Apache 2.0): Full protocol implementation with DID authentication, Ed25519 signatures, QUIC transport, and basic telemetry
-- **Advanced** (Commercial): Adds Context-Sync, mTLS, SGX/SEV enclaves, differential privacy options
-- **Enterprise** (Commercial): Adds configurable privacy controls, compliance tools, audit trails, TRI-AI orchestration, dedicated support
+### Q: What is the boundary between Core and the commercial product?
+**A:** Core contains the protocol and explicit integration building blocks listed in the [current scope](../../README.md#what-core-provides). The private commercial product adds licensed capabilities. Advanced and Enterprise are historical repository/feature labels, not two public Core editions. Core does not implement automated orchestration or claim complete MCP/A2A/ACP adapters.
 
 ---
 
@@ -42,19 +39,19 @@
 
 ---
 
-## Advanced & Enterprise Features
+## Commercial capabilities
 
-### Q: Which features require a commercial license?
-**A:** See the [Commercial Use Guide](./commercial-use.md) for the complete list. Key features include:
+### Q: Which vendor-provided components require a commercial license?
+**A:** See the [Commercial Use Guide](./commercial-use.md) for the complete list. Capabilities outside Core include:
 - Context-Sync with CRDT delta patches
 - Differential Privacy
-- mTLS client certificates
+- Managed mTLS lifecycle
 - SGX/SEV enclave support
-- Compliance reporting (GDPR, HIPAA, SOC2)
+- Compliance-related tooling (no certification guarantee)
 - Audit trails with Merkle tree verification
 - TRI-AI Orchestration System
 
-### Q: Can I evaluate Advanced/Enterprise features before buying?
+### Q: Can I evaluate commercial features before buying?
 **A:** Contact us at enterprise@getaxcp.com to discuss evaluation options.
 
 ### Q: How is the commercial license priced?

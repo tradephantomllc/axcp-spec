@@ -29,6 +29,7 @@ var (
 
 	// ErrRecipientDIDMismatch indicates the envelope targets a different gateway DID
 	ErrRecipientDIDMismatch = errors.New("auth: recipient DID does not match gateway DID")
+	ErrMissingRecipientDID  = errors.New("auth: recipient DID is required for this gateway")
 )
 
 // AuthConfig holds configuration for envelope authentication.
@@ -159,7 +160,10 @@ func (ea *EnvelopeAuthenticator) VerifyEnvelope(ctx context.Context, profile neg
 		}
 	}
 
-	if ea.serverDID != "" && envAuth.RecipientDID != "" && envAuth.RecipientDID != ea.serverDID {
+	if ea.serverDID != "" && envAuth.RecipientDID == "" {
+		return AuthResult{Error: ErrMissingRecipientDID, ErrorCode: ErrorCodeAuthDIDInvalid}
+	}
+	if ea.serverDID != "" && envAuth.RecipientDID != ea.serverDID {
 		return AuthResult{
 			Error:     ErrRecipientDIDMismatch,
 			ErrorCode: ErrorCodeAuthDIDInvalid,
@@ -177,9 +181,6 @@ func (ea *EnvelopeAuthenticator) VerifyEnvelope(ctx context.Context, profile neg
 	// Build auth transcript for signature verification
 	timestamp := time.UnixMilli(int64(envAuth.TimestampMs))
 	recipientDID := envAuth.RecipientDID
-	if recipientDID == "" {
-		recipientDID = ea.serverDID
-	}
 	transcript := auth.BuildDIDAuthTranscript(envAuth.SenderDID, recipientDID, envAuth.PayloadBytes, timestamp)
 
 	// Verify signature via DID resolver

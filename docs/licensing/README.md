@@ -4,13 +4,12 @@ This directory contains licensing documentation for the AXCP project.
 
 ## License Structure
 
-AXCP uses a tiered licensing model:
+AXCP separates the open Core from the private commercial product:
 
 | Component | License | Description |
 |-----------|---------|-------------|
 | **AXCP Core** | Apache 2.0 | Open source, free for any use |
-| **AXCP Advanced** | Commercial | Requires paid license |
-| **AXCP Enterprise** | Commercial | Requires paid license |
+| **AXCP commercial product** | Commercial | Capabilities enabled according to the purchased license |
 
 ## Documents
 
@@ -26,7 +25,7 @@ AXCP uses a tiered licensing model:
 - Use it in proprietary products
 - All without paying any fees
 
-**AXCP Advanced** and **AXCP Enterprise** provide additional features (Context-Sync, Differential Privacy, Compliance tools, TRI-AI orchestration) under commercial licenses. Contact TradePhantom LLC for licensing.
+The private commercial product covers capabilities outside Core. Advanced and Enterprise are historical repository/feature labels; commercial capabilities are enabled according to the license. Availability, support terms and any compliance-related claims must be confirmed separately. Core has no commercial runtime license gate.
 
 ## Contact
 

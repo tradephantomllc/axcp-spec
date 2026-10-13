@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 )
 
 // Wire format magic bytes and version
@@ -208,6 +209,9 @@ func UnmarshalClientHello(data []byte) (*WireClientHello, error) {
 		return nil, err
 	}
 
+	if buf.Len() != 0 {
+		return nil, ErrInvalidLength
+	}
 	return h, nil
 }
 
@@ -273,11 +277,20 @@ func UnmarshalServerHello(data []byte) (*WireServerHello, error) {
 		return nil, err
 	}
 
+	if buf.Len() != 0 {
+		return nil, ErrInvalidLength
+	}
 	return h, nil
 }
 
 // Sign signs the ClientHello with the given private key.
 func (h *WireClientHello) Sign(privateKey ed25519.PrivateKey) error {
+	if len(privateKey) != ed25519.PrivateKeySize {
+		return errors.New("negotiate: Ed25519 private key must be 64 bytes")
+	}
+	if _, err := h.Marshal(); err != nil {
+		return err
+	}
 	// Build transcript for signing (everything except signature)
 	transcript := h.buildTranscript()
 	h.Signature = ed25519.Sign(privateKey, transcript)
@@ -286,6 +299,12 @@ func (h *WireClientHello) Sign(privateKey ed25519.PrivateKey) error {
 
 // Verify verifies the ClientHello signature with the given public key.
 func (h *WireClientHello) Verify(publicKey ed25519.PublicKey) error {
+	if len(publicKey) != ed25519.PublicKeySize {
+		return ErrSignatureVerificationFailed
+	}
+	if _, err := h.Marshal(); err != nil {
+		return err
+	}
 	transcript := h.buildTranscript()
 	if !ed25519.Verify(publicKey, transcript, h.Signature) {
 		return ErrSignatureVerificationFailed
@@ -323,6 +342,12 @@ func (h *WireClientHello) buildTranscript() []byte {
 
 // Sign signs the ServerHello with the given private key.
 func (h *WireServerHello) Sign(privateKey ed25519.PrivateKey) error {
+	if len(privateKey) != ed25519.PrivateKeySize {
+		return errors.New("negotiate: Ed25519 private key must be 64 bytes")
+	}
+	if _, err := h.Marshal(); err != nil {
+		return err
+	}
 	transcript := h.buildTranscript()
 	h.Signature = ed25519.Sign(privateKey, transcript)
 	return nil
@@ -330,6 +355,12 @@ func (h *WireServerHello) Sign(privateKey ed25519.PrivateKey) error {
 
 // Verify verifies the ServerHello signature with the given public key.
 func (h *WireServerHello) Verify(publicKey ed25519.PublicKey) error {
+	if len(publicKey) != ed25519.PublicKeySize {
+		return ErrSignatureVerificationFailed
+	}
+	if _, err := h.Marshal(); err != nil {
+		return err
+	}
 	transcript := h.buildTranscript()
 	if !ed25519.Verify(publicKey, transcript, h.Signature) {
 		return ErrSignatureVerificationFailed
@@ -382,7 +413,7 @@ func readString(buf *bytes.Reader) (string, error) {
 		return "", err
 	}
 	b := make([]byte, length)
-	if _, err := buf.Read(b); err != nil {
+	if _, err := io.ReadFull(buf, b); err != nil {
 		return "", err
 	}
 	return string(b), nil
@@ -405,7 +436,7 @@ func readBytes(buf *bytes.Reader) ([]byte, error) {
 		return nil, err
 	}
 	b := make([]byte, length)
-	if _, err := buf.Read(b); err != nil {
+	if _, err := io.ReadFull(buf, b); err != nil {
 		return nil, err
 	}
 	return b, nil
@@ -443,6 +474,9 @@ func readCapabilities(buf *bytes.Reader) (Capabilities, error) {
 	flags, err := buf.ReadByte()
 	if err != nil {
 		return cap, err
+	}
+	if flags & ^byte(3) != 0 {
+		return cap, ErrInvalidCapabilities
 	}
 	cap.RequireAuth = (flags & 1) != 0
 	cap.RequireReplay = (flags & 2) != 0

@@ -24,7 +24,7 @@ on:
       - main
 
 env:
-  GO_VERSION:  '1.25.6'
+  GO_VERSION:  '1.26.9'
   PYTHON_VERSION: '3.11'
   NODE_VERSION: '22'
   PROTOC_VERSION: '33.2'
@@ -76,9 +76,32 @@ jobs:
           (cd sdk/go && go test -v -race ./...)
           (cd edge/gateway && go test -v -race ./...)
           (cd edge/rpi-agent && go test -v -race ./...)
+          go test -race ./... ./test/...
+
+      - name: Build an external Go SDK consumer
+        env:
+          GOWORK: 'off'
+        run: |
+          set -euo pipefail
+          consumer_dir="$(mktemp -d)"
+          cd "${consumer_dir}"
+          go mod init axcp-install-check
+          go mod edit -require=github.com/tradephantomllc/axcp-spec/sdk/go@v0.0.0
+          go mod edit -replace="github.com/tradephantomllc/axcp-spec/sdk/go=${GITHUB_WORKSPACE}/sdk/go"
+          cat > main.go <<'GO'
+          package main
+          import (
+            _ "github.com/tradephantomllc/axcp-spec/sdk/go/axcp"
+            _ "github.com/tradephantomllc/axcp-spec/sdk/go/axcp/pb"
+            _ "github.com/tradephantomllc/axcp-spec/sdk/go/netquic"
+          )
+          func main() {}
+          GO
+          go mod tidy
+          go build .
 
       - name: Metrics histogram tests
-        run: go test ./edge/gateway/internal/metrics -run TestHistogramObserve,TestOTELBatching
+        run: go test ./edge/gateway/internal/metrics -run 'TestHistogramObserve|TestOTELBatching'
 
       - name: Code coverage
         working-directory: sdk/go
@@ -128,10 +151,19 @@ jobs:
           python -m pip install -e sdk/python
           python -m pip install aioquic pytest-cov
 
+      - name: Install pinned protoc
+        run: |
+          set -euo pipefail
+          curl -fsSL \
+            "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip" \
+            -o "${RUNNER_TEMP}/protoc.zip"
+          unzip -q "${RUNNER_TEMP}/protoc.zip" -d "${RUNNER_TEMP}/protoc"
+          echo "${RUNNER_TEMP}/protoc/bin" >> "${GITHUB_PATH}"
+
       - name: Generate Python stubs
         run: |
-          python -m grpc_tools.protoc -I=proto --python_out=proto proto/axcp.proto
-          python -m grpc_tools.protoc -I=proto --python_out=sdk/python/src/axcp/pb proto/axcp.proto
+          protoc -I=proto --python_out=proto proto/axcp.proto
+          protoc -I=proto --python_out=sdk/python/src/axcp/pb proto/axcp.proto
 
       - name: Verify generated Python stubs are committed
         run: git diff --exit-code proto/axcp_pb2.py sdk/python/src/axcp/pb/axcp_pb2.py
@@ -140,6 +172,24 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: pytest -q scripts gateway sdk/python/tests
+
+      - name: Install and smoke-test the Python wheel outside the checkout
+        run: |
+          set -euo pipefail
+          package_dir="$(mktemp -d)"
+          python -m pip wheel --no-deps ./sdk/python --wheel-dir "${package_dir}"
+          python -m venv "${package_dir}/venv"
+          "${package_dir}/venv/bin/python" -m pip install "${package_dir}"/*.whl
+          cd "${package_dir}"
+          "${package_dir}/venv/bin/python" - <<'PYTHON'
+          from axcp import Agent, Identity, encode_envelope, decode_envelope
+          from axcp.pb import axcp_pb2
+          alice, bob = Agent(Identity.generate()), Agent(Identity.generate())
+          envelope = alice.new_envelope(trace_id="wheel-install")
+          envelope.context_patch.CopyFrom(axcp_pb2.ContextPatch(context_id="ctx", base_version=1))
+          alice.sign_message(envelope, recipient_did=bob.identity.did)
+          bob.verify(decode_envelope(encode_envelope(envelope)))
+          PYTHON
 
       - name: SDK release-readiness check
         run: python scripts/verify_sdk_release_readiness.py
@@ -156,6 +206,25 @@ jobs:
 # ------------------------------------------------------------
 # 2b. TypeScript SDK core
 # ------------------------------------------------------------
+  test-python-sdk-compat:
+    name: Python SDK (${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ['3.10', '3.14']
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install packaged SDK and tests
+        run: python -m pip install ./sdk/python pytest
+      - name: Check minimum transport and protobuf dependencies
+        if: matrix.python == '3.10'
+        run: python -m pip install 'aioquic==1.3.0' 'protobuf==6.33.5'
+      - name: Test SDK compatibility
+        run: python -m pytest -q sdk/python/tests
+
   test-typescript:
     name: Test TypeScript
     runs-on: ubuntu-latest
@@ -181,9 +250,26 @@ jobs:
         working-directory: sdk/typescript
         run: npm test
 
-      - name: Verify TypeScript package contents
+      - name: Install and smoke-test the TypeScript tarball outside the checkout
         working-directory: sdk/typescript
-        run: npm pack --dry-run
+        run: |
+          set -euo pipefail
+          consumer_dir="$(mktemp -d)"
+          npm pack --pack-destination "${consumer_dir}"
+          cd "${consumer_dir}"
+          npm init -y
+          npm install --ignore-scripts ./*.tgz
+          node --input-type=module - <<'JS'
+          import { Agent, Identity, encodeEnvelope, decodeEnvelope } from '@tradephantom/axcp';
+          import { TlsClient } from '@tradephantom/axcp/transport';
+          import * as pb from '@tradephantom/axcp/pb';
+          const alice = new Agent(Identity.generate()), bob = new Agent(Identity.generate());
+          const envelope = alice.newEnvelope({traceId:'tarball-install'});
+          envelope.contextPatch = {contextId:'ctx',baseVersion:1,ops:[]};
+          alice.signMessage(envelope,{recipientDid:bob.identity.did});
+          await bob.verify(decodeEnvelope(encodeEnvelope(envelope)));
+          if (typeof TlsClient.connect !== 'function' || !Object.keys(pb).length) throw new Error('missing exports');
+          JS
 
 # ------------------------------------------------------------ 
 # 3. Gateway telemetry integration

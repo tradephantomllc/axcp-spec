@@ -2,9 +2,11 @@
 
 This example demonstrates how to use the AXCP telemetry functionality to send and receive telemetry data over QUIC.
 
+This local example uses legacy `0xA0` telemetry and development TLS. It does not demonstrate Secure Baseline. For authenticated `0xA1` datagrams see the [gateway contract](../../../../docs/gateway-setup.md).
+
 ## Prerequisites
 
-- Go 1.22 or later
+- Go 1.26.9 or later
 - Git
 
 ## Building the Example
@@ -54,14 +56,14 @@ In another terminal, run the client to send telemetry data:
 ## Code Structure
 
 - `main.go`: Contains both client and server implementations.
-- `go.mod`: Defines the module and its dependencies.
+- Dependencies are defined by the parent `sdk/go/go.mod`.
 
 ## Customization
 
 You can modify the example to:
 - Add more telemetry data types
 - Implement custom processing of received telemetry data
-- Add authentication and encryption
+- Add application authentication (the local example already uses self-signed QUIC/TLS)
 - Implement a persistent storage backend for telemetry data
 
 ## License

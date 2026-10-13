@@ -1,24 +1,28 @@
-# AXCP Reference Architecture
+# AXCP Core reference architecture
 
+```text
+Application / agent
+  explicit identity + peer configuration
+  construct payload -> sign envelope
+                  |
+           QUIC + TLS 1.3
+       stream / 0xA1 telemetry
+                  |
+Reference gateway
+  version/profile/payload validation
+  trusted DID -> Ed25519 -> timestamp -> replay window
+                  |
+     MQTT QoS 1 publish / bounded retry
+                  |
+Application-owned MQTT consumer
 ```
-         Agent A ─┐                     
-                  │ QUIC/TLS            
-         Agent B ─┤─────────────┐       
-                  ▼             │       
-              Gateway Core ─────┤       
-                  │             │       
-                  ▼             │       
-           Discovery Service ◀──┘       
-                  │                     
-                  ▼                     
-        CRDT/State Store (Gossip)
-```
 
-**Component overview (≤ 300 words)**
+Core supplies protocol and transport building blocks. The application owns routing, tool execution, context state, persistence, provisioning and authorization beyond the gateway's configured sender trust. Protobuf context patches and capability messages do not imply an automatic CRDT store or discovery service.
 
-* **Agents**: Lightweight application or edge processes embedding the AXCP SDK. They emit context deltas, telemetry datagrams, and handle gateway control frames.
-* **Gateway Core**: Terminates QUIC connections from agents, enforces rate limits & privacy budgets, validates envelopes, and forwards authorised traffic across security domains.
-* **Discovery Service**: Simple DNS-SD or in-mesh gossip layer that advertises reachable gateways and their capabilities. Optional in single-gateway deployments.
-* **State Store / CRDT**: Conflict-free replicated data store used by gateways to share enrolment state, capability descriptors, and topology changes with eventual consistency.
+The Go and Python SDKs provide QUIC. TypeScript provides compatible framing and a Node TLS adapter; that TCP/TLS adapter cannot directly connect to the QUIC gateway. Rust's experimental JSON/HTTP telemetry adapter expects a separate HTTP service.
 
-All components are container-friendly and can run at the edge or in the cloud. Communication defaults to QUIC + TLS 1.3; when DATAGRAM frames are available, AXCP piggybacks envelope payloads to minimise head-of-line blocking.
+The gateway starts in Secure Baseline mode. It accepts configured sender DIDs and verifies signed envelopes before forwarding them to MQTT. Streams and signed datagrams share replay state. The gateway's profile is fixed by configuration; the SDK's signed ClientHello/ServerHello exchange is a separate opt-in integration primitive.
+
+MQTT publisher acknowledgement confirms broker acceptance, not consumer processing. Retry is bounded and in memory; exhaustion, capacity limits, shutdown and crashes can lose pending messages. Uncertain acknowledgements can produce duplicates. Consumers must supply business-level idempotency if required.
+
+Automatic orchestration, smart routing, CRDT synchronization, privacy budgets, managed mTLS/attestation and commercial governance are outside Core. A long-running deployment is operational evidence for that deployment, not proof that every public SDK, example or optional path has been exercised.
