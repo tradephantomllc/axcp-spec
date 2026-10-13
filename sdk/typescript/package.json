@@ -26,7 +26,9 @@
   },
   "files": [
     "dist/src",
-    "README.md"
+    "README.md",
+    "LICENSE",
+    "NOTICE"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -45,7 +47,7 @@
   ],
   "dependencies": {
     "long": "^5.3.2",
-    "protobufjs": "^8.6.4"
+    "protobufjs": "8.8.1"
   },
   "devDependencies": {
     "@types/node": "^22.20.0",

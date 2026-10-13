@@ -12,6 +12,15 @@ pub enum Error {
     #[error("Configuration error: {0}")]
     Config(String),
 
+    /// The pending batch is full; the new point was not accepted.
+    #[error(
+        "Telemetry buffer is full ({capacity} points); flush retained points before recording more"
+    )]
+    TelemetryBufferFull {
+        /// Maximum number of pending points configured by the batch size.
+        capacity: usize,
+    },
+
     /// Represents an I/O error.
     #[error("I/O error: {source}")]
     Io {

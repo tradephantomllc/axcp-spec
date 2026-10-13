@@ -287,3 +287,24 @@ describe("envelope", () => {
     );
   });
 });
+
+describe("repeated scalar presence", () => {
+  it("preserves empty strings and matches the Python/Go wire vector", async () => {
+    const vector = JSON.parse(readFileSync(new URL("../../../../testdata/sdk/repeated_defaults_vector.json", import.meta.url), "utf8"));
+    const env = newEnvelope({ traceId: "repeated-defaults", profile: 1 });
+    env.capabilityMsg = { request: { ids: vector.ids } };
+    signEnvelope(env, Identity.fromSeed(Buffer.from(vector.identity.private_seed_hex, "hex")), {
+      recipientDid: vector.recipient_did, sequence: vector.sequence, timestampMs: vector.timestamp_ms,
+    });
+    assert.deepEqual(decodeEnvelope(encodeEnvelope(env)).capabilityMsg?.request?.ids, ["", "read", ""]);
+    assert.equal(Buffer.from(encodeEnvelope(env)).toString("base64"), vector.expected.envelope_b64);
+    assert.equal(Buffer.from(signingPayload(env)).toString("base64"), vector.expected.signing_payload_b64);
+    assert.equal(Buffer.from(env.signature!).toString("base64"), vector.expected.signature_b64);
+    await verifyEnvelope(decodeEnvelope(Buffer.from(vector.expected.envelope_b64, "base64")));
+  });
+  it("rejects null repeated values rather than removing them", () => {
+    const env = newEnvelope();
+    env.capabilityMsg = { request: { ids: [null as unknown as string] } };
+    assert.throws(() => encodeEnvelope(env), InvalidEnvelopeError);
+  });
+});

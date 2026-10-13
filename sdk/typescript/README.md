@@ -10,7 +10,7 @@ This package covers the application-layer security surface:
 - AXCP DID auth transcript signing and verification
 - timestamp validation
 - sequence and nonce replay protection
-- Secure Baseline profile negotiation
+- Secure Baseline profile selection helpers (explicit integration required)
 - transport-independent stream framing
 - Node TLS stream transport
 
@@ -23,7 +23,7 @@ remains an optional adapter decision.
 
 ```bash
 cd sdk/typescript
-npm install
+npm ci
 npm test
 ```
 
@@ -73,6 +73,9 @@ The transport framing matches the Go and Python SDKs:
 - `sendMessage` / `receiveMessage`: 4-byte big-endian length prefix
 - `sendEnvelope` / `receiveEnvelope`: 4-byte little-endian length prefix
 
+TLS-over-TCP is a separate transport: `TlsClient` cannot connect directly to the
+reference QUIC gateway. Use a compatible TLS peer or integrate a QUIC adapter.
+
 ## Compatibility
 
 The TypeScript SDK uses the same `proto/axcp.proto` field numbers and the same
@@ -90,3 +93,7 @@ The signed payload excludes `sender_did`, `recipient_did`, `timestamp_ms`,
 `signature`, and `attestation_proof`. `sequence` remains covered by the
 signature because replay protection consumes it, matching the reference Go and
 Python implementations.
+
+Repeated scalar values retain their positions, including empty strings and zero
+values. Canonical encoding/signatures are checked against shared Go/Python
+vectors in `testdata/sdk`; omitted singular proto3 defaults are a different case.

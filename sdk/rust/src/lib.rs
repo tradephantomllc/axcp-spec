@@ -4,7 +4,6 @@
 
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
-#![doc(html_logo_url = "https://example.com/logo.png")]
 
 pub mod client;
 pub mod error;

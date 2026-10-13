@@ -1,40 +1,29 @@
-# AXCP Quickstart
+# AXCP Core quickstart
 
-> This guide shows how to spin up a minimal local mesh with two echo-agents and a gateway using **Profile 0** (no encryption, ideal for experimentation on localhost).
+Prerequisites: Git and Go 1.26.9 or newer on a supported Go release. Commands start at the repository root.
 
-## Prerequisites
-
-* Go 1.21+ (for building the reference binaries)
-* `make`
-
-```bash
-# Build gateway and echo agents
-make gateway echo_agent axcpctl
+```sh
+git clone https://github.com/tradephantomllc/axcp-spec.git
+cd axcp-spec
+go test ./sdk/go/...
+go build -o /tmp/axcp-authenticated-chat ./examples/go/authenticated_chat
 ```
 
-## Start the gateway
+In terminal 1:
 
-```bash
-./bin/gateway --listen :4433 &
+```sh
+/tmp/axcp-authenticated-chat -server
 ```
 
-The gateway now listens for QUIC connections on port 4433.
+In terminal 2:
 
-## Start two echo agents
-
-```bash
-./bin/echo_agent --id agent1 --connect quic://127.0.0.1:4433 &
-./bin/echo_agent --id agent2 --connect quic://127.0.0.1:4433 &
+```sh
+/tmp/axcp-authenticated-chat
+/tmp/axcp-authenticated-chat -replay
 ```
 
-Each agent will register with the gateway and advertise a simple echo capability.
+The client verifies the signed response. The replay run demonstrates rejection of a duplicated sequence. Stop the server with Ctrl+C.
 
-## Live trace
+This is an offline, localhost demonstration with fixed test identities and self-signed TLS. Both peers are configured for Secure Baseline; the example does not run the SDK's wire profile handshake. Its stream format and ALPN are specific to the demonstration, so it is not a client for the MQTT gateway. Its `did:key:axcp-auth-chat-*` strings are local resolver labels, not self-resolving multibase identities. Never reuse its deterministic keys in a deployment.
 
-```bash
-axcpctl trace --live
-```
-
-You should see envelopes flowing between agents and the gateway in real-time.
-
-Press <kbd>Ctrl+C</kbd> to stop each background process when you are done.
+For the actual QUIC-to-MQTT gateway, follow [Gateway setup](gateway-setup.md). For a local signed-envelope roundtrip without a server, see the [Python and TypeScript examples](getting-started.md). There are no `axcpctl`, `echo_agent` or `make gateway` commands in this repository.

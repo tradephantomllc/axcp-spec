@@ -5,30 +5,32 @@ Gateway PoC: translate MCP JSON request <-> AXCP Envelope.
 This bridge supports both transport-only (profile 0) and secure-baseline-v1 (profile 1).
 For secure-baseline-v1, envelopes include DID auth fields and Ed25519 signatures.
 
-Run: python gateway/mcp_bridge.py mcp.json [--profile secure-baseline]
+Requires the installed Python SDK: pip install -e sdk/python
+Run: python gateway/mcp_bridge.py mcp.json --profile secure-baseline --remote-did <recipient>
 """
 import json
 import sys
 import os
 import base64
 import time
-import hashlib
-from typing import Optional, Tuple
-from dataclasses import dataclass
+from typing import Optional
+from dataclasses import dataclass, field
+from threading import Lock
 
 # Add the root directory and proto directory to sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'proto')))
 
-try:
-    from nacl.signing import SigningKey, VerifyKey
-    from nacl.encoding import RawEncoder
-    NACL_AVAILABLE = True
-except ImportError:
-    NACL_AVAILABLE = False
+from axcp.errors import AXCPError
+from axcp.identity import DID, Identity
+from axcp.envelope import (
+    signing_payload,
+    sign_envelope as sdk_sign_envelope,
+    verify_envelope as sdk_verify_envelope,
+)
+from axcp.pb import axcp_pb2 as axcp
 
-from google.protobuf import json_format
-import proto.axcp_pb2 as axcp
+NACL_AVAILABLE = True  # PyNaCl is a required dependency of the Python SDK.
 
 
 # Profile constants
@@ -55,101 +57,34 @@ class BridgeSession:
     profile: int = PROFILE_TRANSPORT_ONLY
     sequence: int = 0
     negotiated: bool = False
+    _sequence_lock: Lock = field(default_factory=Lock, repr=False, compare=False)
 
     def next_sequence(self) -> int:
         """Get next sequence number for replay protection."""
-        self.sequence += 1
-        return self.sequence
+        with self._sequence_lock:
+            if not 0 <= self.sequence < (1 << 64) - 1:
+                raise ValueError("sequence exhausted or invalid; create a new identity/session")
+            self.sequence += 1
+            return self.sequence
 
 
 def generate_test_identity() -> BridgeIdentity:
-    """Generate a test identity with DID and Ed25519 keypair."""
-    if not NACL_AVAILABLE:
-        # Fallback: create identity without signing capability
-        import secrets
-        random_bytes = secrets.token_bytes(8)
-        did = f"did:key:test-{base64.urlsafe_b64encode(random_bytes).decode().rstrip('=')}"
-        return BridgeIdentity(did=did)
-
-    signing_key = SigningKey.generate()
-    verify_key = signing_key.verify_key
-
-    # Create DID from public key
-    pk_bytes = bytes(verify_key)
-    did = f"did:key:test-{base64.urlsafe_b64encode(pk_bytes[:8]).decode().rstrip('=')}"
-
-    return BridgeIdentity(
-        did=did,
-        signing_key=bytes(signing_key),
-        verify_key=pk_bytes
-    )
+    """Generate an ephemeral, canonical did:key identity for local demonstrations."""
+    identity = Identity.generate()
+    return BridgeIdentity(identity.did, identity.private_seed, identity.public_key)
 
 
-def build_auth_transcript(sender_did: str, recipient_did: str, payload: bytes, timestamp_ms: int) -> bytes:
-    """
-    Build canonical auth transcript for signing.
-
-    Format:
-        AXCP-DID-AUTH-v1
-        <sender_did>
-        <recipient_did>
-        <base64(payload)>
-        <timestamp_rfc3339>
-    """
-    from datetime import datetime, timezone
-
-    payload_b64 = base64.b64encode(payload).decode()
-    ts = datetime.fromtimestamp(timestamp_ms / 1000, tz=timezone.utc)
-    timestamp_str = ts.strftime('%Y-%m-%dT%H:%M:%SZ')
-
-    transcript = '\n'.join([
-        DID_AUTH_TRANSCRIPT_VERSION,
-        sender_did,
-        recipient_did,
-        payload_b64,
-        timestamp_str
-    ])
-
-    return transcript.encode('utf-8')
-
-
-def signing_payload(env: axcp.AxcpEnvelope) -> bytes:
-    """Return the canonical envelope bytes covered by the auth transcript."""
-    env_copy = axcp.AxcpEnvelope()
-    env_copy.CopyFrom(env)
-    env_copy.ClearField('signature')
-    env_copy.ClearField('timestamp_ms')
-    env_copy.ClearField('sequence')
-    env_copy.ClearField('sender_did')
-    env_copy.ClearField('recipient_did')
-    env_copy.ClearField('attestation_proof')
-    return env_copy.SerializeToString(deterministic=True)
-
-
-def sign_envelope(session: BridgeSession, payload: bytes) -> Tuple[bytes, int, int]:
-    """
-    Sign a payload for secure-baseline profile.
-
-    Returns: (signature, timestamp_ms, sequence)
-    """
-    if not NACL_AVAILABLE or not session.local_identity.signing_key:
-        raise ValueError("Signing not available: PyNaCl not installed or no signing key")
-
-    timestamp_ms = int(time.time() * 1000)
-    sequence = session.next_sequence()
-
-    transcript = build_auth_transcript(
-        session.local_identity.did,
-        session.remote_did or "",
-        payload,
-        timestamp_ms
-    )
-
-    signing_key = SigningKey(session.local_identity.signing_key)
-    signed = signing_key.sign(transcript, encoder=RawEncoder)
-    signature = signed.signature
-
-    return signature, timestamp_ms, sequence
+def sign_envelope(session: BridgeSession, env: axcp.AxcpEnvelope) -> None:
+    """Sign the complete envelope, including its allocated replay sequence."""
+    if not session.local_identity.signing_key:
+        raise ValueError("secure-baseline requires an Ed25519 private seed")
+    identity = Identity.from_seed(session.local_identity.signing_key, did=session.local_identity.did)
+    if session.local_identity.verify_key is not None and session.local_identity.verify_key != identity.public_key:
+        raise ValueError("configured verification key does not match the private seed")
+    if not session.remote_did:
+        raise ValueError("secure-baseline requires the recipient DID")
+    DID.parse(session.remote_did)
+    sdk_sign_envelope(env, identity, recipient_did=session.remote_did, sequence=session.next_sequence())
 
 
 def mcp_to_axcp(mcp_json: dict, session: Optional[BridgeSession] = None) -> axcp.AxcpEnvelope:
@@ -159,8 +94,13 @@ def mcp_to_axcp(mcp_json: dict, session: Optional[BridgeSession] = None) -> axcp
     If session is provided and profile is secure-baseline, adds auth fields.
     """
     profile = PROFILE_TRANSPORT_ONLY
-    if session and session.negotiated:
-        profile = session.profile
+    if session:
+        if session.profile not in (PROFILE_TRANSPORT_ONLY, PROFILE_SECURE_BASELINE):
+            raise ValueError("unsupported bridge profile")
+        if session.profile == PROFILE_SECURE_BASELINE and not session.negotiated:
+            raise ValueError("secure-baseline session must be explicitly configured before conversion")
+        if session.negotiated:
+            profile = session.profile
 
     env = axcp.AxcpEnvelope(
         version=1,
@@ -179,20 +119,7 @@ def mcp_to_axcp(mcp_json: dict, session: Optional[BridgeSession] = None) -> axcp
 
     # Add auth fields for secure-baseline profile
     if profile == PROFILE_SECURE_BASELINE and session:
-        env.sender_did = session.local_identity.did
-        if session.remote_did:
-            env.recipient_did = session.remote_did
-
-        payload = signing_payload(env)
-
-        try:
-            signature, timestamp_ms, sequence = sign_envelope(session, payload)
-            env.timestamp_ms = timestamp_ms
-            env.sequence = sequence
-            env.signature = signature
-        except ValueError as e:
-            # Signing not available, log warning but continue
-            print(f"Warning: Could not sign envelope: {e}", file=sys.stderr)
+        sign_envelope(session, env)
 
     return env
 
@@ -230,35 +157,14 @@ def verify_envelope_signature(env: axcp.AxcpEnvelope, resolver: dict) -> bool:
 
     Returns True if signature is valid, False otherwise.
     """
-    if not NACL_AVAILABLE:
-        print("Warning: PyNaCl not available, cannot verify signatures", file=sys.stderr)
+    public_key = resolver.get(env.sender_did)
+    if public_key is None:
         return False
-
-    if not env.sender_did or not env.signature:
-        return False
-
-    # Look up public key
-    public_key_bytes = resolver.get(env.sender_did)
-    if not public_key_bytes:
-        print(f"Warning: DID not found in resolver: {env.sender_did}", file=sys.stderr)
-        return False
-
-    payload = signing_payload(env)
-
-    transcript = build_auth_transcript(
-        env.sender_did,
-        env.recipient_did or "",
-        payload,
-        env.timestamp_ms
-    )
-
     try:
-        verify_key = VerifyKey(public_key_bytes)
-        verify_key.verify(transcript, env.signature)
-        return True
-    except Exception as e:
-        print(f"Signature verification failed: {e}", file=sys.stderr)
+        sdk_verify_envelope(env, public_key=public_key)
+    except AXCPError:
         return False
+    return True
 
 
 def main():
@@ -268,27 +174,28 @@ def main():
     parser.add_argument('input_file', help='MCP JSON input file')
     parser.add_argument('--profile', choices=['transport-only', 'secure-baseline'],
                         default='transport-only', help='Security profile to use')
-    parser.add_argument('--local-did', help='Local DID (auto-generated if not provided)')
+    parser.add_argument('--identity-file', help='Python SDK identity JSON containing a private seed')
     parser.add_argument('--remote-did', help='Remote DID for directed messages')
     args = parser.parse_args()
 
-    # Create session
-    if args.local_did:
-        identity = BridgeIdentity(did=args.local_did)
+    if args.identity_file:
+        with open(args.identity_file) as identity_file:
+            loaded = Identity.from_json(json.load(identity_file))
+        identity = BridgeIdentity(loaded.did, loaded.private_seed, loaded.public_key)
     else:
         identity = generate_test_identity()
-        print(f"Generated test identity: {identity.did}")
+        print(f"Generated ephemeral identity: {identity.did}")
 
     session = BridgeSession(local_identity=identity)
 
     if args.profile == 'secure-baseline':
         session.profile = PROFILE_SECURE_BASELINE
-        session.remote_did = args.remote_did or "did:key:gateway-server"
+        if not args.remote_did:
+            parser.error("--remote-did is required for secure-baseline")
+        session.remote_did = args.remote_did
         session.negotiated = True
         print(f"Profile: secure-baseline-v1")
         print(f"Remote DID: {session.remote_did}")
-        if not NACL_AVAILABLE:
-            print("Warning: PyNaCl not installed, signatures will be skipped")
     else:
         session.profile = PROFILE_TRANSPORT_ONLY
         session.negotiated = True

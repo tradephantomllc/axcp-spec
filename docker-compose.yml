@@ -3,21 +3,28 @@ services:
     build:
       context: .
       dockerfile: edge/gateway/Dockerfile
+    command:
+      - -mqtt-url=tcp://mosquitto:1883
+      - -tls-cert=/run/axcp/tls/server.crt
+      - -tls-key=/run/axcp/tls/server.key
+      - -server-did=${AXCP_SERVER_DID:?Set AXCP_SERVER_DID}
+      - -trusted-did=${AXCP_TRUSTED_DID:?Set AXCP_TRUSTED_DID to DID=base64-public-key}
+    volumes:
+      - ${AXCP_TLS_DIR:?Set AXCP_TLS_DIR to an absolute certificate directory}:/run/axcp/tls:ro
     ports:
       - "7143:7143/udp"
     depends_on:
-      - mosquitto
+      mosquitto:
+        condition: service_healthy
 
   mosquitto:
     image: eclipse-mosquitto:2.0
+    volumes:
+      - ./edge/gateway/config/mosquitto-dev.conf:/mosquitto/config/mosquitto.conf:ro
     ports:
-      - "1883:1883"
+      - "127.0.0.1:1883:1883"
     healthcheck:
-      test: ["CMD", "mosquitto_sub", "-h", "localhost", "-t", "foo", "-C", "1"]
+      test: ["CMD", "mosquitto_pub", "-h", "localhost", "-t", "axcp/health", "-m", "ready", "-q", "1"]
       interval: 5s
-      retries: 3
-
-  jaeger:
-    image: jaegertracing/all-in-one:1.55
-    ports:
-      - "16686:16686"
+      timeout: 3s
+      retries: 5

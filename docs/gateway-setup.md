@@ -1,198 +1,78 @@
-# AXCP Gateway Setup
+# AXCP gateway setup
 
-This document describes how to configure the AXCP gateway for **Secure Baseline (`secure-baseline-v1`)** enforcement.
+The reference gateway receives AXCP envelopes over QUIC/TLS and publishes them to MQTT. Secure Baseline is enabled by default. It uses a fixed configured profile; the SDK wire handshake is not run automatically.
 
-## What "Secure Baseline Enforced" Means
+## Build and configure
 
-When the gateway is configured with `secure-baseline-v1`:
+From the repository root, with Go 1.26.9 or newer:
 
-1. **All envelopes must be authenticated** - Missing signatures are rejected
-2. **All signatures must be valid** - Invalid signatures are rejected
-3. **DID resolution must succeed** - Unknown DIDs are rejected
-4. **Replay protection is active** - Duplicate sequences are rejected
-5. **No silent downgrade** - The gateway will not fall back to `transport-only-v0`
-
-## Gateway Configuration
-
-### ServerConfig
-
-The gateway is configured via `ServerConfig` in `edge/gateway/internal/quic_server.go`:
-
-```go
-type ServerConfig struct {
-    Addr          string                    // Listen address (e.g., ":4433")
-    TLSConf       *tls.Config               // TLS configuration for QUIC
-    Profile       negotiate.Profile         // Security profile (e.g., ProfileSecureBaseline)
-    Authenticator *EnvelopeAuthenticator    // Authentication handler
-}
+```sh
+go build -o /tmp/axcp-gateway ./edge/gateway/cmd/gateway
+/tmp/axcp-gateway -help
 ```
 
-### EnvelopeAuthenticator
+Provision a persistent TLS certificate/key and sender identities using your own deployment tooling. Configure MQTT access controls for the gateway and consumers. The gateway uses a repeatable allowlist of sender DID/public-key pairs; possession of a key outside that list does not grant access.
 
-The authenticator is created with a DID resolver:
-
-```go
-authenticator, err := NewEnvelopeAuthenticator(
-    resolver,      // DIDResolver implementation
-    serverDID,     // Server's DID (e.g., "did:key:my-gateway")
-    authConfig,    // AuthConfig with TTL and window
-    clock,         // Clock for time operations (use nil for real time)
-)
-```
-
-### AuthConfig
-
-```go
-type AuthConfig struct {
-    ReplayTTL       time.Duration  // TTL for replay protection entries
-    ReplayWindow    uint64         // Sliding window size
-    MaxTimestampAge time.Duration  // Maximum age for message timestamps
-}
-```
-
-## Injecting the DID Resolver
-
-### Development: In-Memory Resolver
-
-For local development and testing, use `MemoryDIDResolver`:
-
-```go
-import "github.com/tradephantomllc/axcp-spec/sdk/go/auth"
-
-// Create resolver
-resolver := auth.NewMemoryDIDResolver()
-
-// Add known DIDs
-resolver.AddDID("did:key:client-1", clientPublicKey)
-resolver.AddDID("did:key:client-2", client2PublicKey)
-
-// Create authenticator
-authenticator, err := NewEnvelopeAuthenticator(
-    resolver,
-    "did:key:my-gateway",
-    AuthConfig{
-        ReplayTTL:       5 * time.Minute,
-        ReplayWindow:    1000,
-        MaxTimestampAge: 30 * time.Second,
-    },
-    nil, // Use real clock
-)
-```
-
-### Production: Adapter Pattern
-
-For production, implement the `DIDResolver` interface with your DID infrastructure:
-
-```go
-type ProductionDIDResolver struct {
-    // Your DID registry client
-}
-
-func (r *ProductionDIDResolver) Resolve(ctx context.Context, did string) (*auth.DIDDocument, error) {
-    // Query your DID registry
-    // Return DIDDocument with public keys
-}
-```
-
-## Rejection Reasons
-
-When `secure-baseline-v1` is enforced, the gateway rejects envelopes for these reasons:
-
-| Rejection | Error Code | Description |
-|-----------|------------|-------------|
-| Missing signature | `UNAUTHORIZED` | Envelope has no signature field |
-| Missing sender DID | `UNAUTHORIZED` | Envelope has no sender_did field |
-| DID resolution failed | `UNAUTHORIZED` | Sender's DID cannot be resolved |
-| Invalid signature | `UNAUTHORIZED` | Ed25519 signature verification failed |
-| Replay detected | `UNAUTHORIZED` | Sequence was already seen within TTL |
-| Sequence too old | `UNAUTHORIZED` | Sequence is outside sliding window |
-| Timestamp too old | `UNAUTHORIZED` | Message timestamp exceeds MaxTimestampAge |
-| No authenticator | `UNAUTHORIZED` | Secure profile but no authenticator configured |
-
-## Operational Behavior
-
-### Logging
-
-The gateway logs authentication events at INFO level:
-
-```
-[quic] authenticated server listening on :4433 (profile: secure-baseline-v1)
-[quic] auth failed for envelope trace_id=xxx: signature verification failed
-```
-
-**Security note**: The gateway does not log sensitive information such as signatures, private keys, or full DID documents.
-
-### Error Responses
-
-When authentication fails, the gateway sends an error response with:
-- Error code (e.g., `UNAUTHORIZED`)
-- Error message (high-level, non-sensitive)
-
-The client connection is not immediately closed, allowing for protocol-level error handling.
-
-## Development Walkthrough
-
-### 1. Start the Gateway
-
-The gateway can be started programmatically or via the example:
-
-```go
-// Create configuration
-config := ServerConfig{
-    Addr:          ":4433",
-    TLSConf:       tlsConfig,
-    Profile:       negotiate.ProfileSecureBaseline,
-    Authenticator: authenticator,
-}
-
-// Run authenticated server
-err := RunAuthenticatedQuicServer(config, envelopeHandler, telemetryHandler)
-```
-
-For the `edge/gateway/cmd/gateway` binary, production startup must provide a
-persistent server TLS keypair:
-
-```bash
-cd edge/gateway
-go run ./cmd/gateway \
+```sh
+/tmp/axcp-gateway \
+  -addr :7143 \
+  -mqtt-url tcp://127.0.0.1:1883 \
   -tls-cert /etc/axcp/server.crt \
   -tls-key /etc/axcp/server.key \
-  -secure-baseline \
-  -server-did did:key:server \
-  -trusted-did did:key:agent=<base64-public-key>
+  -server-did "$AXCP_SERVER_DID" \
+  -trusted-did "$AXCP_TRUSTED_DID"
 ```
 
-Local demos that intentionally use an ephemeral self-signed certificate must opt
-in explicitly with `-allow-insecure-demo-tls`.
+`AXCP_SERVER_DID` is the exact nonempty recipient DID clients must include and sign for; the gateway never fills in an omitted recipient. `AXCP_TRUSTED_DID` is `did:<method>:<identifier>=<base64-encoded raw 32-byte Ed25519 public key>`. Supply actual identities, not example labels. Keep private seeds out of arguments, logs and Git. Clients must validate the server's TLS certificate and use ALPN `axcp/1`.
 
-### 2. Run Authenticated Client
+Missing/invalid security settings are rejected before connecting to MQTT or starting retry workers. `-allow-insecure-demo-tls` enables an ephemeral self-signed certificate for local tests; it does not disable envelope authentication. `-secure-baseline=false` separately and explicitly enables deprecated transport-only mode. Profile 0 still uses TLS encryption.
 
-Use the authenticated_chat example as a client:
+## Container deployment
 
-```bash
-# Terminal 1: Start server (acts as gateway)
-cd examples/go/authenticated_chat
-go run . -server
+`docker-compose.yml` starts the gateway and a local development MQTT broker. Supply an absolute `AXCP_TLS_DIR` containing `server.crt` and `server.key`, readable by container UID 65532, plus the two public identity settings above:
 
-# Terminal 2: Run client
-cd examples/go/authenticated_chat
-go run .
+```sh
+export AXCP_TLS_DIR=/absolute/path/to/tls
+export AXCP_SERVER_DID='did:example:gateway'
+# Set this to the real sender DID and public key:
+export AXCP_TRUSTED_DID='did:example:agent=BASE64_PUBLIC_KEY'
+docker compose config
+docker compose up --build
 ```
 
-The example demonstrates the full authentication flow with `secure-baseline-v1`.
+Replace the illustrative identities and key before starting. The development broker is bound to loopback on host port 1883 and permits anonymous local access. It is not a production MQTT security configuration. The gateway listens on host UDP 7143. Stop only this stack with `docker compose down`.
 
-## Code References
+## Wire and delivery contract
 
-| Component | Location |
-|-----------|----------|
-| QUIC server with auth | `edge/gateway/internal/quic_server.go` |
-| Envelope authenticator | `edge/gateway/internal/auth.go` |
-| DID resolver interface | `sdk/go/auth/did.go` |
-| Memory resolver | `sdk/go/auth/session.go` |
-| Profile definitions | `sdk/go/negotiate/profile.go` |
+- Stream: four-byte **little-endian** envelope length, then Protobuf `AxcpEnvelope`; maximum 10 MiB; empty frames are rejected. SDK raw handshake messages instead use **big-endian** framing.
+- Signed telemetry: `0xA1 || AxcpEnvelope`, with a telemetry payload, `version=1`, `profile=1`, signature, recipient, timestamp and sequence. The same verifier/replay state is used for streams and datagrams.
+- Legacy telemetry: `0xA0 || TelemetryDatagram`, accepted only in explicit transport-only mode. The previous Go helper's unprefixed-envelope datagram representation was incompatible with the gateway; migrate producers and consumers together.
+- Datagram application limit: 1200 bytes including prefix. QUIC may impose a smaller negotiated limit; send errors must be handled. DATAGRAM remains unreliable, unordered and without application acknowledgement.
+- Signed envelopes are Base64-encoded Protobuf on `axcp/envelope`, preserving authentication fields. Legacy telemetry is raw Protobuf on `telemetry/<trace_id>`.
+- MQTT uses QoS 1 and waits up to 10 seconds for publisher acknowledgement. This is broker acceptance, not downstream processing. A timeout leaves delivery uncertain, and retries can produce duplicates.
 
-## Related Documentation
+Retry defaults: 1000 queued messages, 5 retry attempts, an immediate first retry and subsequent exponential delays from 1 second up to 5 minutes. The complete envelope and routing are preserved. Queue entries are copied so later caller mutation cannot change a retry. The queue is in memory, is not an exactly-once guarantee and is not drained persistently at shutdown. Use `-retry=false` to disable it. No retry is performed for rejected authentication.
 
-- [Authentication](authentication.md) - DID model and Ed25519 signing
-- [Getting Started](getting-started.md) - Quick start guide
-- [Specification v1.0](../spec/axcp-v1.0.md) - Full protocol specification
+## Authentication and errors
+
+Secure mode validates envelope version/profile and payload, then DID/signature, timestamp and replay policy before invoking a handler. Default freshness: 5-minute maximum age and 30-second future tolerance; replay TTL: 10 minutes; sequence window: 1000, shared by a sender across transports/connections. Sequence state must be coordinated by an application using one identity concurrently. Restarting the gateway loses replay state; use application idempotency and operational controls if replay resistance across restart is required.
+
+| Rejection | Wire error code |
+|---|---|
+| Missing/invalid signature | `10` (`AUTH_SIGNATURE_INVALID`) |
+| Missing/unknown/invalid DID, missing/wrong recipient | `17` (`AUTH_DID_INVALID`) |
+| Duplicate sequence | `11` (`AUTH_REPLAY_DETECTED`) |
+| Expired/future timestamp or sequence outside window | `18` (`AUTH_TIMESTAMP_EXPIRED`) |
+| Invalid envelope version/profile/payload/frame | `MALFORMED_REQUEST` |
+
+A rejected stream receives an unsigned diagnostic error and its read side is cancelled; do not treat that diagnostic as a signed peer message. Invalid datagrams are discarded. A malformed connection need not close other streams. SIGINT/SIGTERM stops the listener and active connections, then stops retry workers and disconnects MQTT.
+
+## Test the implementation
+
+```sh
+go test -race ./edge/gateway/... ./sdk/go/netquic/...
+```
+
+The suite exercises actual localhost QUIC streams and DATAGRAM negotiation, valid signed delivery, shared replay state, mutation/unsigned rejection, bounded framing and MQTT acknowledgement handling. The separate authenticated-chat example uses its own server and is not a gateway client.
+
+See [the Core specification](../spec/axcp-v1.0.md) and [authentication](authentication.md) for transcript details. `edge/gateway/internal` is a reference binary implementation, not a public import surface.

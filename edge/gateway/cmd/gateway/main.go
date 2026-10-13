@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/ed25519"
+	"crypto/rand"
 	"crypto/tls"
 	"encoding/base64"
 	"flag"
@@ -20,6 +21,7 @@ import (
 	pb "github.com/tradephantomllc/axcp-spec/sdk/go/axcp/pb"
 	"github.com/tradephantomllc/axcp-spec/sdk/go/negotiate"
 	"github.com/tradephantomllc/axcp-spec/sdk/go/netquic"
+	"google.golang.org/protobuf/proto"
 )
 
 var BuildVersion = "dev" // overridden at build time with -ldflags "-X main.BuildVersion=<ver>"
@@ -91,9 +93,18 @@ func decodePublicKey(value string) ([]byte, error) {
 	return nil, fmt.Errorf("must be standard or URL-safe base64")
 }
 
+const defaultSecureBaseline = true
+
 func main() {
+	if err := run(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run() error {
 	// Parse command line flags
 	var addr string
+	var brokerURL string
 	var enableRetryBuffer bool
 	var maxRetryCapacity int
 	var maxRetryAttempts int
@@ -107,12 +118,13 @@ func main() {
 	var allowInsecureDemoTLS bool
 
 	flag.StringVar(&addr, "addr", ":7143", "Address to listen on")
+	flag.StringVar(&brokerURL, "mqtt-url", "tcp://127.0.0.1:1883", "MQTT broker URL")
 	flag.BoolVar(&enableRetryBuffer, "retry", true, "Enable retry buffer for failed messages")
 	flag.IntVar(&maxRetryCapacity, "retry-capacity", 1000, "Maximum capacity of retry buffer")
 	flag.IntVar(&maxRetryAttempts, "retry-attempts", 5, "Maximum retry attempts per message")
 	flag.DurationVar(&minRetryInterval, "retry-min-interval", 1*time.Second, "Minimum retry interval")
 	flag.DurationVar(&maxRetryInterval, "retry-max-interval", 5*time.Minute, "Maximum retry interval")
-	flag.BoolVar(&secureBaseline, "secure-baseline", false, "Enable Secure Baseline authentication (DID + Ed25519 + replay protection)")
+	flag.BoolVar(&secureBaseline, "secure-baseline", defaultSecureBaseline, "Enable Secure Baseline authentication (DID + Ed25519 + replay protection)")
 	flag.StringVar(&serverDID, "server-did", "", "Server DID for auth transcript binding (required with -secure-baseline)")
 	flag.Var(&trustedDIDs, "trusted-did", "Trusted sender DID and raw Ed25519 public key; repeatable format did:key:...=<base64-public-key>")
 	flag.StringVar(&tlsCertFile, "tls-cert", "", "Server TLS certificate PEM file")
@@ -121,166 +133,113 @@ func main() {
 
 	flag.Parse()
 
+	// Validate all security and retry settings before connecting to MQTT or starting workers.
+	if err := validateSecuritySettings(secureBaseline, serverDID, trustedDIDs.Len()); err != nil {
+		return err
+	}
+	retryConfig := internal.RetryBufferConfig{
+		MaxCapacity: maxRetryCapacity, MaxAttempts: maxRetryAttempts,
+		MinRetryInterval: minRetryInterval, MaxRetryInterval: maxRetryInterval, BackoffFactor: 2,
+	}
+	if enableRetryBuffer {
+		if err := retryConfig.Validate(); err != nil {
+			return err
+		}
+	}
 	tlsConf, err := buildGatewayTLSConfig(tlsCertFile, tlsKeyFile, allowInsecureDemoTLS)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
-
-	// Set up context for graceful shutdown
-	_, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-
-	// Initialize logger
-	log.SetFlags(log.LstdFlags | log.Lshortfile | log.Lmicroseconds)
-
-	// Initialize broker
-	broker, err := internal.NewBroker(internal.BrokerConfig{
-		URL: "tcp://mosquitto:1883",
-	})
-	if err != nil {
-		log.Fatalf("Failed to initialize broker: %v", err)
-	}
-
-	// Initialize retry buffer if enabled
-	var retryBuffer *internal.RetryBuffer
-	if enableRetryBuffer {
-		retryConfig := internal.RetryBufferConfig{
-			MaxCapacity:      maxRetryCapacity,
-			MinRetryInterval: minRetryInterval,
-			MaxRetryInterval: maxRetryInterval,
-			BackoffFactor:    2.0,
-			MaxAttempts:      maxRetryAttempts,
-		}
-
-		retryBuffer = internal.NewRetryBuffer(&retryConfig, nil, func(env *axcp.Envelope) error {
-			if env == nil {
-				return fmt.Errorf("retry envelope is nil")
-			}
-			return broker.Publish(&env.AxcpEnvelope)
-		})
-
-		// Avvia il buffer di retry
-		retryBuffer.Start()
-		defer retryBuffer.Close()
-
-		log.Printf("Initializing retry buffer: capacity=%d, max_attempts=%d, min_interval=%s, max_interval=%s",
-			maxRetryCapacity, maxRetryAttempts, minRetryInterval, maxRetryInterval)
-	} else {
-		log.Println("Retry buffer disabled")
-	}
-
-	// Telemetry datagram handler (shared between authenticated and non-authenticated modes)
-	telemetryHandler := func(td *pb.TelemetryDatagram) {
-		if broker == nil {
-			return
-		}
-
-		// Generate trace ID
-		traceID := fmt.Sprintf("telemetry-%d", td.GetTimestampMs())
-
-		// Publish telemetry
-		err := broker.PublishTelemetry(td, traceID)
-		if err != nil {
-			log.Printf("Failed to publish telemetry. trace_id=%s, error=%v", traceID, err)
-
-			// Se il retry buffer è abilitato, aggiungi la telemetria al buffer
-			if retryBuffer != nil {
-				axcpEnv := axcp.NewEnvelope(traceID, 0)
-
-				if err := retryBuffer.AddEnvelope(traceID, axcpEnv); err != nil {
-					log.Printf("Failed to add telemetry to retry buffer. trace_id=%s, error=%v", traceID, err)
-				} else {
-					log.Printf("Added telemetry to retry buffer. trace_id=%s", traceID)
-				}
-			}
-		}
-	}
-
-	// Start server based on profile
+	config := internal.ServerConfig{Addr: addr, TLSConf: tlsConf, Context: ctx, Profile: negotiate.ProfileTransportOnly}
 	if secureBaseline {
-		// Validate secure baseline requirements
-		if serverDID == "" {
-			log.Fatal("--server-did is required when --secure-baseline is enabled")
-		}
-		if _, err := auth.ParseDID(serverDID); err != nil {
-			log.Fatalf("--server-did is invalid: %v", err)
-		}
-		if trustedDIDs.Len() == 0 {
-			log.Fatal("--trusted-did is required at least once when --secure-baseline is enabled")
-		}
-
-		log.Printf("Starting AXCP gateway server %s on %s (Secure Baseline)...", BuildVersion, addr)
-
-		// Initialize authenticator
-		resolver := trustedDIDs.Resolver()
-		authConfig := internal.DefaultAuthConfig()
-		authenticator, err := internal.NewEnvelopeAuthenticator(resolver, serverDID, authConfig, nil)
+		config.Profile = negotiate.ProfileSecureBaseline
+		config.ServerDID = serverDID
+		config.DIDResolver = trustedDIDs.Resolver()
+		config.Authenticator, err = internal.NewEnvelopeAuthenticator(config.DIDResolver, serverDID, internal.DefaultAuthConfig(), nil)
 		if err != nil {
-			log.Fatalf("Failed to create authenticator: %v", err)
-		}
-
-		// Authenticated envelope handler
-		authHandler := func(pbEnv *pb.AxcpEnvelope, authResult *internal.AuthResult) {
-			if authResult != nil && authResult.Authenticated {
-				log.Printf("Authenticated envelope from %s, trace_id=%s", authResult.SenderDID, pbEnv.GetTraceId())
-			}
-
-			if err := broker.Publish(pbEnv); err != nil {
-				log.Printf("Failed to publish envelope: %v", err)
-
-				if retryBuffer != nil {
-					traceID := fmt.Sprintf("env-%d", time.Now().UnixNano())
-					axcpEnv := axcp.NewEnvelope(traceID, 0)
-					id := axcpEnv.GetTraceId()
-
-					if err := retryBuffer.AddEnvelope(id, axcpEnv); err != nil {
-						log.Printf("Failed to add envelope to retry buffer. id=%s, error=%v", id, err)
-					} else {
-						log.Printf("Added envelope to retry buffer. id=%s", id)
-					}
-				}
-			}
-		}
-
-		serverConfig := internal.ServerConfig{
-			Addr:          addr,
-			TLSConf:       tlsConf,
-			Profile:       negotiate.ProfileSecureBaseline,
-			Authenticator: authenticator,
-			DIDResolver:   resolver,
-			ServerDID:     serverDID,
-		}
-
-		if err := internal.RunAuthenticatedQuicServer(serverConfig, authHandler, telemetryHandler); err != nil {
-			log.Fatalf("Server error: %v", err)
+			return fmt.Errorf("configure authentication: %w", err)
 		}
 	} else {
-		// Legacy non-authenticated mode (transport-only)
-		log.Printf("Starting AXCP gateway server %s on %s (transport-only)...", BuildVersion, addr)
-
-		// Handler per envelope AXCP compatibile con l'interfaccia EnvelopeHandler
-		handler := func(pbEnv *pb.AxcpEnvelope) {
-			if err := broker.Publish(pbEnv); err != nil {
-				log.Printf("Failed to publish envelope: %v", err)
-
-				if retryBuffer != nil {
-					traceID := fmt.Sprintf("env-%d", time.Now().UnixNano())
-					axcpEnv := axcp.NewEnvelope(traceID, 0)
-					id := axcpEnv.GetTraceId()
-
-					if err := retryBuffer.AddEnvelope(id, axcpEnv); err != nil {
-						log.Printf("Failed to add envelope to retry buffer. id=%s, error=%v", id, err)
-					} else {
-						log.Printf("Added envelope to retry buffer. id=%s", id)
-					}
-				}
+		log.Print("WARNING: explicit transport-only mode; application authentication and replay protection are disabled")
+	}
+	broker, err := internal.NewBroker(internal.BrokerConfig{URL: brokerURL})
+	if err != nil {
+		return err
+	}
+	defer broker.Close()
+	publisher := gatewayPublisher{broker}
+	var retries *internal.RetryBuffer
+	if enableRetryBuffer {
+		retries = internal.NewRetryBuffer(&retryConfig, nil, func(env *axcp.Envelope) error {
+			if env == nil {
+				return fmt.Errorf("retry envelope is required")
 			}
-		}
-
-		if err := internal.RunQuicServer(addr, tlsConf, handler, telemetryHandler); err != nil {
-			log.Fatalf("Server error: %v", err)
+			return publisher.publish(&env.AxcpEnvelope)
+		})
+		retries.Start()
+		defer retries.Close()
+	}
+	handler := func(env *pb.AxcpEnvelope, _ *internal.AuthResult) {
+		if err := publishOrQueue(publisher, retries, env); err != nil {
+			log.Printf("publish failed: %v", err)
 		}
 	}
+	telemetry := func(td *pb.TelemetryDatagram) {
+		env := &pb.AxcpEnvelope{Version: 1, TraceId: "telemetry-" + rand.Text(), Payload: &pb.AxcpEnvelope_Telemetry{Telemetry: td}}
+		handler(env, nil)
+	}
+	log.Printf("Starting AXCP gateway %s on %s (%s)", BuildVersion, addr, config.Profile)
+	return internal.RunAuthenticatedQuicServer(config, handler, telemetry)
+}
+
+func validateSecuritySettings(secure bool, serverDID string, trustedCount int) error {
+	if !secure {
+		return nil
+	}
+	if serverDID == "" {
+		return fmt.Errorf("-server-did is required; authentication is enabled by default")
+	}
+	if _, err := auth.ParseDID(serverDID); err != nil {
+		return fmt.Errorf("invalid -server-did: %w", err)
+	}
+	if trustedCount == 0 {
+		return fmt.Errorf("at least one -trusted-did is required for secure-baseline")
+	}
+	return nil
+}
+
+type mqttPublisher interface {
+	Publish(*pb.AxcpEnvelope) error
+	PublishTelemetry(*pb.TelemetryDatagram, string) error
+}
+
+type gatewayPublisher struct{ mqttPublisher }
+
+func (p gatewayPublisher) publish(env *pb.AxcpEnvelope) error {
+	if env == nil {
+		return fmt.Errorf("publish envelope is required")
+	}
+	// Legacy telemetry keeps its raw topic. Signed envelopes retain all authentication fields.
+	if env.Profile == 0 && len(env.Signature) == 0 && env.GetTelemetry() != nil {
+		return p.PublishTelemetry(env.GetTelemetry(), env.TraceId)
+	}
+	return p.Publish(env)
+}
+
+func publishOrQueue(p gatewayPublisher, retries *internal.RetryBuffer, env *pb.AxcpEnvelope) error {
+	if err := p.publish(env); err != nil {
+		if retries == nil {
+			return err
+		}
+		clone := &axcp.Envelope{AxcpEnvelope: *proto.Clone(env).(*pb.AxcpEnvelope)}
+		if queueErr := retries.AddEnvelope(rand.Text(), clone); queueErr != nil {
+			return fmt.Errorf("publish: %v; enqueue: %w", err, queueErr)
+		}
+		log.Printf("MQTT publish failed; original message queued for bounded retry: %v", err)
+	}
+	return nil
 }
 
 func buildGatewayTLSConfig(certFile, keyFile string, allowInsecureDemoTLS bool) (*tls.Config, error) {

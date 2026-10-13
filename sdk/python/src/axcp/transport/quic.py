@@ -13,8 +13,15 @@ from typing import Literal
 from aioquic.asyncio import QuicConnectionProtocol
 from aioquic.asyncio import connect as aioquic_connect
 from aioquic.asyncio import serve as aioquic_serve
+from aioquic.asyncio.protocol import QuicStreamAdapter
 from aioquic.quic.configuration import QuicConfiguration
-from aioquic.quic.events import DatagramFrameReceived, QuicEvent
+from aioquic.quic.events import (
+    ConnectionTerminated,
+    DatagramFrameReceived,
+    QuicEvent,
+    StopSendingReceived,
+    StreamReset,
+)
 
 from axcp.envelope import decode_envelope, encode_envelope
 from axcp.pb import axcp_pb2
@@ -48,6 +55,33 @@ class TransportTimeoutError(TransportError):
     """A transport operation timed out."""
 
 
+class _AXCPStreamAdapter(QuicStreamAdapter):
+    """Honor QUIC half-close events before writing or sending a final FIN."""
+
+    def write(self, data: bytes) -> None:
+        error_code = self.protocol._stopped_sending.get(self.stream_id)
+        if error_code is not None:
+            raise TransportClosedError(
+                f"peer stopped receiving stream {self.stream_id} (error {error_code})"
+            )
+        if self.is_closing():
+            raise TransportClosedError("QUIC stream send direction is closed")
+        super().write(data)
+
+    def write_eof(self) -> None:
+        if self.is_closing():
+            self._closing = True
+            return
+        super().write_eof()
+
+    def is_closing(self) -> bool:
+        return (
+            self._closing
+            or self.protocol._terminated
+            or self.stream_id in self.protocol._stopped_sending
+        )
+
+
 class _AXCPQuicProtocol(QuicConnectionProtocol):
     def __init__(
         self,
@@ -58,8 +92,36 @@ class _AXCPQuicProtocol(QuicConnectionProtocol):
         super().__init__(*args, **kwargs)
         self._datagram_handler = datagram_handler
         self._datagrams: asyncio.Queue[bytes] = asyncio.Queue()
+        self._stopped_sending: dict[int, int] = {}
+        self._reset_streams: dict[int, int] = {}
+        self._terminated = False
+
+    def _create_stream(self, stream_id: int) -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
+        # aioquic's default adapter does not consume STOP_SENDING / RESET_STREAM.
+        # Keep its reader registration contract while handling both half-closes.
+        adapter = _AXCPStreamAdapter(self, stream_id)
+        reader = asyncio.StreamReader()
+        protocol = asyncio.StreamReaderProtocol(reader)
+        writer = asyncio.StreamWriter(adapter, protocol, reader, self._loop)
+        self._stream_readers[stream_id] = reader
+        if stream_id in self._reset_streams:
+            reader.set_exception(self._reset_error(stream_id, self._reset_streams[stream_id]))
+        return reader, writer
+
+    @staticmethod
+    def _reset_error(stream_id: int, error_code: int) -> TransportClosedError:
+        return TransportClosedError(f"peer reset stream {stream_id} (error {error_code})")
 
     def quic_event_received(self, event: QuicEvent) -> None:
+        if isinstance(event, StopSendingReceived):
+            self._stopped_sending[event.stream_id] = event.error_code
+        elif isinstance(event, StreamReset):
+            self._reset_streams[event.stream_id] = event.error_code
+            reader = self._stream_readers.get(event.stream_id)
+            if reader is not None:
+                reader.set_exception(self._reset_error(event.stream_id, event.error_code))
+        elif isinstance(event, ConnectionTerminated):
+            self._terminated = True
         super().quic_event_received(event)
         if isinstance(event, DatagramFrameReceived):
             self._datagrams.put_nowait(event.data)
@@ -77,7 +139,7 @@ class _AXCPQuicProtocol(QuicConnectionProtocol):
             if timeout is None:
                 return await self._datagrams.get()
             return await asyncio.wait_for(self._datagrams.get(), timeout=timeout)
-        except TimeoutError as exc:
+        except asyncio.TimeoutError as exc:
             raise TransportTimeoutError("timed out waiting for QUIC datagram") from exc
 
 
@@ -178,7 +240,7 @@ async def _read_frame(
             header = await asyncio.wait_for(reader.readexactly(4), timeout=timeout)
     except asyncio.IncompleteReadError as exc:
         raise TransportClosedError("stream closed while reading frame header") from exc
-    except TimeoutError as exc:
+    except asyncio.TimeoutError as exc:
         raise TransportTimeoutError("timed out reading frame header") from exc
 
     frame_len = struct.unpack(">I" if endian == "big" else "<I", header)[0]
@@ -191,7 +253,7 @@ async def _read_frame(
         return await asyncio.wait_for(reader.readexactly(frame_len), timeout=timeout)
     except asyncio.IncompleteReadError as exc:
         raise TransportClosedError("stream closed while reading frame payload") from exc
-    except TimeoutError as exc:
+    except asyncio.TimeoutError as exc:
         raise TransportTimeoutError("timed out reading frame payload") from exc
 
 
@@ -277,7 +339,7 @@ class QuicConnection:
         await asyncio.sleep(0)
 
     def _ensure_open(self) -> None:
-        if self._closed or self._writer.is_closing():
+        if self._closed:
             raise TransportClosedError("QUIC stream is closed")
 
 
@@ -331,8 +393,10 @@ class QuicClient(QuicConnection):
     async def close(self) -> None:
         if self._closed:
             return
-        await super().close()
-        await self._context_manager.__aexit__(None, None, None)
+        try:
+            await super().close()
+        finally:
+            await self._context_manager.__aexit__(None, None, None)
 
 
 class QuicServer:

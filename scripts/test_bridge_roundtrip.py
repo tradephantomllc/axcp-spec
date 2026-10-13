@@ -108,7 +108,7 @@ def test_secure_baseline_sequence():
     identity = generate_test_identity()
     session = BridgeSession(
         local_identity=identity,
-        remote_did="did:key:test-server",
+        remote_did="did:key:zserver",
         profile=PROFILE_SECURE_BASELINE,
         negotiated=True
     )
@@ -158,7 +158,7 @@ def test_identity_generation():
     identity2 = generate_test_identity()
 
     assert identity1.did != identity2.did, "DIDs should be unique"
-    assert identity1.did.startswith("did:key:test-")
+    assert identity1.did.startswith("did:key:z")
 
     if NACL_AVAILABLE:
         assert identity1.verify_key is not None
@@ -186,3 +186,35 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+def test_bridge_uses_sdk_signature_and_rejects_sequence_tampering():
+    import pytest
+    from axcp.envelope import verify_envelope, sign_envelope
+    from axcp.errors import SignatureVerificationError
+    from axcp.identity import Identity
+    identity = generate_test_identity()
+    session = BridgeSession(identity, "did:example:gateway", PROFILE_SECURE_BASELINE, negotiated=True)
+    env = mcp_to_axcp({"id": "signed", "tool": {"name": "test"}}, session)
+    verify_envelope(env, public_key=identity.verify_key)
+    env.sequence += 1
+    with pytest.raises(SignatureVerificationError):
+        verify_envelope(env, public_key=identity.verify_key)
+    assert not verify_envelope_signature(env, {identity.did: identity.verify_key})
+    sign_envelope(env, Identity.from_seed(identity.signing_key), recipient_did=session.remote_did, sequence=3)
+    assert verify_envelope_signature(env, {identity.did: identity.verify_key})
+
+
+def test_secure_bridge_fails_closed():
+    import pytest
+    from axcp.errors import InvalidPrivateKeyError
+    request = {"id": "fail", "tool": {"name": "test"}}
+    identity = generate_test_identity()
+    with pytest.raises(ValueError, match="configured"):
+        mcp_to_axcp(request, BridgeSession(identity, profile=PROFILE_SECURE_BASELINE))
+    with pytest.raises(ValueError, match="private seed"):
+        mcp_to_axcp(request, BridgeSession(BridgeIdentity(identity.did), "did:example:server", PROFILE_SECURE_BASELINE, negotiated=True))
+    with pytest.raises(InvalidPrivateKeyError):
+        mcp_to_axcp(request, BridgeSession(BridgeIdentity(identity.did, b"bad"), "did:example:server", PROFILE_SECURE_BASELINE, negotiated=True))
+    with pytest.raises(ValueError, match="recipient"):
+        mcp_to_axcp(request, BridgeSession(identity, profile=PROFILE_SECURE_BASELINE, negotiated=True))

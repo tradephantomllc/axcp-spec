@@ -2,6 +2,7 @@
 
 > **⚠️ SUPERSEDED**: This document is superseded by **[AXCP Core Specification v1.0](./axcp-v1.0.md)**.
 > New implementations MUST use v1.0. This document is retained for historical reference only.
+> Its 0xA0 telemetry is now development-only. Signed telemetry uses 0xA1 as specified in [v1.0 section 8.4](./axcp-v1.0.md#84-reference-transport-and-telemetry-encoding).
 
 ---
 

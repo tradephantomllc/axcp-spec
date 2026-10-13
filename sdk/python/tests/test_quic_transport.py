@@ -11,7 +11,9 @@ from cryptography.x509.oid import NameOID
 
 from axcp import Agent, Identity, QuicClient, QuicClientConfig, QuicServer, QuicServerConfig
 from axcp.pb import axcp_pb2
-from axcp.transport import QuicConnection, TransportFrameError, TransportTimeoutError
+from axcp.transport import (
+    QuicConnection, TransportClosedError, TransportFrameError, TransportTimeoutError,
+)
 
 
 def _write_self_signed_cert(tmp_path: Path) -> tuple[str, str]:
@@ -168,6 +170,8 @@ async def _datagram_echo(tmp_path: Path) -> None:
         try:
             await client.send_datagram(b"telemetry")
             assert await client.receive_datagram(timeout=2) == b"telemetry"
+            with pytest.raises(TransportTimeoutError, match="waiting for QUIC datagram"):
+                await client.receive_datagram(timeout=0.01)
         finally:
             await client.close()
     finally:
@@ -207,3 +211,62 @@ async def _rejects_oversized_message(tmp_path: Path) -> None:
             await client.close()
     finally:
         await server.close()
+
+
+@pytest.mark.parametrize("reset_receive", [False, True])
+def test_quic_peer_half_close(tmp_path: Path, reset_receive: bool) -> None:
+    asyncio.run(_peer_half_close(tmp_path, reset_receive))
+
+
+async def _peer_half_close(tmp_path: Path, reset_receive: bool) -> None:
+    cert_file, key_file = _write_self_signed_cert(tmp_path)
+
+    async def handler(conn: QuicConnection) -> None:
+        assert await conn.receive_message(timeout=2) == b"request"
+        adapter = conn._writer.transport
+        protocol = adapter.protocol
+        if reset_receive:
+            protocol._quic.reset_stream(adapter.stream_id, error_code=42)
+            # The local sender was reset explicitly; do not send a final FIN.
+            adapter._closing = True
+        else:
+            protocol._quic.stop_stream(adapter.stream_id, error_code=43)
+            await conn.send_message(b"request rejected")
+        protocol.transmit()
+
+    server = await QuicServer.listen(
+        QuicServerConfig(host="127.0.0.1", port=0, cert_file=cert_file, key_file=key_file),
+        handler,
+    )
+    try:
+        host, port = server.address
+        async with await QuicClient.connect(
+            QuicClientConfig(host=host, port=port, server_name="localhost", ca_file=cert_file)
+        ) as client:
+            await client.send_message(b"request")
+            if reset_receive:
+                with pytest.raises(TransportClosedError, match="peer reset stream .*error 42"):
+                    await client.receive_message(timeout=2)
+            else:
+                # STOP_SENDING closes only our write side: the error reply is readable.
+                assert await client.receive_message(timeout=2) == b"request rejected"
+                with pytest.raises(TransportClosedError, match="peer stopped receiving .*error 43"):
+                    await client.send_message(b"another request")
+        await client.close()  # repeated close is harmless after STOP_SENDING
+    finally:
+        await server.close()
+
+
+@pytest.mark.parametrize("has_header", [False, True])
+def test_read_frame_timeout_contract(has_header: bool) -> None:
+    from axcp.transport.quic import _read_frame
+
+    async def check() -> None:
+        reader = asyncio.StreamReader()
+        if has_header:
+            reader.feed_data(b"\x00\x00\x00\x04")
+        stage = "payload" if has_header else "header"
+        with pytest.raises(TransportTimeoutError, match=f"timed out reading frame {stage}"):
+            await _read_frame(reader, endian="big", max_frame_size=32, timeout=0.01)
+
+    asyncio.run(check())

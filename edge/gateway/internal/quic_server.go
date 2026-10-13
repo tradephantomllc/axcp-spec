@@ -14,6 +14,7 @@ import (
 	"github.com/tradephantomllc/axcp-spec/sdk/go/axcp"
 	pb "github.com/tradephantomllc/axcp-spec/sdk/go/axcp/pb"
 	"github.com/tradephantomllc/axcp-spec/sdk/go/negotiate"
+	"github.com/tradephantomllc/axcp-spec/sdk/go/netquic"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -35,6 +36,8 @@ type TelemetryHandler func(*pb.TelemetryDatagram)
 
 // ServerConfig holds configuration for the QUIC server
 type ServerConfig struct {
+	// Context cancels the listener and its active connections. Nil means Background.
+	Context context.Context
 	// Addr is the address to listen on
 	Addr string
 
@@ -54,181 +57,179 @@ type ServerConfig struct {
 	ServerDID string
 }
 
-// RunQuicServer avvia il server QUIC con supporto per stream e datagrammi
+// RunQuicServer is the explicit transport-only compatibility entry point.
 func RunQuicServer(addr string, tlsConf *tls.Config, h EnvelopeHandler, dgram TelemetryHandler) error {
-	listener, err := quic.ListenAddr(addr, tlsConf, nil)
-	if err != nil {
-		return err
-	}
-	log.Printf("[quic] in ascolto su %s", addr)
-
-	for {
-		conn, err := listener.Accept(context.Background())
-		if err != nil {
-			return err
+	return RunAuthenticatedQuicServer(ServerConfig{Addr: addr, TLSConf: tlsConf, Profile: negotiate.ProfileTransportOnly}, func(env *pb.AxcpEnvelope, _ *AuthResult) {
+		if h != nil {
+			h(env)
 		}
-
-		// Gestione stream
-		go func(c *quic.Conn) {
-			for {
-				stream, err := c.AcceptStream(context.Background())
-				if err != nil {
-					log.Printf("[quic] errore accettazione stream: %v", err)
-					return
-				}
-
-				// Gestisci lo stream in una goroutine separata
-				go func(s *quic.Stream) {
-					defer s.Close()
-					for {
-						env, err := readFramedEnvelope(s)
-						if err != nil {
-							if !errors.Is(err, io.EOF) {
-								log.Printf("[quic] errore lettura envelope: %v", err)
-								sendErrorResponse(s, uint32(pb.ErrorCode_MALFORMED_REQUEST), err.Error())
-							}
-							return
-						}
-						if h != nil {
-							h(env)
-						}
-					}
-				}(stream)
-			}
-		}(conn)
-
-		// Gestione datagrammi
-		go func(c *quic.Conn) {
-			for {
-				data, err := c.ReceiveDatagram(context.Background())
-				if err != nil {
-					log.Printf("[quic] errore ricezione datagramma: %v", err)
-					return
-				}
-
-				// Se il datagramma inizia con 0xA0, è un datagramma di telemetria
-				if len(data) > 0 && data[0] == 0xA0 {
-					var td pb.TelemetryDatagram
-					if err := proto.Unmarshal(data[1:], &td); err == nil {
-						// Log per debug con informazioni di base sul datagramma di telemetria
-						timestamp := td.GetTimestampMs()
-						log.Printf("[quic] ricevuto datagramma telemetria, timestamp: %d", timestamp)
-						if dgram != nil {
-							dgram(&td)
-						}
-					} else {
-						log.Printf("[quic] errore unmarshal telemetria: %v", err)
-					}
-				}
-			}
-		}(conn)
-	}
+	}, dgram)
 }
 
-// RunAuthenticatedQuicServer runs a QUIC server with Secure Baseline authentication.
-// When profile is secure-baseline-v1, all envelopes are verified before processing.
-// Unauthenticated envelopes are rejected and an error response is sent.
+// RunAuthenticatedQuicServer shares authentication and replay state across transports.
 func RunAuthenticatedQuicServer(config ServerConfig, h AuthenticatedEnvelopeHandler, dgram TelemetryHandler) error {
-	listener, err := quic.ListenAddr(config.Addr, config.TLSConf, nil)
+	if err := validateServerConfig(config); err != nil {
+		return err
+	}
+	listener, err := quic.ListenAddr(config.Addr, config.TLSConf, &quic.Config{EnableDatagrams: true})
 	if err != nil {
 		return err
 	}
-	log.Printf("[quic] authenticated server listening on %s (profile: %s)", config.Addr, config.Profile)
+	defer listener.Close()
+	ctx := config.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return serveQUIC(ctx, listener, config, h, dgram)
+}
 
+func validateServerConfig(config ServerConfig) error {
+	if err := negotiate.ValidateProfile(config.Profile); err != nil {
+		return err
+	}
+	if config.Profile == negotiate.ProfileSecureBaseline && config.Authenticator == nil {
+		return ErrAuthRequired
+	}
+	return nil
+}
+
+func serveQUIC(ctx context.Context, listener *quic.Listener, config ServerConfig, h AuthenticatedEnvelopeHandler, dgram TelemetryHandler) error {
+	if err := validateServerConfig(config); err != nil {
+		return err
+	}
 	for {
-		conn, err := listener.Accept(context.Background())
+		conn, err := listener.Accept(ctx)
 		if err != nil {
+			if ctx.Err() != nil {
+				return nil
+			}
 			return err
 		}
-
-		// Handle streams (envelopes)
 		go func(c *quic.Conn) {
+			stop := context.AfterFunc(ctx, func() { _ = c.CloseWithError(0, "gateway shutdown") })
+			defer stop()
+			defer c.CloseWithError(0, "connection finished")
+			go func() {
+				for {
+					data, err := c.ReceiveDatagram(c.Context())
+					if err != nil {
+						return
+					}
+					if err := handleDatagram(data, config, h, dgram); err != nil {
+						log.Printf("[quic] rejected datagram: %v", err)
+					}
+				}
+			}()
 			for {
-				stream, err := c.AcceptStream(context.Background())
+				stream, err := c.AcceptStream(ctx)
 				if err != nil {
-					log.Printf("[quic] stream accept error: %v", err)
 					return
 				}
-
 				go handleAuthenticatedStream(stream, config, h)
 			}
 		}(conn)
-
-		// Handle datagrams (telemetry) - no auth required for datagrams
-		go func(c *quic.Conn) {
-			for {
-				data, err := c.ReceiveDatagram(context.Background())
-				if err != nil {
-					log.Printf("[quic] datagram receive error: %v", err)
-					return
-				}
-
-				// 0xA0 prefix indicates telemetry datagram
-				if len(data) > 0 && data[0] == 0xA0 {
-					var td pb.TelemetryDatagram
-					if err := proto.Unmarshal(data[1:], &td); err == nil {
-						log.Printf("[quic] received telemetry datagram, timestamp: %d", td.GetTimestampMs())
-						if dgram != nil {
-							dgram(&td)
-						}
-					} else {
-						log.Printf("[quic] telemetry unmarshal error: %v", err)
-					}
-				}
-			}
-		}(conn)
 	}
 }
 
-// handleAuthenticatedStream processes a single stream with authentication
+// authenticateEnvelope validates the wire contract before consuming replay state.
+func authenticateEnvelope(env *pb.AxcpEnvelope, config ServerConfig) AuthResult {
+	malformed := func(err error) AuthResult {
+		return AuthResult{Error: err, ErrorCode: uint32(pb.ErrorCode_MALFORMED_REQUEST)}
+	}
+	if env == nil || env.Version != 1 {
+		return malformed(negotiate.ErrInvalidVersion)
+	}
+	if env.Payload == nil {
+		return malformed(errors.New("envelope payload is required"))
+	}
+	switch config.Profile {
+	case negotiate.ProfileTransportOnly:
+		if env.Profile != 0 {
+			return malformed(errors.New("envelope profile does not match transport-only listener"))
+		}
+		return AuthResult{Authenticated: true}
+	case negotiate.ProfileSecureBaseline:
+		if env.Profile != 1 {
+			return malformed(errors.New("envelope profile does not match secure-baseline listener"))
+		}
+		if config.Authenticator == nil {
+			return AuthResult{Error: ErrAuthRequired, ErrorCode: uint32(pb.ErrorCode_UNAUTHORIZED)}
+		}
+	default:
+		return malformed(negotiate.ErrUnknownProfile)
+	}
+	payload, err := axcp.SigningPayloadFromProto(env)
+	if err != nil {
+		return malformed(err)
+	}
+	return config.Authenticator.VerifyEnvelope(context.Background(), config.Profile, EnvelopeAuth{
+		SenderDID: env.SenderDid, RecipientDID: env.RecipientDid, TimestampMs: env.TimestampMs,
+		Sequence: env.Sequence, Signature: env.Signature, PayloadBytes: payload,
+	})
+}
+
+func handleDatagram(data []byte, config ServerConfig, h AuthenticatedEnvelopeHandler, dgram TelemetryHandler) error {
+	if len(data) == 0 {
+		return errors.New("empty telemetry datagram")
+	}
+	if len(data) > netquic.MaxDatagramSize {
+		return netquic.ErrDatagramTooLarge
+	}
+	switch data[0] {
+	case 0xA0:
+		if config.Profile != negotiate.ProfileTransportOnly {
+			return ErrAuthRequired
+		}
+		var td pb.TelemetryDatagram
+		if err := proto.Unmarshal(data[1:], &td); err != nil {
+			return fmt.Errorf("invalid legacy telemetry: %w", err)
+		}
+		if td.Payload == nil {
+			return errors.New("telemetry payload is required")
+		}
+		if dgram != nil {
+			dgram(&td)
+		}
+		return nil
+	case 0xA1:
+		var env pb.AxcpEnvelope
+		if err := proto.Unmarshal(data[1:], &env); err != nil {
+			return fmt.Errorf("invalid telemetry envelope: %w", err)
+		}
+		if env.GetTelemetry() == nil || env.GetTelemetry().Payload == nil {
+			return errors.New("datagram requires a telemetry payload")
+		}
+		result := authenticateEnvelope(&env, config)
+		if !result.Authenticated {
+			return result.Error
+		}
+		if h != nil {
+			h(&env, &result)
+		}
+		return nil
+	default:
+		return errors.New("unknown telemetry datagram prefix; expected 0xA0 or 0xA1")
+	}
+}
+
 func handleAuthenticatedStream(s *quic.Stream, config ServerConfig, h AuthenticatedEnvelopeHandler) {
 	defer s.Close()
-
+	defer s.CancelRead(0)
 	for {
 		env, err := readFramedEnvelope(s)
 		if err != nil {
 			if !errors.Is(err, io.EOF) {
-				log.Printf("[quic] envelope read error: %v", err)
 				sendErrorResponse(s, uint32(pb.ErrorCode_MALFORMED_REQUEST), err.Error())
 			}
 			return
 		}
-
-		// Authenticate if authenticator is configured
-		var authResult AuthResult
-		if config.Authenticator != nil {
-			payloadBytes, err := axcp.SigningPayloadFromProto(env)
-			if err != nil {
-				log.Printf("[quic] signing payload build error: %v", err)
-				sendErrorResponse(s, uint32(pb.ErrorCode_MALFORMED_REQUEST), err.Error())
-				return
-			}
-
-			envAuth := EnvelopeAuth{
-				SenderDID:    env.GetSenderDid(),
-				RecipientDID: env.GetRecipientDid(),
-				TimestampMs:  env.GetTimestampMs(),
-				Sequence:     env.GetSequence(),
-				Signature:    env.GetSignature(),
-				PayloadBytes: payloadBytes,
-			}
-
-			authResult = config.Authenticator.VerifyEnvelope(context.Background(), config.Profile, envAuth)
-
-			if !authResult.Authenticated {
-				log.Printf("[quic] auth failed for envelope trace_id=%s: %v", env.GetTraceId(), authResult.Error)
-				sendErrorResponse(s, authResult.ErrorCode, authResult.Error.Error())
-				return
-			}
-		} else if negotiate.IsSecureProfile(config.Profile) {
-			// No authenticator but secure profile required
-			log.Printf("[quic] auth required but no authenticator configured")
-			sendErrorResponse(s, uint32(pb.ErrorCode_UNAUTHORIZED), "authentication required")
+		result := authenticateEnvelope(env, config)
+		if !result.Authenticated {
+			sendErrorResponse(s, result.ErrorCode, result.Error.Error())
 			return
 		}
-
 		if h != nil {
-			h(env, &authResult)
+			h(env, &result)
 		}
 	}
 }
@@ -286,15 +287,23 @@ func writeFramedEnvelope(w io.Writer, env *pb.AxcpEnvelope) error {
 	if err != nil {
 		return err
 	}
+	if len(data) == 0 {
+		return errEnvelopeFrameEmpty
+	}
 	if len(data) > maxEnvelopeBytes {
 		return fmt.Errorf("%w: %d > %d", errEnvelopeFrameTooLarge, len(data), maxEnvelopeBytes)
 	}
 
 	var lenBuf [4]byte
 	binary.LittleEndian.PutUint32(lenBuf[:], uint32(len(data)))
-	if _, err := w.Write(lenBuf[:]); err != nil {
-		return err
+	for _, part := range [][]byte{lenBuf[:], data} {
+		n, err := w.Write(part)
+		if err != nil {
+			return err
+		}
+		if n != len(part) {
+			return io.ErrShortWrite
+		}
 	}
-	_, err = w.Write(data)
-	return err
+	return nil
 }

@@ -5,14 +5,14 @@ version = "0.3.12-beta"
 publish = false
 edition = "2021"
 description = "Rust telemetry adapter for AXCP Core experiments"
-license-file = "../../LICENSE"
+license = "Apache-2.0"
 authors = ["TradePhantom LLC"]
 repository = "https://github.com/tradephantomllc/axcp-spec"
 documentation = "https://github.com/tradephantomllc/axcp-spec/tree/main/sdk/rust"
 readme = "README.md"
 keywords = ["axcp", "network", "protocol", "telemetry", "iot"]
 categories = ["network-programming", "api-bindings"]
-include = ["src/**/*", "Cargo.toml", "README.md", "LICENSE"]
+include = ["src/**/*", "Cargo.toml", "README.md", "LICENSE", "NOTICE"]
 
 [dependencies]
 # Core dependencies
@@ -29,7 +29,7 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "str
 # For WebSocket support
 tokio-tungstenite = { version = "0.28", default-features = false, features = ["rustls-tls-native-roots"], optional = true }
 # For configuration
-config = { version = "0.13", optional = true }
+config = { version = "0.15", optional = true }
 # For logging
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

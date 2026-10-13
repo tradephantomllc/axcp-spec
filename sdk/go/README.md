@@ -1,33 +1,28 @@
-# AXCP • Go SDK (reference)
+# AXCP Go SDK
 
-Minimal façade over the generated `axcp.proto` definitions.
-Designed for experimentation and PoC clients.
+The reference SDK provides Protobuf envelopes, DID resolver interfaces, Ed25519 authentication primitives, sequence/nonce replay checks, profile negotiation helpers and QUIC transport. Applications explicitly configure and connect these building blocks.
 
-## Module Policy
+Requires Go 1.26.9 or newer on a supported Go release. From the repository root:
 
-> **Important**: `sdk/go` is the **single Go module** for AXCP Core.
-
-- Nested modules under `sdk/go/` are **not allowed**
-- The `internal/` packages are only consumed within the `sdk/go` module
-- External packages (Advanced, Enterprise) import `github.com/tradephantomllc/axcp-spec/sdk/go`
-- Public types are re-exported via `axcp/pb/export.go` for external consumption
-
-This policy prevents module boundary violations with `internal/` packages.
-
-## Usage
-
-```bash
-# generate/update protobuf stubs
-protoc -I ../../proto \
-      --go_out=internal/pb --go_opt=paths=source_relative \
-      ../../proto/axcp.proto
-
-# run unit tests
-go test ./...
+```sh
+go test -race ./sdk/go/...
+go build ./sdk/go/examples/telemetry_example
 ```
 
-## Roadmap
+Public packages:
 
-- [ ] QUIC client helpers (`netquic`)
-- [ ] Automatic profile negotiation
-- [ ] Streaming context-sync examples
+- `github.com/tradephantomllc/axcp-spec/sdk/go/axcp`: envelope/validation helpers
+- `github.com/tradephantomllc/axcp-spec/sdk/go/axcp/pb`: public generated message aliases
+- `github.com/tradephantomllc/axcp-spec/sdk/go/auth`: identity, signature, replay primitives
+- `github.com/tradephantomllc/axcp-spec/sdk/go/negotiate`: policy and signed wire-handshake helpers
+- `github.com/tradephantomllc/axcp-spec/sdk/go/netquic`: client/listener, framed streams and datagrams
+
+`netquic` is part of the parent SDK module. See [module policy and migration](../../docs/dev/go-modules.md) before upgrading consumers that explicitly require the old nested module.
+
+Envelope stream frames use a little-endian uint32 length, capped at 10 MiB before allocation. Raw `SendMessage`/`ReceiveMessage` frames use big-endian lengths with the same cap. Empty raw messages remain valid; empty envelope frames do not. A framing error requires discarding that stream. Stream transport does not itself authenticate envelopes; use the authentication/validation layer before handling a payload.
+
+`SendTelemetry`/`ReceiveTelemetry` use legacy `0xA0 || TelemetryDatagram`, accepted by development transport-only gateways. `SendTelemetryEnvelope`/`ReceiveTelemetryEnvelope` use `0xA1 || AxcpEnvelope`. Sign outgoing envelopes and verify incoming envelopes (including recipient, timestamp and replay) at the application boundary. The datagram limit is 1200 bytes including prefix, subject to QUIC's negotiated limit. Delivery is unreliable.
+
+`ClientHandshake` validates the signed response's version, freshness, offered profile, deprecated-profile policy and resolved capabilities. v1 ServerHello contains no client nonce or transcript binding: freshness is not a proof of a newly generated response. TLS peer verification and envelope replay protection remain required. Handshake helpers are not invoked automatically by the gateway or authenticated-chat demo. A timed-out custom StreamIO must be closed/cancelled by its owner to unblock pending I/O.
+
+See [quickstart](../../docs/quickstart.md) and [gateway setup](../../docs/gateway-setup.md) for runnable workflows. Core does not provide automatic context synchronization, discovery or orchestration.

@@ -1,6 +1,7 @@
-FROM golang:1.25.6-bookworm AS build
+FROM golang:1.26.9-bookworm AS build
 WORKDIR /src
-COPY go.mod go.sum go.work go.work.sum ./
+ENV GOWORK=off
+COPY go.mod go.sum ./
 COPY proto ./proto
 COPY sdk/go ./sdk/go
 COPY edge/gateway ./edge/gateway

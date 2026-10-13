@@ -23,6 +23,11 @@ The public connection methods match the Go and Python framing contract:
 - `sendMessage` / `receiveMessage`: 4-byte big-endian length prefix
 - `sendEnvelope` / `receiveEnvelope`: 4-byte little-endian length prefix
 
+Matching frame bytes do not make TLS-over-TCP interchangeable with QUIC. The
+reference gateway accepts QUIC/UDP, so `TlsClient` needs a separate compatible
+TLS server; it cannot connect to that gateway directly. Transport adapters do
+not run profile selection or application authentication automatically.
+
 ## TLS Usage
 
 ```typescript

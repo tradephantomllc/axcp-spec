@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased — Core readiness corrections (2026-10-13)
+
+- Handle Python QUIC STOP_SENDING and RESET_STREAM directionally, preserve readable error replies, always release the client connection, and normalize timeouts on Python 3.10+.
+- Pin Go/Python protobuf generation to the same compiler and include license/notice files in SDK packages.
+
+- Gateway authentication defaults on; settings are validated before network side effects. Signed telemetry uses `0xA1` and the same verifier/replay state as streams; legacy `0xA0` is development-only.
+- Bound Go stream allocations/writes, preserve framing endianness, and reject invalid signed negotiation responses.
+- Reuse Python SDK canonical bridge signatures, including sequence; fail closed when signing cannot be completed.
+- Wait for MQTT QoS 1 acknowledgement and preserve original message/route through bounded in-memory retries.
+- Consolidate Go netquic and telemetry examples into the parent SDK module. Consumers must remove obsolete nested-module requirements.
+- Preserve repeated scalar defaults in TypeScript canonical Protobuf encoding; add a shared interoperability vector.
+- Correct Rust batching, cancellation/error retention and immediate metric sends; honor HTTP adapter configuration.
+- Align supported toolchain/dependencies, Docker build context, compose TLS/trust configuration and documentation with implemented Core scope.
+
+Historical entries below describe their release context. Current support and limitations are defined by the README and maintained guides.
+
 ## v1.0.0 – 2026-01-29
 
 ### AXCP Core v1.0.0 (Secure Baseline)

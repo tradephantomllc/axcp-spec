@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/tradephantomllc/axcp-spec/sdk/go/axcp"
+	pb "github.com/tradephantomllc/axcp-spec/sdk/go/axcp/pb"
+	"google.golang.org/protobuf/proto"
 )
 
 var errRetryPublisherNotConfigured = errors.New("retry buffer publisher is not configured")
@@ -30,6 +32,8 @@ type RetryBufferConfig struct {
 
 // RetryItem rappresenta un elemento nel buffer di retry
 type RetryItem struct {
+	inFlight   bool
+	generation uint64
 	// ID univoco del messaggio
 	ID string
 	// Contenuto dell'envelope AXCP
@@ -93,17 +97,19 @@ func (s *StandardLogger) Sync() error {
 
 // RetryBuffer implementa un buffer in memoria per i messaggi AXCP da ritrasmettere
 type RetryBuffer struct {
-	config     RetryBufferConfig
-	items      map[string]*RetryItem
-	queue      []string
-	mutex      sync.RWMutex
-	logger     Logger
-	metrics    *RetryMetrics
-	publishFn  func(*axcp.Envelope) error
-	ctx        context.Context
-	cancelFunc context.CancelFunc
-	stopped    bool
-	wg         sync.WaitGroup
+	config      RetryBufferConfig
+	items       map[string]*RetryItem
+	queue       []string
+	mutex       sync.RWMutex
+	logger      Logger
+	metrics     *RetryMetrics
+	publishFn   func(*axcp.Envelope) error
+	ctx         context.Context
+	cancelFunc  context.CancelFunc
+	stopped     bool
+	started     bool
+	configError error
+	wg          sync.WaitGroup
 }
 
 // DefaultRetryBufferConfig ritorna una configurazione predefinita per il retry buffer
@@ -135,13 +141,14 @@ func NewRetryBuffer(config *RetryBufferConfig, logger Logger, publishFn func(*ax
 	ctx, cancel := context.WithCancel(context.Background())
 
 	rb := &RetryBuffer{
-		config:     *config,
-		items:      make(map[string]*RetryItem),
-		queue:      make([]string, 0, config.MaxCapacity),
-		logger:     logger,
-		publishFn:  publishFn,
-		ctx:        ctx,
-		cancelFunc: cancel,
+		config:      *config,
+		items:       make(map[string]*RetryItem),
+		queue:       make([]string, 0),
+		configError: config.Validate(),
+		logger:      logger,
+		publishFn:   publishFn,
+		ctx:         ctx,
+		cancelFunc:  cancel,
 	}
 
 	return rb
@@ -149,6 +156,8 @@ func NewRetryBuffer(config *RetryBufferConfig, logger Logger, publishFn func(*ax
 
 // SetMetrics associa le metriche al buffer di retry
 func (rb *RetryBuffer) SetMetrics(metrics *RetryMetrics) {
+	rb.mutex.Lock()
+	defer rb.mutex.Unlock()
 	rb.metrics = metrics
 }
 
@@ -157,11 +166,27 @@ func (rb *RetryBuffer) AddEnvelope(id string, env *axcp.Envelope) error {
 	rb.mutex.Lock()
 	defer rb.mutex.Unlock()
 
+	if rb.configError != nil {
+		return rb.configError
+	}
+	if id == "" {
+		return errors.New("retry item ID is required")
+	}
+	if env == nil {
+		return errors.New("retry envelope is required")
+	}
 	if rb.stopped {
 		return fmt.Errorf("retry buffer is stopped")
 	}
 
-	// Verifica se abbiamo raggiunto la capacità massima
+	clone := &axcp.Envelope{AxcpEnvelope: *proto.Clone(&env.AxcpEnvelope).(*pb.AxcpEnvelope)}
+	if item, exists := rb.items[id]; exists {
+		item.Envelope = clone
+		item.generation++
+		item.Attempts = 0
+		item.NextRetryInterval = rb.config.MinRetryInterval
+		return nil
+	}
 	if len(rb.queue) >= rb.config.MaxCapacity {
 		if rb.metrics != nil {
 			rb.metrics.RecordRetryDropped(rb.ctx)
@@ -169,17 +194,10 @@ func (rb *RetryBuffer) AddEnvelope(id string, env *axcp.Envelope) error {
 		return fmt.Errorf("retry buffer is full (capacity: %d)", rb.config.MaxCapacity)
 	}
 
-	// Se l'elemento è già nel buffer, aggiorna solo l'envelope
-	if item, exists := rb.items[id]; exists {
-		item.Envelope = env
-		rb.logger.Debug("Updated existing envelope in retry buffer", "id", id)
-		return nil
-	}
-
 	// Crea un nuovo elemento
 	item := &RetryItem{
 		ID:                id,
-		Envelope:          env,
+		Envelope:          clone,
 		CreatedAt:         time.Now(),
 		LastAttempt:       time.Time{}, // Zero time
 		Attempts:          0,
@@ -202,18 +220,17 @@ func (rb *RetryBuffer) AddEnvelope(id string, env *axcp.Envelope) error {
 // Start avvia il processo di gestione dei retry
 func (rb *RetryBuffer) Start() {
 	rb.mutex.Lock()
-	if rb.stopped {
-		rb.mutex.Unlock()
+	defer rb.mutex.Unlock()
+	if rb.stopped || rb.started {
 		return
 	}
-	rb.mutex.Unlock()
-
+	if rb.configError != nil {
+		rb.logger.Error("Retry worker configuration invalid", "error", rb.configError)
+		return
+	}
+	rb.started = true
 	rb.wg.Add(1)
 	go rb.processRetries()
-
-	// Effettua immediatamente un primo tentativo di elaborazione
-	// senza aspettare il ticker, per accelerare i test
-	go rb.retryPendingItems()
 }
 
 // Stop ferma il processo di gestione dei retry
@@ -274,7 +291,7 @@ func (rb *RetryBuffer) retryPendingItems() {
 	for _, id := range rb.queue {
 		item := rb.items[id]
 		// Se è il primo tentativo o è passato abbastanza tempo dall'ultimo tentativo
-		if item.Attempts == 0 || now.Sub(item.LastAttempt) >= item.NextRetryInterval {
+		if !item.inFlight && (item.Attempts == 0 || now.Sub(item.LastAttempt) >= item.NextRetryInterval) {
 			toRetry = append(toRetry, item)
 		}
 	}
@@ -295,17 +312,19 @@ func (rb *RetryBuffer) processRetryItem(item *RetryItem) {
 
 	// Verifichiamo che l'item esista ancora nel buffer
 	// potrebbe essere stato rimosso da un'altra goroutine
-	if _, exists := rb.items[item.ID]; !exists {
+	if current, exists := rb.items[item.ID]; !exists || current != item || item.inFlight || rb.stopped {
 		return
 	}
 
 	// Incrementa il contatore dei tentativi e registra l'ultimo tentativo
+	item.inFlight = true
+	generation := item.generation
 	item.Attempts++
 	item.LastAttempt = time.Now()
 
 	// Creiamo una copia dell'envelope per processarla
 	// senza bloccare il mutex durante la chiamata di rete
-	envelopeCopy := item.Envelope
+	envelopeCopy := &axcp.Envelope{AxcpEnvelope: *proto.Clone(&item.Envelope.AxcpEnvelope).(*pb.AxcpEnvelope)}
 
 	// Rilascia il mutex durante l'operazione di pubblicazione
 	rb.mutex.Unlock()
@@ -315,6 +334,11 @@ func (rb *RetryBuffer) processRetryItem(item *RetryItem) {
 
 	// Riacquisisce il mutex per il resto della funzione
 	rb.mutex.Lock()
+
+	item.inFlight = false
+	if item.generation != generation {
+		return
+	}
 
 	// Se la pubblicazione è riuscita, rimuovi l'elemento dal buffer
 	if err == nil {
@@ -349,12 +373,10 @@ func (rb *RetryBuffer) processRetryItem(item *RetryItem) {
 	}
 
 	// Calcola il prossimo intervallo di retry con backoff esponenziale
-	nextInterval := time.Duration(float64(rb.config.MinRetryInterval) *
-		math.Pow(rb.config.BackoffFactor, float64(item.Attempts-1)))
-
-	// Limita l'intervallo massimo
-	if nextInterval > rb.config.MaxRetryInterval {
-		nextInterval = rb.config.MaxRetryInterval
+	delay := float64(rb.config.MinRetryInterval) * math.Pow(rb.config.BackoffFactor, float64(item.Attempts-1))
+	nextInterval := rb.config.MaxRetryInterval
+	if delay < float64(rb.config.MaxRetryInterval) {
+		nextInterval = time.Duration(delay)
 	}
 
 	item.NextRetryInterval = nextInterval
@@ -389,5 +411,25 @@ func (rb *RetryBuffer) removeItemLocked(id string) {
 // Close implementa l'interfaccia io.Closer
 func (rb *RetryBuffer) Close() error {
 	rb.Stop()
+	return nil
+}
+
+// Validate rejects configurations that cannot provide bounded retry behavior.
+func (c RetryBufferConfig) Validate() error {
+	if c.MaxCapacity <= 0 {
+		return errors.New("retry capacity must be greater than zero")
+	}
+	if c.MaxAttempts <= 0 {
+		return errors.New("retry attempts must be greater than zero")
+	}
+	if c.MinRetryInterval <= 0 {
+		return errors.New("retry minimum interval must be positive")
+	}
+	if c.MaxRetryInterval < c.MinRetryInterval {
+		return errors.New("retry maximum interval must be at least the minimum interval")
+	}
+	if math.IsNaN(c.BackoffFactor) || math.IsInf(c.BackoffFactor, 0) || c.BackoffFactor < 1 {
+		return errors.New("retry backoff factor must be finite and at least one")
+	}
 	return nil
 }

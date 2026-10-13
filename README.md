@@ -1,111 +1,50 @@
-# axcp-spec
+# AXCP Core
 
 [![CI](https://github.com/tradephantomllc/axcp-spec/actions/workflows/ci.yml/badge.svg)](https://github.com/tradephantomllc/axcp-spec/actions/workflows/ci.yml)
-[![Go Reference](https://pkg.go.dev/badge/github.com/tradephantomllc/axcp-spec/sdk/go.svg)](https://pkg.go.dev/github.com/tradephantomllc/axcp-spec/sdk/go)
+[![Go Reference](https://pkg.go.dev/badge/github.com/tradephantomllc/axcp-spec/sdk/go/axcp.svg)](https://pkg.go.dev/github.com/tradephantomllc/axcp-spec/sdk/go/axcp)
 ![License](https://img.shields.io/badge/license-Apache_2.0-green)
 
-## Demo
+AXCP (Adaptive eXchange Context Protocol) provides open protocol definitions and building blocks for exchanging signed context, capability messages and telemetry between agents. Applications explicitly configure peers, identities, trust and message handling.
 
-[![AXCP Demo](https://img.youtube.com/vi/8rw4d-xnWks/maxresdefault.jpg)](https://youtu.be/8rw4d-xnWks)
+Start with the [local quickstart](docs/quickstart.md), then the [gateway guide](docs/gateway-setup.md). The normative security contract is [AXCP Core Specification v1.0](spec/axcp-v1.0.md); current message definitions are in [proto/axcp.proto](proto/axcp.proto).
 
-> **Quick Start**: see [`docs/getting-started.md`](docs/getting-started.md)
+## What Core provides
 
-AXCP – Adaptive eXchange Context Protocol. An open specification for ultra-efficient AI agent orchestration.
-It improves on existing agent communication protocols (like MCP, A2A, and ACP) by integrating:
+| Component | Implemented scope |
+|---|---|
+| Go SDK | Protobuf envelopes, DID resolver interface, Ed25519 signing primitives, replay checks, profile negotiation helpers, QUIC streams and DATAGRAM transport |
+| Python SDK | Identity, envelope signing/verification, replay and profile primitives, async QUIC transport |
+| TypeScript SDK | Identity, envelope signing/verification, replay and profile primitives, stream framing and Node TLS adapter; no bundled native QUIC adapter |
+| Reference gateway | QUIC/TLS listener, configured sender trust, Secure Baseline enforcement, MQTT forwarding and bounded in-memory retry |
+| MCP conversion example | Narrow conversion of an MCP-shaped tool descriptor into a capability offer; context patch decoding demonstration |
+| Rust adapter | Experimental HTTP telemetry client; separate from the Core QUIC gateway |
+| Raspberry Pi example | Local system-statistics collector; it does not transmit to the gateway |
 
-- QUIC + Protobuf transport for high-performance, low-latency communication
-- Delta-synced context cache to reduce token overhead
-- DIDComm v2 for decentralized capability negotiation and secure identity
-- Smart routing between cloud and edge nodes
-- Telemetry datagrams for real-time monitoring
+Secure Baseline (`profile=1`) requires application authentication and replay checks. The reference gateway enables it by default and requires a server DID, trusted sender keys and TLS configuration. Both stream and authenticated telemetry datagrams use the same signature/replay verifier. `profile=0` retains TLS encryption but omits application authentication; it requires explicit development opt-in.
 
-> **Privacy & Security**: Differential Privacy, SGX enclaves, mTLS, and PII filtering are available in [AXCP Advanced/Enterprise](#axcp-enterprise) tiers.
-
-## Specification
-
-The authoritative protocol specification is **[AXCP Core Specification v1.0](spec/axcp-v1.0.md)** ("Secure Baseline").
-
-This specification defines:
-- Security profiles (`secure-baseline-v1` for production)
-- DID-based mutual authentication with Ed25519 signatures
-- Replay protection using sequence numbers or nonces
-- Profile negotiation algorithm
+A context patch is a message representation. Core does not automatically synchronize agent memory, discover or route peers, execute tools, manage certificates, or orchestrate agents. The signed transcript is AXCP-specific; this repository does not implement DIDComm v2 or complete MCP/A2A/ACP adapters. DATAGRAM delivery is unreliable and has no automatic coalescing or end-to-end processing receipt. Benchmark results are workload-specific, not a general performance guarantee.
 
 ## Documentation
 
-| Document | Description |
-|----------|-------------|
-| [Getting Started](docs/getting-started.md) | Installation, setup, and running the authenticated chat example |
-| [Authentication](docs/authentication.md) | DID model, Ed25519 signing, transcript format, replay protection |
-| [Gateway Setup](docs/gateway-setup.md) | Configuring the gateway for Secure Baseline enforcement |
-| [Python SDK](sdk/python/README.md) | Core Python SDK for DID identity, signing, verification, replay, and profile negotiation |
-| [TypeScript SDK](sdk/typescript/README.md) | Core TypeScript SDK for DID identity, signing, verification, replay, and profile negotiation |
-| [TypeScript Transport](docs/typescript-transport.md) | TypeScript stream framing, TLS adapter, and QUIC adapter decision notes |
-| [SDK Release Readiness](docs/sdk-release-readiness.md) | Cross-SDK parity vector, package gates, and release checklist |
+- [Getting started and SDK examples](docs/getting-started.md)
+- [Authentication and replay](docs/authentication.md)
+- [Gateway configuration, delivery semantics and limits](docs/gateway-setup.md)
+- [Architecture and Core boundaries](docs/architecture.md)
+- [Go SDK and module migration](sdk/go/README.md)
+- [Python SDK](sdk/python/README.md), [TypeScript SDK](sdk/typescript/README.md), [TypeScript transport](docs/typescript-transport.md)
+- [SDK release gates](docs/sdk-release-readiness.md)
+- [Security policy](SECURITY.md), [contributing](CONTRIBUTING.md)
 
-## What's New in v1.0
+The `v0.3/` directory, superseded draft specifications and dated proof packs are historical material. They do not define the current supported installation or feature set.
 
-- **Secure Baseline Profile**: Production-ready `secure-baseline-v1` profile with mandatory DID authentication
-- **DID Authentication**: Mutual authentication using Decentralized Identifiers and Ed25519 signatures
-- **Replay Protection**: Built-in replay attack prevention with sliding window or nonce-based modes
-- **Clear Tier Separation**: Core vs Advanced vs Enterprise feature boundaries explicitly defined
+## Open source and commercial product
 
-## Telemetry Transport
+The current Core source is licensed under [Apache 2.0](LICENSE), including commercial use subject to its terms. See [NOTICE](NOTICE) and [trademark guidance](TRADEMARK.md).
 
-AXCP provides high-performance telemetry data collection:
+Commercial automation, CRDT synchronization, privacy controls, managed mTLS/attestation, PII controls and enterprise governance are outside this repository. The commercial product unlocks capabilities according to its license; Advanced and Enterprise are historical repository/feature labels, not two public Core editions. No commercial implementation or runtime license gate is added to Core. Commercial scope and availability must be confirmed separately; this repository makes no certification or compliance guarantee.
 
-### QUIC DATAGRAM Transport
+[Licensing information](docs/licensing/README.md) · [Commercial inquiries](mailto:enterprise@getaxcp.com)
 
-Telemetry data is transmitted using QUIC's unreliable DATAGRAM frames, providing:
+Changes to `main` go through pull requests and the repository's required checks. Local verification is distinct from a published package or approved release.
 
-- Ultra-low latency (no head-of-line blocking)
-- Zero connection setup overhead for frequent metrics
-- Minimal impact on application traffic
-- Automatic coalescing of telemetry points during network congestion
-
-### Privacy Features
-
-For privacy-preserving metrics collection with Differential Privacy, see **AXCP Advanced** and **AXCP Enterprise** tiers below.
-
-## Contents
-
-- [AXCP Core Specification v1.0](spec/axcp-v1.0.md) (RFC-style)
-- Transport schema and Protobuf IDL (`proto/axcp.proto`)
-- Go SDK with authentication and negotiation (`sdk/go/`)
-- Python SDK Core with signing, verification, replay, and profile negotiation (`sdk/python/`)
-- TypeScript SDK Core with signing, verification, replay, and profile negotiation (`sdk/typescript/`)
-- Benchmark simulations and performance tests
-- License: Apache 2.0 (open source)
-
-## License
-
-**AXCP Core is open source under the Apache License 2.0.**
-
-You are free to use, modify, and distribute AXCP Core for any purpose, including commercial applications, without fees or special permissions.
-
-See [LICENSE](./LICENSE) for the full license text.
-
-**Trademark:** See [TRADEMARK.md](./TRADEMARK.md) for name and logo usage guidelines.
-
-**Repository Boundary:** This repository (`axcp-spec`) contains only AXCP Core. The Advanced and Enterprise features (Differential Privacy, CRDT sync, mTLS management, PII filtering, compliance reporting) are delivered in separate private repositories and are not included here.
-
-## AXCP Advanced & Enterprise
-
-For organizations requiring advanced capabilities, TradePhantom LLC offers commercial tiers:
-
-| Tier | Key Features |
-|------|--------------|
-| **AXCP Advanced** | mTLS with DID-bound certificates, Hardware attestation (SGX/SEV), Rate limiting middleware, Context-Sync (CRDT), Differential Privacy (optional) |
-| **AXCP Enterprise** | Secure telemetry ingestion, configurable Differential Privacy controls, PII filtering & redaction, Compliance reporting (GDPR/HIPAA/SOC2), Ed25519 audit trails, Prometheus & OpenTelemetry metrics |
-
-For licensing inquiries: [enterprise@getaxcp.com](mailto:enterprise@getaxcp.com)
-
-See [docs/licensing/](./docs/licensing/) for detailed licensing information.
-
-## 🔐 Branch Protection
-
-The `main` branch is protected by a ruleset that enforces CI testing, disallows direct pushes or deletions, and requires pull requests for all merges.  
-Protection enforcement is pending until repository visibility is changed to public or upgraded to GitHub Team.
-
-> Developed by [TradePhantom LLC](https://tradephantom.com) (New Mexico, US)  
-> AI-native infrastructure for autonomous agents.
+Developed by [TradePhantom LLC](https://tradephantom.com).

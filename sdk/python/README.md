@@ -10,7 +10,7 @@ This package covers the application-layer security surface:
 - AXCP DID auth transcript signing and verification
 - timestamp validation
 - sequence replay protection
-- Secure Baseline profile negotiation
+- Secure Baseline profile selection helpers (explicit integration required)
 - async QUIC stream transport with AXCP envelope framing
 - QUIC DATAGRAM helpers for telemetry-sized payloads
 
@@ -64,6 +64,19 @@ finally:
 Certificate verification is enabled by default. Use `ca_file` for private CA
 deployments. `insecure_skip_verify=True` is available only for explicit local
 development and tests.
+
+QUIC half-closes are directional: `STOP_SENDING` rejects further writes with
+`TransportClosedError` while leaving a peer's error response readable.
+`RESET_STREAM` interrupts reads with the peer's error code. Closing a client is
+idempotent and releases the underlying connection after either event. Frame and
+datagram timeouts consistently raise `TransportTimeoutError` on Python 3.10
+and later.
+
+The gateway uses a fixed profile and publishes accepted envelopes to MQTT; it
+does not send a success acknowledgement. Only call `receive_envelope()` when
+your peer implements replies, and set a timeout. For gateway telemetry datagrams,
+prepend `0xA1` to the encoded signed envelope; raw `0xA0` telemetry is restricted
+to explicit transport-only mode. See [gateway setup](../../docs/gateway-setup.md).
 
 ## Verification
 
