@@ -48,9 +48,7 @@ Advanced and Enterprise features (Differential Privacy, CRDT sync, mTLS manageme
 ### Added
 
 - QUIC DATAGRAM support for low-latency telemetry (#34).
-- Helm chart `enterprise-node` for Kubernetes deployments.
 - Rust SDK async client (crate `axcp-sdk`).
-- Differential-privacy budget CLI helpers.
 
 
 ### Changed
