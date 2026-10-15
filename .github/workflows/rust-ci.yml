@@ -10,13 +10,16 @@ on:
   schedule:
     - cron: '0 0 * * *'   # daily
 
+permissions:
+  contents: read
+
 defaults:
   run:
     working-directory: sdk/rust
 
 jobs:
 # -------------------------------------------------------- #
-# 1) TEST su stable / beta / nightly
+# 1) Tests on stable / beta / nightly
 # -------------------------------------------------------- #
   test:
     name: Test (${{ matrix.rust }})
@@ -51,7 +54,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-${{ matrix.cache-key }}-
 
-      # ---------- formatter & clippy solo su stable ----------
+      # ---------- formatter & clippy on stable only ----------
       - name: Check formatting
         if: matrix.rust == 'stable'
         run: cargo fmt --all --check
@@ -67,13 +70,13 @@ jobs:
         run: cargo build --locked --all-features --release
 
 # -------------------------------------------------------- #
-# 2) ADDITIONAL CHECKS (solo stable)
+# 2) ADDITIONAL CHECKS (stable, plus nightly for cargo-udeps)
 # -------------------------------------------------------- #
   check:
     name: Additional Checks
     needs: test
     runs-on: ubuntu-latest
-    if: always()                # mostra esito anche se test fallisse
+    if: always()                # report results even if the test job failed
 
     steps:
       - uses: actions/checkout@v6
@@ -90,7 +93,7 @@ jobs:
           # as broken local links, so rustdoc warnings are the blocking signal.
           RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --document-private-items
 
-      # --- nightly toolchain per cargo-udeps --------------
+      # --- nightly toolchain for cargo-udeps --------------
       - name: Install nightly Rust (for udeps)
         run: rustup toolchain install nightly --profile minimal
 
