@@ -1,6 +1,12 @@
-//! # AXCP Rust SDK
+//! # AXCP Rust telemetry adapter (experimental)
 //!
-//! A Rust implementation of the AXCP client SDK.
+//! An experimental HTTP/JSON client that POSTs telemetry batches to a separately
+//! supplied HTTP endpoint (`/api/v1/telemetry`), optionally with a Bearer token.
+//!
+//! This crate is **not** an implementation of the AXCP protocol: it does not provide
+//! QUIC transport, Protobuf envelopes, DID/Ed25519 signatures, recipient binding or
+//! replay protection. Use the Go, TypeScript or Python SDKs for authenticated AXCP
+//! messaging.
 
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
@@ -20,10 +26,10 @@ pub mod prelude {
 
 use error::Result;
 
-/// Current version of the SDK
+/// Current version of the crate
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// Initialize the SDK with default settings
+/// Initialize a default `tracing` subscriber for the adapter
 ///
 /// # Errors
 ///
