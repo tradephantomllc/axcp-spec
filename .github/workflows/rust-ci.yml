@@ -13,6 +13,10 @@ on:
 permissions:
   contents: read
 
+env:
+  UDEPS_NIGHTLY: nightly-2026-10-15
+  CARGO_UDEPS_VERSION: 0.1.61
+
 defaults:
   run:
     working-directory: sdk/rust
@@ -36,7 +40,7 @@ jobs:
             cache-key: nightly
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Install Rust toolchain
         run: |
@@ -44,7 +48,7 @@ jobs:
           rustup default "${{ matrix.rust }}"
 
       - name: Cache cargo registry
-        uses: actions/cache@v5
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           path: |
             ~/.cargo/registry
@@ -79,7 +83,7 @@ jobs:
     if: always()                # report results even if the test job failed
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Install stable Rust
         run: |
@@ -93,12 +97,14 @@ jobs:
           # as broken local links, so rustdoc warnings are the blocking signal.
           RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --document-private-items
 
-      # --- nightly toolchain for cargo-udeps --------------
+      # --- pinned nightly toolchain for cargo-udeps --------
+      # Pinned so an upstream nightly or cargo-udeps release cannot block merges.
+      # Update both together when needed.
       - name: Install nightly Rust (for udeps)
-        run: rustup toolchain install nightly --profile minimal
+        run: rustup toolchain install "${UDEPS_NIGHTLY}" --profile minimal
 
       - name: Install cargo-udeps
-        run: cargo +nightly install cargo-udeps --quiet --locked
+        run: cargo +"${UDEPS_NIGHTLY}" install cargo-udeps --version "${CARGO_UDEPS_VERSION}" --quiet --locked
 
       - name: Unused dependency check
-        run: cargo +nightly udeps --tests --all-targets
+        run: cargo +"${UDEPS_NIGHTLY}" udeps --tests --all-targets
