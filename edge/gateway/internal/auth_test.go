@@ -472,3 +472,48 @@ func TestDefaultAuthConfig(t *testing.T) {
 		t.Errorf("ReplayWindow = %d, want 1000", config.ReplayWindow)
 	}
 }
+
+func TestEnvelopeAuthenticator_RejectsMalformedAuthFields(t *testing.T) {
+	now := time.Now()
+	clock := &mockClock{now: now}
+	pub, priv, _ := ed25519.GenerateKey(nil)
+	senderDID, _ := auth.EncodeDIDKey(pub)
+	serverDID, _, _, _ := auth.GenerateIdentity()
+	resolver := newMockResolver()
+	resolver.AddKey(senderDID, pub)
+
+	ea, err := NewEnvelopeAuthenticator(resolver, serverDID, DefaultAuthConfig(), clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload := []byte("payload")
+	ts := uint64(now.UnixMilli())
+	sig := ed25519.Sign(priv, auth.BuildDIDAuthTranscript(senderDID, serverDID, payload, time.UnixMilli(int64(ts))))
+
+	base := EnvelopeAuth{SenderDID: senderDID, RecipientDID: serverDID, TimestampMs: ts, Sequence: 7, Signature: sig, PayloadBytes: payload}
+
+	short := base
+	short.Signature = sig[:63]
+	if r := ea.VerifyEnvelope(context.Background(), negotiate.ProfileSecureBaseline, short); r.Authenticated || r.ErrorCode != ErrorCodeAuthSignatureInvalid {
+		t.Fatalf("63-byte signature: %+v", r)
+	}
+
+	zero := base
+	zero.Sequence = 0
+	if r := ea.VerifyEnvelope(context.Background(), negotiate.ProfileSecureBaseline, zero); r.Authenticated || r.ErrorCode != ErrorCodeMalformedRequest {
+		t.Fatalf("zero sequence: %+v", r)
+	}
+
+	// The genuine message is still accepted: rejected attempts consumed nothing.
+	if r := ea.VerifyEnvelope(context.Background(), negotiate.ProfileSecureBaseline, base); !r.Authenticated {
+		t.Fatalf("genuine envelope rejected: %v", r.Error)
+	}
+}
+
+func TestNewEnvelopeAuthenticatorRequiresGatewayDID(t *testing.T) {
+	for _, did := range []string{"", "not-a-did", "did:example:has space"} {
+		if _, err := NewEnvelopeAuthenticator(newMockResolver(), did, DefaultAuthConfig(), nil); err == nil {
+			t.Errorf("gateway DID %q accepted", did)
+		}
+	}
+}

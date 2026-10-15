@@ -14,6 +14,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/tradephantomllc/axcp-spec/sdk/go/auth"
 )
 
 func TestTrustedDIDFlagBuildsResolver(t *testing.T) {
@@ -114,4 +116,28 @@ func writeTestTLSKeypair(t *testing.T) (string, string) {
 	}
 
 	return certFile, keyFile
+}
+
+func TestTrustedDIDFlagValidatesDIDKeyBinding(t *testing.T) {
+	did, pub, _, err := auth.GenerateIdentity()
+	if err != nil {
+		t.Fatal(err)
+	}
+	other, _, _ := ed25519.GenerateKey(nil)
+
+	var trusted trustedDIDFlag
+	if err := trusted.Set(did + "=" + base64.StdEncoding.EncodeToString(pub)); err != nil {
+		t.Fatalf("matching did:key rejected: %v", err)
+	}
+	if err := trusted.Set(did + "=" + base64.StdEncoding.EncodeToString(other)); err == nil {
+		t.Fatal("did:key paired with a different key was accepted")
+	}
+	if err := trusted.Set("did:key:sender=" + base64.StdEncoding.EncodeToString(pub)); err == nil {
+		t.Fatal("non-standard did:key label was accepted")
+	}
+	identity := make([]byte, 32)
+	identity[0] = 1
+	if err := trusted.Set("did:example:x=" + base64.StdEncoding.EncodeToString(identity)); err == nil {
+		t.Fatal("small-order key was accepted")
+	}
 }
