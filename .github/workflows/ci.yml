@@ -1,11 +1,10 @@
 # =============================================================================
 # AXCP Core CI - Standalone Pipeline
 # =============================================================================
-# This workflow runs the Core test suite independently of Advanced/Enterprise.
+# This workflow runs the AXCP Core test suite.
 # It validates: Go SDK, Python bindings, Gateway telemetry, TypeScript SDK, examples.
 #
-# Recommended required checks: Test Go, Test Python, Test TypeScript,
-# Test Gateway Telemetry, Test RPi Agent, Check Examples.
+# Required checks are configured in branch protection (see SECURITY.md).
 # =============================================================================
 
 name: AXCP CI
@@ -14,14 +13,12 @@ on:
   push:
     branches:
       - main
-      - 'restructure/open-core'
-      - 'chore/ci-go-workspaces'
-      - 'fix/ci-*'
-      - 'feature/21c-*'
-      - 'feat/m4*'
   pull_request:
     branches:
       - main
+
+permissions:
+  contents: read
 
 env:
   GO_VERSION:  '1.26.9'
@@ -70,6 +67,26 @@ jobs:
       - name: Verify generated Go stubs are committed
         run: git diff --exit-code proto/axcp.proto sdk/go/internal/pb/axcp.pb.go
 
+      - name: Check go.mod and go.sum are tidy
+        env:
+          GOWORK: 'off'
+        run: |
+          set -euo pipefail
+          for module in . sdk/go edge/gateway edge/rpi-agent test; do
+            echo "::group::go mod tidy -diff (${module})"
+            (cd "${module}" && go mod tidy -diff)
+            echo "::endgroup::"
+          done
+
+      - name: Go vet
+        run: |
+          set -euo pipefail
+          (cd sdk/go && go vet ./...)
+          (cd edge/gateway && go vet ./...)
+          (cd edge/rpi-agent && go vet ./...)
+          (cd test && go vet ./...)
+          go vet ./...
+
       - name: Run Go tests
         run: |
           set -euo pipefail
@@ -115,8 +132,8 @@ jobs:
           path: sdk/go/internal/pb/
           retention-days: 1
 
-# ------------------------------------------------------------ 
-# 2️⃣  PYTHON (Budget Go test)  – workspace + mini-mod dp
+# ------------------------------------------------------------
+# 2. Python bindings, SDK packaging and benchmarks
 # ------------------------------------------------------------
   test-python:
     name: Test Python
@@ -194,7 +211,8 @@ jobs:
       - name: SDK release-readiness check
         run: python scripts/verify_sdk_release_readiness.py
 
-      - name: QUIC RTT micro-bench
+      # UDP echo round-trip smoke test (no QUIC, TLS or AXCP; see the script docstring).
+      - name: UDP echo RTT micro-bench
         if: ${{ github.actor != 'dependabot[bot]' }}
         run: python bench/quic/rtt_bench.py 20
 
@@ -204,7 +222,7 @@ jobs:
         run: go test ./... -bench=. -benchtime=1x -benchmem
 
 # ------------------------------------------------------------
-# 2b. TypeScript SDK core
+# 2b. Python SDK compatibility matrix
 # ------------------------------------------------------------
   test-python-sdk-compat:
     name: Python SDK (${{ matrix.python }})
@@ -225,6 +243,9 @@ jobs:
       - name: Test SDK compatibility
         run: python -m pytest -q sdk/python/tests
 
+# ------------------------------------------------------------
+# 2c. TypeScript SDK core
+# ------------------------------------------------------------
   test-typescript:
     name: Test TypeScript
     runs-on: ubuntu-latest
@@ -328,11 +349,15 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      # ── workspace per rpi-agent <-> sdk/go -----------------------
-      - name: Create Go workspace for rpi-agent
+      # ── The repository go.work is tracked and already lists rpi-agent and sdk/go.
+      # `go work init` always failed on it (go.work exists); fail loudly instead of
+      # masking errors if the workspace stops covering both modules.
+      - name: Check Go workspace covers rpi-agent and sdk/go
         run: |
-          go work init ./sdk/go ./edge/rpi-agent || true
-          go work use  ./sdk/go ./edge/rpi-agent
+          set -euo pipefail
+          go work edit -json > "${RUNNER_TEMP}/go.work.json"
+          grep -q '"DiskPath": "./sdk/go"' "${RUNNER_TEMP}/go.work.json"
+          grep -q '"DiskPath": "./edge/rpi-agent"' "${RUNNER_TEMP}/go.work.json"
 
       # Run agent tests.
       - name: Run rpi-agent tests
