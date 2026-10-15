@@ -1,4 +1,4 @@
-export { Agent, type AgentOptions } from "./agent.js";
+export { Agent, type AgentOptions, type AgentSignOptions } from "./agent.js";
 export {
   DID_AUTH_TRANSCRIPT_VERSION,
   DEFAULT_PROFILE_SECURE_BASELINE,
@@ -9,7 +9,9 @@ export {
   newEnvelope,
   signEnvelope,
   signingPayload,
+  validateEnvelopeForVerification,
   verifyEnvelope,
+  type DecodeEnvelopeOptions,
   type NewEnvelopeOptions,
   type SignEnvelopeOptions,
   type VerifyEnvelopeOptions,
@@ -28,6 +30,7 @@ export {
   NegotiationError,
   NoProfileOverlapError,
   NoSignatureAlgorithmOverlapError,
+  ReplayCapacityError,
   ReplayDetectedError,
   ReplayError,
   SequenceTooOldError,
@@ -37,6 +40,7 @@ export {
   TimestampError,
   TimestampExpiredError,
   TimestampFutureError,
+  TimestampInvalidError,
   TimestampMissingError,
   TransportClosedError,
   TransportConfigError,
@@ -46,6 +50,7 @@ export {
   TransportUnsupportedError,
 } from "./errors.js";
 export {
+  ALLOWED_VERIFICATION_KEY_TYPES,
   DID,
   DID_KEY_ED25519_MULTICODEC_PREFIX,
   ED25519_PRIVATE_SEED_SIZE,
@@ -53,7 +58,10 @@ export {
   ED25519_SIGNATURE_SIZE,
   Identity,
   InMemoryDIDResolver,
+  MAX_DID_KEY_ID_LENGTH,
+  MAX_DID_LENGTH,
   didKeyFromPublicKey,
+  isSmallOrderPublicKey,
   publicKeyFromDidKey,
   resolveEd25519PublicKey,
   verifySignature,
@@ -75,12 +83,22 @@ export {
   type NegotiateOptions,
   type ServerHello,
 } from "./profile.js";
-export { ReplayProtector, type ReplayProtectorOptions } from "./replay.js";
+export {
+  DEFAULT_MAX_NONCES,
+  DEFAULT_MAX_PEERS,
+  DEFAULT_PEER_TTL_MS,
+  DEFAULT_REPLAY_WINDOW,
+  ReplayProtector,
+  type ReplayProtectorOptions,
+  type ReplayTimestampPolicy,
+} from "./replay.js";
 export {
   DEFAULT_CLOCK_SKEW_MS,
   DEFAULT_MAX_TIMESTAMP_AGE_MS,
+  MAX_TIMESTAMP_MS,
   TimestampValidator,
   dateFromMs,
+  nowMicros,
   nowMs,
   rfc3339SecondsFromMs,
   type TimestampValidatorOptions,
@@ -89,6 +107,10 @@ export {
   DEFAULT_ALPN,
   DEFAULT_CONNECT_TIMEOUT_MS,
   DEFAULT_MAX_FRAME_SIZE,
+  DEFAULT_READ_TIMEOUT_MS,
+  DEFAULT_TLS_MIN_VERSION,
+  HandlerErrorSink,
+  MAX_RETAINED_HANDLER_ERRORS,
   NodeStreamConnection,
   TcpClient,
   TcpServer,
@@ -107,6 +129,7 @@ export {
   type FrameOptions,
   type NodeStreamConnectionOptions,
   type QuicAvailability,
+  type ReceiveEnvelopeOptions,
   type ReceiveOptions,
   type StreamHandler,
   type TcpClientConfig,

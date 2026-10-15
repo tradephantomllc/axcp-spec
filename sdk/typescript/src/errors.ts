@@ -80,6 +80,12 @@ export class TimestampFutureError extends TimestampError {
   }
 }
 
+export class TimestampInvalidError extends TimestampError {
+  constructor(message: string) {
+    super(message, "timestamp_invalid");
+  }
+}
+
 export class ReplayError extends AXCPError {
   constructor(message: string, reasonCode = "replay_error") {
     super(message, reasonCode);
@@ -101,6 +107,13 @@ export class SequenceTooOldError extends ReplayError {
 export class InvalidReplayConfigError extends ReplayError {
   constructor(message: string) {
     super(message, "invalid_replay_config");
+  }
+}
+
+/** Raised when the replay protector tracks the maximum number of senders (fail closed). */
+export class ReplayCapacityError extends ReplayError {
+  constructor(message: string) {
+    super(message, "replay_capacity_exceeded");
   }
 }
 

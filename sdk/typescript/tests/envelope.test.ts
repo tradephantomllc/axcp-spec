@@ -1,16 +1,22 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { performance } from "node:perf_hooks";
+import Long from "long";
 import {
+  AXCPError,
   Agent,
   DID_AUTH_TRANSCRIPT_VERSION,
   DeltaOpType,
   Identity,
   InMemoryDIDResolver,
+  InvalidDIDFormat,
   InvalidEnvelopeError,
   ReplayDetectedError,
+  SignatureMissingError,
   SignatureVerificationError,
   TimestampExpiredError,
+  TimestampInvalidError,
   buildAuthTranscript,
   decodeEnvelope,
   encodeEnvelope,
@@ -21,8 +27,10 @@ import {
   verifyEnvelope,
   type AxcpEnvelope,
 } from "../src/index.js";
+import { contextEnvelope, rawSign } from "./helpers.js";
 
 const VECTOR_URL = new URL("../../../../testdata/sdk/secure_baseline_vector.json", import.meta.url);
+const REPEATED_VECTOR_URL = new URL("../../../../testdata/sdk/repeated_defaults_vector.json", import.meta.url);
 
 interface SecureBaselineVector {
   readonly trace_id: string;
@@ -51,23 +59,6 @@ interface SecureBaselineVector {
     readonly signature_b64: string;
     readonly envelope_b64: string;
   };
-}
-
-function contextEnvelope(): AxcpEnvelope {
-  const envelope = newEnvelope({ traceId: "trace-123", profile: 1 });
-  envelope.contextPatch = {
-    contextId: "ctx",
-    baseVersion: 7,
-    ops: [
-      {
-        op: DeltaOpType.ADD,
-        path: "/x",
-        data: new TextEncoder().encode("1"),
-        ts: 1,
-      },
-    ],
-  };
-  return envelope;
 }
 
 function vectorEnvelope(vector: SecureBaselineVector): AxcpEnvelope {
@@ -213,35 +204,29 @@ describe("envelope", () => {
 
   it("allows explicit public key verification", async () => {
     const alice = new Agent(Identity.generate());
+    const bob = Identity.generate();
     const envelope = contextEnvelope();
 
-    alice.signMessage(envelope);
-    await verifyEnvelope(envelope, { publicKey: alice.identity.publicKey });
+    alice.signMessage(envelope, { recipientDid: bob.did });
+    await verifyEnvelope(envelope, { expectedRecipientDid: bob.did, publicKey: alice.identity.publicKey });
   });
 
   it("rejects explicit key mismatch for did:key", async () => {
     const alice = new Agent(Identity.generate());
+    const bob = Identity.generate();
     const other = Identity.generate();
     const envelope = contextEnvelope();
 
-    alice.signMessage(envelope);
-    await assert.rejects(() => verifyEnvelope(envelope, { publicKey: other.publicKey }), InvalidEnvelopeError);
-  });
-
-  it("rejects wrong recipients", async () => {
-    const alice = new Agent(Identity.generate());
-    const bob = new Agent(Identity.generate());
-    const carol = new Agent(Identity.generate());
-    const envelope = contextEnvelope();
-
-    alice.signMessage(envelope, { recipientDid: carol.identity.did });
-
-    await assert.rejects(() => bob.verify(envelope), InvalidEnvelopeError);
+    alice.signMessage(envelope, { recipientDid: bob.did });
+    await assert.rejects(
+      () => verifyEnvelope(envelope, { expectedRecipientDid: bob.did, publicKey: other.publicKey }),
+      InvalidEnvelopeError,
+    );
   });
 
   it("verifies non-key senders through a resolver", async () => {
     const seedIdentity = Identity.generate();
-    const aliceIdentity = Identity.fromSeed(seedIdentity.privateSeed, "did:example:alice");
+    const aliceIdentity = Identity.fromSeed(seedIdentity.exportPrivateSeed(), "did:example:alice");
     const resolver = new InMemoryDIDResolver();
     resolver.register(aliceIdentity);
 
@@ -286,11 +271,22 @@ describe("envelope", () => {
       Buffer.from(vector.expected.envelope_b64, "base64"),
     );
   });
+
+  it("strictly decodes and verifies the Go-produced Secure Baseline envelope bytes", async () => {
+    const vector = loadVector();
+    const decoded = decodeEnvelope(Buffer.from(vector.expected.envelope_b64, "base64"), { strict: true });
+    await verifyEnvelope(decoded, { expectedRecipientDid: vector.recipient_did });
+    assert.equal(decoded.senderDid, vector.identity.did);
+    await assert.rejects(
+      () => verifyEnvelope(decoded, { expectedRecipientDid: "did:example:carol" }),
+      InvalidEnvelopeError,
+    );
+  });
 });
 
 describe("repeated scalar presence", () => {
   it("preserves empty strings and matches the Python/Go wire vector", async () => {
-    const vector = JSON.parse(readFileSync(new URL("../../../../testdata/sdk/repeated_defaults_vector.json", import.meta.url), "utf8"));
+    const vector = JSON.parse(readFileSync(REPEATED_VECTOR_URL, "utf8"));
     const env = newEnvelope({ traceId: "repeated-defaults", profile: 1 });
     env.capabilityMsg = { request: { ids: vector.ids } };
     signEnvelope(env, Identity.fromSeed(Buffer.from(vector.identity.private_seed_hex, "hex")), {
@@ -300,11 +296,173 @@ describe("repeated scalar presence", () => {
     assert.equal(Buffer.from(encodeEnvelope(env)).toString("base64"), vector.expected.envelope_b64);
     assert.equal(Buffer.from(signingPayload(env)).toString("base64"), vector.expected.signing_payload_b64);
     assert.equal(Buffer.from(env.signature!).toString("base64"), vector.expected.signature_b64);
-    await verifyEnvelope(decodeEnvelope(Buffer.from(vector.expected.envelope_b64, "base64")));
+    const goBytes = Buffer.from(vector.expected.envelope_b64, "base64");
+    await verifyEnvelope(decodeEnvelope(goBytes, { strict: true }), { expectedRecipientDid: vector.recipient_did });
   });
   it("rejects null repeated values rather than removing them", () => {
     const env = newEnvelope();
     env.capabilityMsg = { request: { ids: [null as unknown as string] } };
     assert.throws(() => encodeEnvelope(env), InvalidEnvelopeError);
+  });
+});
+
+describe("recipient binding (D4)", () => {
+  it("requires a recipient when signing", () => {
+    const alice = new Agent(Identity.generate());
+    assert.throws(() => alice.signMessage(contextEnvelope(), { recipientDid: "" }), InvalidEnvelopeError);
+    assert.throws(
+      () => alice.signMessage(contextEnvelope(), undefined as unknown as { recipientDid: string }),
+      InvalidEnvelopeError,
+    );
+    assert.throws(
+      () => signEnvelope(contextEnvelope(), alice.identity, {} as unknown as { recipientDid: string }),
+      InvalidEnvelopeError,
+    );
+    assert.throws(
+      () => signEnvelope(contextEnvelope(), alice.identity, { recipientDid: "not-a-did", sequence: 1 }),
+      InvalidDIDFormat,
+    );
+  });
+
+  it("rejects an otherwise valid envelope with an empty recipient", async () => {
+    const alice = Identity.generate();
+    const bob = new Agent(Identity.generate());
+    const envelope = rawSign(contextEnvelope(), alice, { sequence: 5 });
+    // The signature itself is valid for the empty recipient...
+    alice.verify(buildAuthTranscript(envelope), envelope.signature!);
+    // ...but the verifier requires recipient_did == its own DID.
+    await assert.rejects(() => bob.verify(envelope), /recipient_did is required/);
+  });
+
+  it("rejects envelopes addressed to another agent (no cross-recipient replay)", async () => {
+    const alice = new Agent(Identity.generate());
+    const bob = new Agent(Identity.generate());
+    const carol = new Agent(Identity.generate());
+    const envelope = contextEnvelope();
+
+    alice.signMessage(envelope, { recipientDid: bob.identity.did });
+    await bob.verify(envelope);
+    await assert.rejects(() => carol.verify(envelope), /does not match the verifier/);
+  });
+
+  it("requires the verifier DID in the low-level API", async () => {
+    const alice = new Agent(Identity.generate());
+    const bob = Identity.generate();
+    const envelope = alice.signMessage(contextEnvelope(), { recipientDid: bob.did });
+    await assert.rejects(
+      () => verifyEnvelope(envelope, {} as unknown as { expectedRecipientDid: string }),
+      InvalidEnvelopeError,
+    );
+  });
+});
+
+describe("envelope verification rules (D5)", () => {
+  async function expectRejected(envelope: AxcpEnvelope, recipient: Identity, pattern: RegExp): Promise<void> {
+    const verifier = new Agent(recipient);
+    await assert.rejects(() => verifier.verify(envelope), (error: unknown) => {
+      assert.ok(error instanceof AXCPError, `expected SDK error, got ${String(error)}`);
+      assert.match((error as Error).message, pattern);
+      return true;
+    });
+  }
+
+  it("rejects versions other than 1", async () => {
+    const alice = Identity.generate();
+    const bob = Identity.generate();
+    const envelope = contextEnvelope();
+    envelope.version = 2;
+    signEnvelope(envelope, alice, { recipientDid: bob.did, sequence: 1 });
+    await expectRejected(envelope, bob, /unsupported envelope version/);
+  });
+
+  for (const profile of [0, 2, 3]) {
+    it(`rejects profile ${profile}`, async () => {
+      const alice = Identity.generate();
+      const bob = Identity.generate();
+      const envelope = newEnvelope({ traceId: "profile", profile });
+      envelope.contextPatch = { contextId: "ctx" };
+      signEnvelope(envelope, alice, { recipientDid: bob.did, sequence: 1 });
+      await expectRejected(envelope, bob, /profile must be secure-baseline-v1/);
+    });
+  }
+
+  it("rejects envelopes without a payload", async () => {
+    const alice = Identity.generate();
+    const bob = Identity.generate();
+    const envelope = newEnvelope({ traceId: "empty" });
+    signEnvelope(envelope, alice, { recipientDid: bob.did, sequence: 1 });
+    await expectRejected(envelope, bob, /exactly one payload/);
+  });
+
+  it("rejects sequence 0", async () => {
+    const alice = Identity.generate();
+    const bob = Identity.generate();
+    const envelope = rawSign(contextEnvelope(), alice, { recipientDid: bob.did, sequence: 0 });
+    await expectRejected(envelope, bob, /sequence must be greater than zero/);
+  });
+
+  it("rejects signatures that are not 64 bytes", async () => {
+    const alice = Identity.generate();
+    const bob = Identity.generate();
+    const envelope = signEnvelope(contextEnvelope(), alice, { recipientDid: bob.did, sequence: 1 });
+    envelope.signature = envelope.signature!.subarray(0, 63);
+    await assert.rejects(() => new Agent(bob).verify(envelope), InvalidEnvelopeError);
+    envelope.signature = new Uint8Array();
+    await assert.rejects(() => new Agent(bob).verify(envelope), SignatureMissingError);
+  });
+
+  it("rejects an invalid sender DID before any key resolution", async () => {
+    const bob = Identity.generate();
+    const envelope = contextEnvelope();
+    envelope.senderDid = "did:key:z6Mk/../path";
+    envelope.recipientDid = bob.did;
+    envelope.sequence = 1;
+    envelope.timestampMs = Date.now();
+    envelope.signature = new Uint8Array(64);
+    await assert.rejects(() => new Agent(bob).verify(envelope), InvalidDIDFormat);
+  });
+
+  it("rejects a 10 MB sender DID in well under 50 ms", async () => {
+    const bob = Identity.generate();
+    const envelope = contextEnvelope();
+    envelope.senderDid = `did:key:z${"6".repeat(10 * 1024 * 1024)}`;
+    envelope.recipientDid = bob.did;
+    envelope.sequence = 1;
+    envelope.timestampMs = Date.now();
+    envelope.signature = new Uint8Array(64);
+    const agent = new Agent(bob);
+    const started = performance.now();
+    await assert.rejects(() => agent.verify(envelope), InvalidDIDFormat);
+    assert.ok(performance.now() - started < 50, "long DID must be rejected before decoding");
+  });
+});
+
+describe("uint64 and timestamp error hygiene (D8/D10)", () => {
+  it("rejects uint64 values above 2^53 with an SDK error", () => {
+    const huge = Long.fromString("18446744073709551615", true);
+    assert.throws(() => toSafeNumber(huge, "sequence"), InvalidEnvelopeError);
+    assert.throws(() => toSafeNumber(2 ** 53, "sequence"), InvalidEnvelopeError);
+    assert.throws(() => toSafeNumber("9007199254740993", "sequence"), InvalidEnvelopeError);
+    assert.equal(toSafeNumber(Long.fromNumber(42, true), "sequence"), 42);
+  });
+
+  it("rejects huge wire sequences and timestamps with SDK errors", async () => {
+    const alice = Identity.generate();
+    const bob = new Agent(Identity.generate());
+    const base = contextEnvelope();
+    base.senderDid = alice.did;
+    base.recipientDid = bob.identity.did;
+    base.signature = new Uint8Array(64);
+
+    base.sequence = Long.fromString("18446744073709551615", true);
+    base.timestampMs = Date.now();
+    await assert.rejects(() => bob.verifyBytes(encodeEnvelope(base)), InvalidEnvelopeError);
+
+    base.sequence = 1;
+    base.timestampMs = Long.fromString("9223372036854775808", true);
+    await assert.rejects(() => bob.verifyBytes(encodeEnvelope(base)), InvalidEnvelopeError);
+
+    base.timestampMs = 253_402_300_800_000;
+    await assert.rejects(() => bob.verifyBytes(encodeEnvelope(base)), TimestampInvalidError);
   });
 });

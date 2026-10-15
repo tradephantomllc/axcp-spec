@@ -1,19 +1,23 @@
 import { randomUUID } from "node:crypto";
 import Long from "long";
-import { encodeBase64, toUint8Array, utf8Bytes } from "./bytes.js";
+import { bytesEqual, encodeBase64, toUint8Array, utf8Bytes } from "./bytes.js";
 import {
+  AXCPError,
   InvalidEnvelopeError,
   SignatureMissingError,
 } from "./errors.js";
 import {
   DID,
   type DIDResolver,
+  ED25519_SIGNATURE_SIZE,
   type Identity,
+  isSmallOrderPublicKey,
   publicKeyFromDidKey,
   resolveEd25519PublicKey,
   verifySignature,
 } from "./identity.js";
 import { type AxcpEnvelope, AxcpEnvelopeType, toSafeNumber } from "./pb/schema.js";
+import { assertStrictWire } from "./pb/strict.js";
 import { nowMs, rfc3339SecondsFromMs } from "./timestamp.js";
 
 export const DID_AUTH_TRANSCRIPT_VERSION = "AXCP-DID-AUTH-v1";
@@ -26,14 +30,32 @@ export interface NewEnvelopeOptions {
 }
 
 export interface SignEnvelopeOptions {
-  readonly recipientDid?: string;
+  /** Recipient DID bound into the signature (required, D4). */
+  readonly recipientDid: string;
+  /**
+   * Replay sequence (> 0). When omitted, the envelope must already carry a non-zero
+   * sequence; low-level signing never signs sequence 0 (D7).
+   */
   readonly sequence?: number;
   readonly timestampMs?: number;
 }
 
 export interface VerifyEnvelopeOptions {
+  /** The verifier's own DID; `recipient_did` must equal it (D4). */
+  readonly expectedRecipientDid: string;
+  /** Explicitly pinned sender key. For did:key senders it must match the DID. */
   readonly publicKey?: Uint8Array;
+  /** Resolver consulted for every sender DID, including did:key (D3). */
   readonly resolver?: DIDResolver;
+}
+
+export interface DecodeEnvelopeOptions {
+  /**
+   * Strict decoding for verification (D5): rejects unknown fields at any level,
+   * undefined enum values, invalid UTF-8, two distinct payload members and envelopes
+   * without a payload.
+   */
+  readonly strict?: boolean;
 }
 
 export function newEnvelope(options: NewEnvelopeOptions = {}): AxcpEnvelope {
@@ -50,13 +72,30 @@ export function encodeEnvelope(envelope: AxcpEnvelope): Uint8Array {
   if (error !== null) {
     throw new InvalidEnvelopeError(`invalid AXCP envelope: ${error}`);
   }
-  return AxcpEnvelopeType.encode(AxcpEnvelopeType.create(normalized)).finish();
+  try {
+    return AxcpEnvelopeType.encode(AxcpEnvelopeType.create(normalized)).finish();
+  } catch (cause) {
+    if (cause instanceof AXCPError) {
+      throw cause;
+    }
+    throw new InvalidEnvelopeError("failed to encode AXCP envelope");
+  }
 }
 
-export function decodeEnvelope(data: Uint8Array): AxcpEnvelope {
+/**
+ * Decode an envelope. Use `{ strict: true }` for bytes received from the network
+ * before verification; non-strict decoding silently drops unknown fields.
+ */
+export function decodeEnvelope(data: Uint8Array, options: DecodeEnvelopeOptions = {}): AxcpEnvelope {
+  if (!(data instanceof Uint8Array)) {
+    throw new InvalidEnvelopeError("envelope bytes must be a Uint8Array");
+  }
+  if (options.strict === true) {
+    assertStrictWire(AxcpEnvelopeType, data, "payload");
+  }
   try {
     return AxcpEnvelopeType.decode(data) as unknown as AxcpEnvelope;
-  } catch (error) {
+  } catch {
     throw new InvalidEnvelopeError("failed to decode AXCP envelope");
   }
 }
@@ -89,56 +128,94 @@ export function buildAuthTranscript(envelope: AxcpEnvelope): Uint8Array {
 export function signEnvelope(
   envelope: AxcpEnvelope,
   identity: Identity,
-  options: SignEnvelopeOptions = {},
+  options: SignEnvelopeOptions,
 ): AxcpEnvelope {
-  if (options.timestampMs !== undefined && options.timestampMs < 0) {
-    throw new InvalidEnvelopeError("timestampMs cannot be negative");
+  const recipientDid = options?.recipientDid;
+  if (typeof recipientDid !== "string" || recipientDid.length === 0) {
+    throw new InvalidEnvelopeError("recipientDid is required to sign an envelope");
   }
-  if (options.sequence !== undefined && options.sequence < 0) {
-    throw new InvalidEnvelopeError("sequence cannot be negative");
+  DID.parse(recipientDid);
+  if (options.timestampMs !== undefined && (!Number.isSafeInteger(options.timestampMs) || options.timestampMs <= 0)) {
+    throw new InvalidEnvelopeError("timestampMs must be a positive safe integer");
+  }
+  const sequence = options.sequence ?? toSafeNumber(envelope.sequence, "sequence");
+  if (!Number.isSafeInteger(sequence) || sequence <= 0) {
+    throw new InvalidEnvelopeError("sequence must be a positive safe integer");
   }
 
   envelope.senderDid = identity.did;
-  envelope.recipientDid = options.recipientDid ?? "";
+  envelope.recipientDid = recipientDid;
   envelope.timestampMs = options.timestampMs ?? nowMs();
-  if (options.sequence !== undefined) {
-    envelope.sequence = options.sequence;
-  }
+  envelope.sequence = sequence;
   envelope.signature = identity.sign(buildAuthTranscript(envelope));
   return envelope;
 }
 
-export async function verifyEnvelope(envelope: AxcpEnvelope, options: VerifyEnvelopeOptions = {}): Promise<void> {
+/**
+ * Structural Secure Baseline checks (D1, D4, D5) that do not need key material.
+ * Throws an SDK error on the first violation.
+ */
+export function validateEnvelopeForVerification(envelope: AxcpEnvelope, expectedRecipientDid: string): void {
+  if (typeof envelope !== "object" || envelope === null) {
+    throw new InvalidEnvelopeError("envelope must be an object");
+  }
+  if (typeof expectedRecipientDid !== "string" || expectedRecipientDid.length === 0) {
+    throw new InvalidEnvelopeError("expectedRecipientDid is required for verification");
+  }
   const signature = toUint8Array(envelope.signature);
   if (signature.length === 0) {
     throw new SignatureMissingError("envelope signature is missing");
   }
+  if (signature.length !== ED25519_SIGNATURE_SIZE) {
+    throw new InvalidEnvelopeError("envelope signature must be 64 bytes");
+  }
+  if ((envelope.version ?? 0) !== DEFAULT_PROTOCOL_VERSION) {
+    throw new InvalidEnvelopeError("unsupported envelope version");
+  }
+  if ((envelope.profile ?? 0) !== DEFAULT_PROFILE_SECURE_BASELINE) {
+    throw new InvalidEnvelopeError("envelope profile must be secure-baseline-v1");
+  }
   if (!envelope.senderDid) {
     throw new InvalidEnvelopeError("sender_did is required");
   }
-
-  const resolvedPublicKey = options.publicKey ?? (await resolveEd25519PublicKey(envelope.senderDid, options.resolver));
-  const parsedSender = DID.parse(envelope.senderDid);
-  if (
-    options.publicKey !== undefined &&
-    parsedSender.method === "key" &&
-    !bytesMatch(publicKeyFromDidKey(envelope.senderDid), options.publicKey)
-  ) {
-    throw new InvalidEnvelopeError("explicit public key does not match sender did:key");
+  DID.parse(envelope.senderDid);
+  if (!envelope.recipientDid) {
+    throw new InvalidEnvelopeError("recipient_did is required");
   }
-
-  verifySignature(resolvedPublicKey, buildAuthTranscript(envelope), signature);
+  if (envelope.recipientDid !== expectedRecipientDid) {
+    throw new InvalidEnvelopeError("envelope recipient_did does not match the verifier");
+  }
+  if (toSafeNumber(envelope.sequence, "sequence") <= 0) {
+    throw new InvalidEnvelopeError("sequence must be greater than zero");
+  }
+  toSafeNumber(envelope.timestampMs, "timestampMs");
+  // Re-encode and apply the strict wire rules: exactly one payload member (the encoder
+  // writes every member present on the object), defined enum values and UTF-8.
+  assertStrictWire(AxcpEnvelopeType, encodeEnvelope(envelope), "payload");
 }
 
-function bytesMatch(left: Uint8Array, right: Uint8Array): boolean {
-  if (left.length !== right.length) {
-    return false;
+/**
+ * Verify an envelope signature and its Secure Baseline structure. Does not check
+ * timestamps or replay; {@link Agent.verify} does both.
+ */
+export async function verifyEnvelope(envelope: AxcpEnvelope, options: VerifyEnvelopeOptions): Promise<void> {
+  validateEnvelopeForVerification(envelope, options?.expectedRecipientDid);
+  const senderDid = envelope.senderDid as string;
+
+  let publicKey: Uint8Array;
+  if (options.publicKey !== undefined) {
+    publicKey = toUint8Array(options.publicKey);
+    if (isSmallOrderPublicKey(publicKey)) {
+      throw new InvalidEnvelopeError("explicit public key has small order");
+    }
+    if (DID.parse(senderDid).method === "key" && !bytesEqual(publicKeyFromDidKey(senderDid), publicKey)) {
+      throw new InvalidEnvelopeError("explicit public key does not match sender did:key");
+    }
+  } else {
+    publicKey = await resolveEd25519PublicKey(senderDid, options.resolver);
   }
-  let diff = 0;
-  for (let index = 0; index < left.length; index += 1) {
-    diff |= left[index]! ^ right[index]!;
-  }
-  return diff === 0;
+
+  verifySignature(publicKey, buildAuthTranscript(envelope), toUint8Array(envelope.signature));
 }
 
 function stripProto3Defaults(value: unknown): unknown {
