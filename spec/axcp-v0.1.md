@@ -446,4 +446,4 @@ _(To be compiled after first pass)_
 
 ---
 
-© 2025 TradePhantom LLC – All Rights Reserved
+© 2025 TradePhantom LLC — Licensed under the [Apache License 2.0](../LICENSE)
