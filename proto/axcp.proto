@@ -11,7 +11,7 @@ option go_package = "github.com/tradephantomllc/axcp-spec/sdk/go/internal/pb";
 message AxcpEnvelope {
   uint32 version       = 1;   // protocol version (currently 1)
   string trace_id      = 2;   // request / conversation correlation
-  uint32 profile       = 3;   // 0 = Basic … 3 = Enterprise-Privacy
+  uint32 profile       = 3;   // 0 = transport-only, 1 = secure-baseline-v1; other values reserved
 
   oneof payload {                 // main frame types
     ContextPatch        context_patch  = 4;
@@ -31,7 +31,7 @@ message AxcpEnvelope {
   string recipient_did    = 23;  // optional: intended recipient DID for directed messages
 
   bytes  signature          = 100; // detached sig over auth transcript (profile ≥1)
-  bytes  attestation_proof  = 101; // SGX / SEV quote (profile ≥2)
+  bytes  attestation_proof  = 101; // reserved for profiles ≥2; unused by Core and not signed
 }
 
 /* ─────────────  CONTEXT-SYNC  ─────────────────────────────────────── */
@@ -88,7 +88,7 @@ message CapabilityDescriptor {
   string  resource_hint     = 5;
   repeated string auth_scope = 6;
   string  descriptor_version = 7;
-  // Field 8 reserved (was: DpParams dp for profile ≥3, moved to Advanced/Enterprise)
+  // Field 8 is reserved.
   reserved 8;
 }
 
@@ -133,7 +133,6 @@ message TelemetryDatagram {
 }
 
 /* ─────────────  ERROR HANDLING  ───────────────────────────────────── */
-// Note: Differential Privacy (DP) definitions moved to Advanced/Enterprise proto.
 
 enum ErrorCode {
   UNKNOWN                     = 0;
@@ -148,12 +147,12 @@ enum ErrorCode {
   TOO_MANY_REQUESTS           = 9;
   // Auth error codes (Secure Baseline)
   AUTH_SIGNATURE_INVALID      = 10; // Ed25519 signature verification failed
-  AUTH_REPLAY_DETECTED        = 11; // replay attack detected (sequence/nonce reuse)
+  AUTH_REPLAY_DETECTED        = 11; // replay detected (sequence reuse or outside the window)
   PROFILE_MISMATCH            = 12;
   PROFILE_UNSUPPORTED         = 13;
   PROFILE_NEGOTIATION_FAILED  = 14;
   MISSING_PATCH_RANGE         = 15;
-  // Error code 16 reserved (was: DP_POLICY_CONFLICT, moved to Advanced/Enterprise)
+  reserved 16;
   AUTH_DID_INVALID            = 17; // sender DID invalid or unresolvable
   AUTH_TIMESTAMP_EXPIRED      = 18; // timestamp outside acceptable window
 }
