@@ -494,7 +494,7 @@ func TestEnvelopeAuthenticator_RejectsMalformedAuthFields(t *testing.T) {
 
 	short := base
 	short.Signature = sig[:63]
-	if r := ea.VerifyEnvelope(context.Background(), negotiate.ProfileSecureBaseline, short); r.Authenticated || r.ErrorCode != ErrorCodeAuthSignatureInvalid {
+	if r := ea.VerifyEnvelope(context.Background(), negotiate.ProfileSecureBaseline, short); r.Authenticated || r.ErrorCode != ErrorCodeMalformedRequest {
 		t.Fatalf("63-byte signature: %+v", r)
 	}
 

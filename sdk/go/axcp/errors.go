@@ -161,7 +161,7 @@ func ToProtocolError(err error) *ProtocolError {
 	case errors.Is(err, auth.ErrSignatureMissing):
 		return ErrAuthSignatureInvalid.WithReason("signature missing")
 	case errors.Is(err, auth.ErrSignatureLength):
-		return ErrAuthSignatureInvalid.WithReason("signature has invalid length")
+		return ErrMalformedRequest.WithReason("signature has invalid length")
 	case errors.Is(err, auth.ErrTimestampExpired):
 		return ErrAuthTimestampExpired.WithReason("timestamp expired")
 	case errors.Is(err, auth.ErrTimestampFuture):

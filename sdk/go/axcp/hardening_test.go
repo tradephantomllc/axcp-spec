@@ -187,7 +187,7 @@ func TestHardening_EveryEntryPointRejects(t *testing.T) {
 			env := p.signedEnvelope(t, nil)
 			env.Signature = env.Signature[:63]
 			return env
-		}, ErrAuthSignatureInvalid, nil},
+		}, ErrMalformedRequest, nil},
 		{"tampered trace", func(t *testing.T) *Envelope {
 			env := p.signedEnvelope(t, nil)
 			env.TraceId = "changed"

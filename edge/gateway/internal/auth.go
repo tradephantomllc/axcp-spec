@@ -171,7 +171,7 @@ func (ea *EnvelopeAuthenticator) VerifyEnvelope(ctx context.Context, profile neg
 		}
 	}
 	if len(envAuth.Signature) != ed25519.SignatureSize {
-		return AuthResult{Error: auth.ErrSignatureLength, ErrorCode: ErrorCodeAuthSignatureInvalid}
+		return AuthResult{Error: auth.ErrSignatureLength, ErrorCode: ErrorCodeMalformedRequest}
 	}
 	if envAuth.Sequence == 0 {
 		return AuthResult{Error: auth.ErrSequenceMissing, ErrorCode: ErrorCodeMalformedRequest}
