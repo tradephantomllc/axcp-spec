@@ -415,3 +415,27 @@ func TestToProtocolError_DoesNotLeakInternalErrors(t *testing.T) {
 	}
 	_ = typedNil.Error()
 }
+
+func TestFromBytesStrict_NestedOneof(t *testing.T) {
+	p := newTestPeers(t)
+	env := p.signedEnvelope(t, func(e *Envelope) {
+		e.Payload = &pb.AxcpEnvelope_CapabilityMsg{CapabilityMsg: &pb.CapabilityMessage{
+			Kind: &pb.CapabilityMessage_Ack{Ack: &pb.CapabilityAck{}},
+		}}
+	})
+	raw, err := proto.Marshal(&env.AxcpEnvelope)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := FromBytesStrict(raw); err != nil {
+		t.Fatalf("valid nested oneof rejected: %v", err)
+	}
+
+	// Append a second, different member of CapabilityMessage.kind inside the
+	// capability payload (field 5 is merged, so this builds the ambiguous form).
+	offer, _ := proto.Marshal(&pb.CapabilityMessage{Kind: &pb.CapabilityMessage_Offer{Offer: &pb.CapabilityOffer{}}})
+	ambiguous := protowire.AppendBytes(protowire.AppendTag(append([]byte(nil), raw...), 5, protowire.BytesType), offer)
+	if _, err := FromBytesStrict(ambiguous); !errors.Is(err, ErrMalformedRequest) {
+		t.Fatalf("two members of a nested oneof: got %v", err)
+	}
+}

@@ -125,6 +125,9 @@ def _scan_message(
     if depth > _MAX_DEPTH:
         _fail("message nesting too deep")
     oneofs: dict[str, set[int]] = {}
+    # Occurrences of a singular message field are merged by decoders, so their
+    # bodies are concatenated and checked as one message after this loop.
+    merged: dict[int, tuple[Descriptor, list[bytes]]] = {}
     fields = descriptor.fields_by_number
     pos = start
     while pos < end:
@@ -153,7 +156,10 @@ def _scan_message(
                 _fail("length-delimited field exceeds message bounds")
             field_end = pos + length
             if field.type == FieldDescriptor.TYPE_MESSAGE:
-                _scan_message(field.message_type, data, pos, field_end, depth + 1)
+                if _is_repeated(field):
+                    _scan_message(field.message_type, data, pos, field_end, depth + 1)
+                else:
+                    merged.setdefault(number, (field.message_type, []))[1].append(bytes(data[pos:field_end]))
             elif field.type == FieldDescriptor.TYPE_STRING:
                 try:
                     str(data[pos:field_end], "utf-8")
@@ -169,6 +175,9 @@ def _scan_message(
             members.add(number)
             if len(members) > 1:
                 _fail(f"multiple members of oneof {oneof.name} in {descriptor.name}")
+    for message_type, chunks in merged.values():
+        body = memoryview(b"".join(chunks))
+        _scan_message(message_type, body, 0, len(body), depth + 1)
     return oneofs
 
 

@@ -14,19 +14,21 @@ const ProtocolVersion = 1
 // ProfileSecureBaselineNumber is the envelope profile number of secure-baseline-v1.
 const ProfileSecureBaselineNumber = 1
 
-// payloadFieldNumbers are the wire numbers of the AxcpEnvelope payload oneof.
-var payloadFieldNumbers = map[protowire.Number]bool{4: true, 5: true, 6: true, 7: true, 8: true, 9: true, 10: true, 11: true}
+// maxStrictDepth bounds recursion when scanning nested messages.
+const maxStrictDepth = 32
 
 // FromBytesStrict decodes an envelope for secure verification.
 //
 // In addition to normal protobuf decoding (which rejects invalid UTF-8), it
-// rejects envelopes that carry two or more distinct payload members on the
-// wire, unknown fields at any nesting level and undefined enum values. These
-// constructs are handled differently by protobuf libraries, so accepting them
-// would let the same signed bytes mean different things to different SDKs.
-// Repeated occurrences of the same payload member are merged as usual.
+// rejects envelopes that carry two or more distinct members of any oneof
+// (the payload or a nested oneof) on the wire, unknown fields at any nesting
+// level and undefined enum values. These constructs are handled differently
+// by protobuf libraries, so accepting them would let the same signed bytes
+// mean different things to different SDKs. Repeated occurrences of the same
+// oneof member are merged as usual.
 func FromBytesStrict(raw []byte) (*Envelope, error) {
-	if err := checkSinglePayloadMember(raw); err != nil {
+	md := (&pb.AxcpEnvelope{}).ProtoReflect().Descriptor()
+	if err := checkOneofMembers(raw, md, 0); err != nil {
 		return nil, err
 	}
 	env, err := FromBytes(raw)
@@ -39,25 +41,63 @@ func FromBytesStrict(raw []byte) (*Envelope, error) {
 	return env, nil
 }
 
-func checkSinglePayloadMember(raw []byte) error {
-	var member protowire.Number
+// checkOneofMembers scans raw message bytes and rejects two distinct members
+// of the same oneof, recursing into known message fields. Occurrences of a
+// singular message field are merged by protobuf decoders, so they are
+// concatenated before the nested message is checked.
+func checkOneofMembers(raw []byte, md protoreflect.MessageDescriptor, depth int) error {
+	if depth > maxStrictDepth {
+		return ErrMalformedRequest.WithReason("envelope nesting too deep")
+	}
+	members := map[protoreflect.FullName]protowire.Number{}
+	merged := map[protowire.Number][]byte{}
+	var mergedOrder []protoreflect.FieldDescriptor
+	fields := md.Fields()
 	for len(raw) > 0 {
 		num, typ, n := protowire.ConsumeTag(raw)
 		if n < 0 {
 			return ErrMalformedRequest.WithReason("envelope is not valid protobuf")
 		}
 		raw = raw[n:]
-		if payloadFieldNumbers[num] {
-			if member != 0 && member != num {
-				return ErrMalformedRequest.WithReason("envelope carries more than one payload member")
-			}
-			member = num
-		}
 		m := protowire.ConsumeFieldValue(num, typ, raw)
 		if m < 0 {
 			return ErrMalformedRequest.WithReason("envelope is not valid protobuf")
 		}
+		value := raw[:m]
 		raw = raw[m:]
+
+		fd := fields.ByNumber(num)
+		if fd == nil {
+			continue // unknown fields are rejected after decoding
+		}
+		if od := fd.ContainingOneof(); od != nil && !od.IsSynthetic() {
+			if prev, seen := members[od.FullName()]; seen && prev != num {
+				return ErrMalformedRequest.WithReason("envelope carries more than one member of a oneof")
+			}
+			members[od.FullName()] = num
+		}
+		if fd.Message() == nil || fd.IsMap() || typ != protowire.BytesType {
+			continue
+		}
+		inner, k := protowire.ConsumeBytes(value)
+		if k < 0 {
+			return ErrMalformedRequest.WithReason("envelope is not valid protobuf")
+		}
+		if fd.IsList() {
+			if err := checkOneofMembers(inner, fd.Message(), depth+1); err != nil {
+				return err
+			}
+			continue
+		}
+		if _, seen := merged[num]; !seen {
+			mergedOrder = append(mergedOrder, fd)
+		}
+		merged[num] = append(merged[num], inner...)
+	}
+	for _, fd := range mergedOrder {
+		if err := checkOneofMembers(merged[fd.Number()], fd.Message(), depth+1); err != nil {
+			return err
+		}
 	}
 	return nil
 }

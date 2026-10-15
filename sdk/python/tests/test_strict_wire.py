@@ -153,3 +153,15 @@ def test_wire_type_mismatch_and_malformed_varints_are_rejected() -> None:
         decode_envelope(b"\x22\x0a\x01\x02", strict=True)
     with pytest.raises(InvalidEnvelopeError, match="field number"):
         decode_envelope(_varint(((1 << 29) << 3) | 0) + b"\x01" + payload, strict=True)
+
+
+def test_repeated_singular_submessages_are_merged_before_oneof_checks() -> None:
+    # CapabilityMessage.kind: ack (3) in the first occurrence of payload field 5,
+    # offer (1) in the second. Decoders merge the occurrences into one message.
+    ack = _ld(3, b"")
+    offer = _ld(1, b"")
+    same_kind = HEADER + _ld(5, ack) + _ld(5, ack)
+    decode_envelope(same_kind, strict=True)
+    mixed = HEADER + _ld(5, ack) + _ld(5, offer)
+    with pytest.raises(InvalidEnvelopeError, match="multiple members of oneof kind"):
+        decode_envelope(mixed, strict=True)

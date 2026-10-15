@@ -33,6 +33,18 @@ function withoutContextPatch(envelope: AxcpEnvelope): Uint8Array {
 }
 
 describe("strict envelope decoding (D5)", () => {
+  it("merges repeated singular sub-messages before checking nested oneofs", () => {
+    const base = withoutContextPatch(contextEnvelope());
+    // CapabilityMessage.kind: ack (3) in the first occurrence, offer (1) in the second.
+    const ack = lengthDelimited(3, new Uint8Array());
+    const offer = lengthDelimited(1, new Uint8Array());
+    const sameKind = concatBytes(base, lengthDelimited(5, ack), lengthDelimited(5, ack));
+    assert.doesNotThrow(() => decodeEnvelope(sameKind, { strict: true }));
+    const mixedKinds = concatBytes(base, lengthDelimited(5, ack), lengthDelimited(5, offer));
+    assert.throws(() => decodeEnvelope(mixedKinds, { strict: true }), /multiple members of oneof kind/);
+  });
+
+
   it("accepts canonical envelopes", async () => {
     const { bob, bytes } = signedFixture();
     const verified = await bob.verifyBytes(bytes);

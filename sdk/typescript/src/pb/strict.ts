@@ -178,6 +178,9 @@ function scanMessage(
   }
   const oneofs = new Map<string, Set<number>>();
   const membership = oneofMembership(type);
+  // Occurrences of a singular message field are merged by decoders, so their
+  // bodies are concatenated and checked as one message after this loop.
+  const merged = new Map<number, { type: protobuf.Type; chunks: Uint8Array[] }>();
   const cursor: Cursor = { pos: start };
   while (cursor.pos < end) {
     const tag = readVarintNumber(data, cursor, end);
@@ -206,7 +209,13 @@ function scanMessage(
       const fieldEnd = fieldStart + length;
       const resolved = field.resolvedType;
       if (resolved instanceof protobuf.Type) {
-        scanMessage(resolved, data, fieldStart, fieldEnd, depth + 1);
+        if (field.repeated) {
+          scanMessage(resolved, data, fieldStart, fieldEnd, depth + 1);
+        } else {
+          const entry = merged.get(fieldNumber) ?? { type: resolved, chunks: [] };
+          entry.chunks.push(data.subarray(fieldStart, fieldEnd));
+          merged.set(fieldNumber, entry);
+        }
       } else if (field.type === "string") {
         try {
           utf8Decoder.decode(data.subarray(fieldStart, fieldEnd));
@@ -232,7 +241,22 @@ function scanMessage(
       }
     }
   }
+  for (const { type: messageType, chunks } of merged.values()) {
+    const body = chunks.length === 1 ? chunks[0]! : concatChunks(chunks);
+    scanMessage(messageType, body, 0, body.length, depth + 1);
+  }
   return oneofs;
+}
+
+function concatChunks(chunks: Uint8Array[]): Uint8Array {
+  const total = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return out;
 }
 
 /**
