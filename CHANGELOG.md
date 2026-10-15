@@ -2,7 +2,14 @@
 
 ## Unreleased
 
-- Security hardening of Core SDKs and documentation alignment (see PRs)
+- **Go SDK (breaking where noted):**
+  - Strict DID syntax (512-byte limit), native Ed25519 `did:key` (`EncodeDIDKey`, `DecodeDIDKey`, `GenerateIdentity`, `DIDKeyResolver`); resolvers can no longer bind a `did:key` to a different key; small-order keys rejected.
+  - Replay protection rewritten as a bitmap window that never forgets active peers; idle-peer TTL raised to the timestamp window; bounded peers (fail closed); enabled by default in `NewValidator`, `ValidateRequest` and the middlewares.
+  - Validators check version, profile, single payload member, unknown fields, undefined enums, sequence and signature length on every path; `AllowedDIDs` implemented. **Breaking:** unused `ClientConfig`, `NetworkConfig`, `RequireClientCert` and `RateLimitPerPeer` removed; payload-less envelopes are rejected; recipient errors map to `AUTH_DID_INVALID`.
+  - **Breaking:** `auth.Session` requires a recipient and `PayloadForSequence`; sequences start at Unix microseconds. `CachingDIDResolver.PreloadDID` returns an error.
+  - `FromBytesStrict` and strict QUIC receive; bounded frame reads with a body timeout; listener connection/stream limits and TLS 1.3 minimum; internal error text no longer sent to peers.
+- **Gateway:** connection and stream limits (`-max-connections`, `-max-streams`), handshake/idle timeouts, strict frame decoding, code-only error replies, startup validation of `-trusted-did` (a `did:key` must encode the supplied key), loopback-only metrics with HTTP timeouts, dead buffer/telemetry code removed, `go vet` clean.
+- **Examples:** `secure_baseline` and `authenticated_chat` use real `did:key` identities and full SDK validation in both directions; the replay demo uses the SDK `ReplayProtector`.
 - Specification v1.0 (2026-10-15 revision): byte-exact canonical signing payload, strict envelope parsing, DID syntax and length limits, `did:key` derivation and resolver precedence, small-order key rejection, replay window and peer-state lifetime rules, expanded required rejections and error-code mapping; nonce mode withdrawn and profile negotiation wire format declared informative. See the specification's [Revision History](spec/axcp-v1.0.md#revision-history).
 - **Breaking (2026-07-05, recorded here):** the Secure Baseline transcript was revised to bind sender DID, recipient DID, the canonical signing payload (including `sequence`) and the timestamp at second precision. The label `AXCP-DID-AUTH-v1` is unchanged; peers implementing the original `v1.0.0` transcript cannot interoperate with current peers.
 

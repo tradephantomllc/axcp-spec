@@ -135,7 +135,7 @@ Expected output:
 === AXCP Authenticated Chat Server ===
 Profile: secure-baseline-v1
 DID Resolver initialized with 2 identities
-Server DID: did:key:axcp-auth-chat-server
+Server DID: did:key:z6MknwS64iC7bHmVW7q4fjZH9GUxmnWdvoDHWRA6LZytxoa8
 Listening on localhost:61301
 ```
 
@@ -150,10 +150,10 @@ Expected output:
 ```
 === AXCP Authenticated Chat Client ===
 Profile: secure-baseline-v1
-Client DID: did:key:axcp-auth-chat-client
-Server DID: did:key:axcp-auth-chat-server
+Client DID: did:key:z6MkwBwyXGkhqXa1ArAr8ajJVsHqDhLd5uCzX1V5NpFUkzNV
+Server DID: did:key:z6MknwS64iC7bHmVW7q4fjZH9GUxmnWdvoDHWRA6LZytxoa8
 ...
---- Verifying Server Signature ---
+--- Verifying Server Response ---
   Server Signature VALID
 
 Bidirectional authenticated exchange completed!
