@@ -1,6 +1,8 @@
 export {
+  DEFAULT_READ_TIMEOUT_MS,
   NodeStreamConnection,
   type NodeStreamConnectionOptions,
+  type ReceiveEnvelopeOptions,
   type ReceiveOptions,
 } from "./connection.js";
 export {
@@ -18,6 +20,8 @@ export {
   type FrameOptions,
 } from "./framing.js";
 export {
+  HandlerErrorSink,
+  MAX_RETAINED_HANDLER_ERRORS,
   TcpClient,
   TcpServer,
   type StreamHandler,
@@ -25,6 +29,7 @@ export {
   type TcpServerConfig,
 } from "./tcp.js";
 export {
+  DEFAULT_TLS_MIN_VERSION,
   TlsClient,
   TlsServer,
   type TlsClientConfig,

@@ -38,14 +38,13 @@ const (
 	ErrorCode_TOO_MANY_REQUESTS   ErrorCode = 9
 	// Auth error codes (Secure Baseline)
 	ErrorCode_AUTH_SIGNATURE_INVALID     ErrorCode = 10 // Ed25519 signature verification failed
-	ErrorCode_AUTH_REPLAY_DETECTED       ErrorCode = 11 // replay attack detected (sequence/nonce reuse)
+	ErrorCode_AUTH_REPLAY_DETECTED       ErrorCode = 11 // replay detected (sequence reuse or outside the window)
 	ErrorCode_PROFILE_MISMATCH           ErrorCode = 12
 	ErrorCode_PROFILE_UNSUPPORTED        ErrorCode = 13
 	ErrorCode_PROFILE_NEGOTIATION_FAILED ErrorCode = 14
 	ErrorCode_MISSING_PATCH_RANGE        ErrorCode = 15
-	// Error code 16 reserved (was: DP_POLICY_CONFLICT, moved to Advanced/Enterprise)
-	ErrorCode_AUTH_DID_INVALID       ErrorCode = 17 // sender DID invalid or unresolvable
-	ErrorCode_AUTH_TIMESTAMP_EXPIRED ErrorCode = 18 // timestamp outside acceptable window
+	ErrorCode_AUTH_DID_INVALID           ErrorCode = 17 // sender DID invalid or unresolvable
+	ErrorCode_AUTH_TIMESTAMP_EXPIRED     ErrorCode = 18 // timestamp outside acceptable window
 )
 
 // Enum value maps for ErrorCode.
@@ -175,7 +174,7 @@ type AxcpEnvelope struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	Version uint32                 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`               // protocol version (currently 1)
 	TraceId string                 `protobuf:"bytes,2,opt,name=trace_id,json=traceId,proto3" json:"trace_id,omitempty"` // request / conversation correlation
-	Profile uint32                 `protobuf:"varint,3,opt,name=profile,proto3" json:"profile,omitempty"`               // 0 = Basic … 3 = Enterprise-Privacy
+	Profile uint32                 `protobuf:"varint,3,opt,name=profile,proto3" json:"profile,omitempty"`               // 0 = transport-only, 1 = secure-baseline-v1; other values reserved
 	// Types that are valid to be assigned to Payload:
 	//
 	//	*AxcpEnvelope_ContextPatch
@@ -193,7 +192,7 @@ type AxcpEnvelope struct {
 	Sequence         uint64 `protobuf:"varint,22,opt,name=sequence,proto3" json:"sequence,omitempty"`                                         // monotonic sequence number for replay protection
 	RecipientDid     string `protobuf:"bytes,23,opt,name=recipient_did,json=recipientDid,proto3" json:"recipient_did,omitempty"`              // optional: intended recipient DID for directed messages
 	Signature        []byte `protobuf:"bytes,100,opt,name=signature,proto3" json:"signature,omitempty"`                                       // detached sig over auth transcript (profile ≥1)
-	AttestationProof []byte `protobuf:"bytes,101,opt,name=attestation_proof,json=attestationProof,proto3" json:"attestation_proof,omitempty"` // SGX / SEV quote (profile ≥2)
+	AttestationProof []byte `protobuf:"bytes,101,opt,name=attestation_proof,json=attestationProof,proto3" json:"attestation_proof,omitempty"` // reserved for profiles ≥2; unused by Core and not signed
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -1689,7 +1688,7 @@ const file_axcp_proto_rawDesc = "" +
 	"\vMcpJsonBlob\x12\x12\n" +
 	"\x04json\x18\x01 \x01(\fR\x04json\"!\n" +
 	"\vA2AJsonBlob\x12\x12\n" +
-	"\x04json\x18\x01 \x01(\fR\x04json*\x9d\x03\n" +
+	"\x04json\x18\x01 \x01(\fR\x04json*\xa3\x03\n" +
 	"\tErrorCode\x12\v\n" +
 	"\aUNKNOWN\x10\x00\x12\x13\n" +
 	"\x0fINVALID_CONTEXT\x10\x01\x12\x10\n" +
@@ -1709,7 +1708,7 @@ const file_axcp_proto_rawDesc = "" +
 	"\x1aPROFILE_NEGOTIATION_FAILED\x10\x0e\x12\x17\n" +
 	"\x13MISSING_PATCH_RANGE\x10\x0f\x12\x14\n" +
 	"\x10AUTH_DID_INVALID\x10\x11\x12\x1a\n" +
-	"\x16AUTH_TIMESTAMP_EXPIRED\x10\x12B9Z7github.com/tradephantomllc/axcp-spec/sdk/go/internal/pbb\x06proto3"
+	"\x16AUTH_TIMESTAMP_EXPIRED\x10\x12\"\x04\b\x10\x10\x10B9Z7github.com/tradephantomllc/axcp-spec/sdk/go/internal/pbb\x06proto3"
 
 var (
 	file_axcp_proto_rawDescOnce sync.Once

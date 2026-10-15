@@ -11,18 +11,27 @@ import (
 	"github.com/google/uuid"
 	"github.com/tradephantomllc/axcp-spec/sdk/go/auth"
 	"github.com/tradephantomllc/axcp-spec/sdk/go/axcp"
+	pb "github.com/tradephantomllc/axcp-spec/sdk/go/axcp/pb"
 	"github.com/tradephantomllc/axcp-spec/sdk/go/netquic"
 )
+
+// newPayloadEnvelope returns a Secure Baseline envelope carrying a small
+// context patch; authenticated envelopes must carry exactly one payload.
+func newPayloadEnvelope(traceID string) *axcp.Envelope {
+	env := axcp.NewEnvelope(traceID, 1)
+	env.Payload = &pb.AxcpEnvelope_ContextPatch{ContextPatch: &pb.ContextPatch{ContextId: "ctx", BaseVersion: 1}}
+	return env
+}
 
 // TestIntegration_ClientServerExchange tests a complete client-server message exchange.
 func TestIntegration_ClientServerExchange(t *testing.T) {
 	// Generate server identity
 	serverPub, serverPriv, _ := ed25519.GenerateKey(nil)
-	serverDID := "did:key:server-test"
+	serverDID := "did:example:server-test"
 
 	// Generate client identity
 	clientPub, clientPriv, _ := ed25519.GenerateKey(nil)
-	clientDID := "did:key:client-test"
+	clientDID := "did:example:client-test"
 
 	// Create resolver with both DIDs
 	resolver := auth.NewMemoryDIDResolver()
@@ -63,7 +72,7 @@ func TestIntegration_ClientServerExchange(t *testing.T) {
 		}
 
 		// Create response
-		resp := axcp.NewEnvelope(req.TraceId, 1)
+		resp := newPayloadEnvelope(req.TraceId)
 		resp.SenderDid = serverDID
 		resp.RecipientDid = req.SenderDid
 		resp.TimestampMs = auth.NowMs()
@@ -132,7 +141,7 @@ func TestIntegration_ClientServerExchange(t *testing.T) {
 
 	// Create request envelope
 	traceID := uuid.NewString()
-	req := axcp.NewEnvelope(traceID, 1)
+	req := newPayloadEnvelope(traceID)
 	req.SenderDid = clientDID
 	req.RecipientDid = serverDID
 	req.TimestampMs = auth.NowMs()
@@ -184,7 +193,7 @@ func TestIntegration_ClientServerExchange(t *testing.T) {
 func TestIntegration_ValidationRejectsInvalid(t *testing.T) {
 	// Generate server identity
 	serverPub, _, _ := ed25519.GenerateKey(nil)
-	serverDID := "did:key:server-test"
+	serverDID := "did:example:server-test"
 
 	// Create resolver
 	resolver := auth.NewMemoryDIDResolver()
@@ -242,8 +251,8 @@ func TestIntegration_ValidationRejectsInvalid(t *testing.T) {
 	defer client.Close()
 
 	// Send envelope with invalid signature (zeros)
-	req := axcp.NewEnvelope(uuid.NewString(), 1)
-	req.SenderDid = "did:key:unknown-client" // Unknown DID
+	req := newPayloadEnvelope(uuid.NewString())
+	req.SenderDid = "did:example:unknown-client" // Unknown DID
 	req.RecipientDid = serverDID
 	req.TimestampMs = auth.NowMs()
 	req.Signature = make([]byte, 64) // Invalid signature
@@ -265,9 +274,9 @@ func TestIntegration_ValidationRejectsInvalid(t *testing.T) {
 func TestIntegration_MultipleMessages(t *testing.T) {
 	// Generate identities
 	serverPub, serverPriv, _ := ed25519.GenerateKey(nil)
-	serverDID := "did:key:server-multi"
+	serverDID := "did:example:server-multi"
 	clientPub, clientPriv, _ := ed25519.GenerateKey(nil)
-	clientDID := "did:key:client-multi"
+	clientDID := "did:example:client-multi"
 
 	resolver := auth.NewMemoryDIDResolver()
 	resolver.AddDID(serverDID, serverPub)
@@ -306,7 +315,7 @@ func TestIntegration_MultipleMessages(t *testing.T) {
 			}
 
 			// Echo back
-			resp := axcp.NewEnvelope(env.TraceId, 1)
+			resp := newPayloadEnvelope(env.TraceId)
 			resp.SenderDid = serverDID
 			resp.RecipientDid = env.SenderDid
 			resp.TimestampMs = auth.NowMs()
@@ -339,7 +348,7 @@ func TestIntegration_MultipleMessages(t *testing.T) {
 
 	for i := 0; i < messageCount; i++ {
 		traceID := uuid.NewString()
-		req := axcp.NewEnvelope(traceID, 1)
+		req := newPayloadEnvelope(traceID)
 		req.SenderDid = clientDID
 		req.RecipientDid = serverDID
 		req.TimestampMs = auth.NowMs()
@@ -370,7 +379,7 @@ func TestIntegration_MultipleMessages(t *testing.T) {
 func TestIntegration_ConcurrentClients(t *testing.T) {
 	// Generate server identity
 	serverPub, serverPriv, _ := ed25519.GenerateKey(nil)
-	serverDID := "did:key:server-concurrent"
+	serverDID := "did:example:server-concurrent"
 
 	resolver := auth.NewMemoryDIDResolver()
 	resolver.AddDID(serverDID, serverPub)
@@ -412,7 +421,7 @@ func TestIntegration_ConcurrentClients(t *testing.T) {
 					return
 				}
 
-				resp := axcp.NewEnvelope(env.TraceId, 1)
+				resp := newPayloadEnvelope(env.TraceId)
 				resp.SenderDid = serverDID
 				resp.RecipientDid = env.SenderDid
 				resp.TimestampMs = auth.NowMs()
@@ -441,7 +450,7 @@ func TestIntegration_ConcurrentClients(t *testing.T) {
 
 			// Generate client identity
 			clientPub, clientPriv, _ := ed25519.GenerateKey(nil)
-			clientDID := "did:key:client-" + uuid.NewString()[:8]
+			clientDID := "did:example:client-" + uuid.NewString()[:8]
 			resolver.AddDID(clientDID, clientPub)
 
 			clientTLS := &tls.Config{
@@ -458,7 +467,7 @@ func TestIntegration_ConcurrentClients(t *testing.T) {
 
 			// Send request
 			traceID := uuid.NewString()
-			req := axcp.NewEnvelope(traceID, 1)
+			req := newPayloadEnvelope(traceID)
 			req.SenderDid = clientDID
 			req.RecipientDid = serverDID
 			req.TimestampMs = auth.NowMs()
@@ -502,9 +511,9 @@ func TestIntegration_ConcurrentClients(t *testing.T) {
 func TestIntegration_ErrorEnvelope(t *testing.T) {
 	// Generate identities
 	serverPub, serverPriv, _ := ed25519.GenerateKey(nil)
-	serverDID := "did:key:server-error"
+	serverDID := "did:example:server-error"
 	clientPub, clientPriv, _ := ed25519.GenerateKey(nil)
-	clientDID := "did:key:client-error"
+	clientDID := "did:example:client-error"
 
 	resolver := auth.NewMemoryDIDResolver()
 	resolver.AddDID(serverDID, serverPub)
@@ -570,7 +579,7 @@ func TestIntegration_ErrorEnvelope(t *testing.T) {
 	defer client.Close()
 
 	// Send request
-	req := axcp.NewEnvelope(uuid.NewString(), 1)
+	req := newPayloadEnvelope(uuid.NewString())
 	req.SenderDid = clientDID
 	req.RecipientDid = serverDID
 	req.TimestampMs = auth.NowMs()

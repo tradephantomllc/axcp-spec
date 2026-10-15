@@ -22,6 +22,9 @@ type ProtocolError struct {
 
 // Error implements the error interface.
 func (e *ProtocolError) Error() string {
+	if e == nil {
+		return "axcp: <nil>"
+	}
 	if e.Reason != "" {
 		return fmt.Sprintf("axcp: %s: %s", e.Code.String(), e.Reason)
 	}
@@ -48,10 +51,11 @@ func (e *ProtocolError) WithDiagnostics(data []byte) *ProtocolError {
 
 // Is implements errors.Is for comparing ProtocolErrors by code.
 func (e *ProtocolError) Is(target error) bool {
-	if t, ok := target.(*ProtocolError); ok {
-		return e.Code == t.Code
+	t, ok := target.(*ProtocolError)
+	if !ok || e == nil || t == nil {
+		return false
 	}
-	return false
+	return e.Code == t.Code
 }
 
 // Protocol error constants for each error code.
@@ -137,7 +141,7 @@ func IsErrorEnvelope(env *Envelope) bool {
 
 // ToProtocolError converts a Go error to a ProtocolError.
 // It recognizes common auth errors and maps them to appropriate protocol codes.
-// Unknown errors are mapped to ErrUnknown with the error message as reason.
+// Unknown errors are mapped to ErrUnknown with a generic reason.
 func ToProtocolError(err error) *ProtocolError {
 	if err == nil {
 		return nil
@@ -149,36 +153,55 @@ func ToProtocolError(err error) *ProtocolError {
 		return pe
 	}
 
-	// Map auth package errors to protocol errors
+	// Map auth package errors to protocol errors. Reasons are fixed strings so
+	// that internal error details are never sent to remote peers.
 	switch {
 	case errors.Is(err, auth.ErrVerificationFailed):
-		return ErrAuthSignatureInvalid.WithReason(err.Error())
+		return ErrAuthSignatureInvalid.WithReason("signature verification failed")
 	case errors.Is(err, auth.ErrSignatureMissing):
 		return ErrAuthSignatureInvalid.WithReason("signature missing")
+	case errors.Is(err, auth.ErrSignatureLength):
+		return ErrMalformedRequest.WithReason("signature has invalid length")
 	case errors.Is(err, auth.ErrTimestampExpired):
-		return ErrAuthTimestampExpired.WithReason(err.Error())
+		return ErrAuthTimestampExpired.WithReason("timestamp expired")
 	case errors.Is(err, auth.ErrTimestampFuture):
 		return ErrAuthTimestampExpired.WithReason("timestamp in future")
 	case errors.Is(err, auth.ErrTimestampMissing):
 		return ErrAuthTimestampExpired.WithReason("timestamp missing")
 	case errors.Is(err, auth.ErrReplay):
-		return ErrAuthReplayDetected.WithReason(err.Error())
+		return ErrAuthReplayDetected.WithReason("replay detected")
+	case errors.Is(err, auth.ErrTooOld):
+		return ErrAuthReplayDetected.WithReason("sequence outside replay window")
+	case errors.Is(err, auth.ErrReplayCapacity):
+		return ErrTooManyRequests.WithReason("replay protection capacity exceeded")
+	case errors.Is(err, auth.ErrSequenceMissing):
+		return ErrMalformedRequest.WithReason("sequence missing")
 	case errors.Is(err, auth.ErrRecipientMissing):
-		return ErrMalformedRequest.WithReason("recipient missing")
+		return ErrAuthDIDInvalid.WithReason("recipient missing")
 	case errors.Is(err, auth.ErrRecipientMismatch):
-		return ErrMalformedRequest.WithReason("wrong recipient")
+		return ErrAuthDIDInvalid.WithReason("wrong recipient")
 	case errors.Is(err, auth.ErrSenderMissing):
+		return ErrAuthDIDInvalid.WithReason("sender missing")
+	case errors.Is(err, auth.ErrEmptyPeerID):
 		return ErrAuthDIDInvalid.WithReason("sender missing")
 	case errors.Is(err, auth.ErrDIDResolverMissing):
 		return ErrAuthDIDInvalid.WithReason("DID resolver missing")
 	case errors.Is(err, auth.ErrDIDNotFound):
 		return ErrAuthDIDInvalid.WithReason("DID not found")
+	case errors.Is(err, auth.ErrDIDMismatch):
+		return ErrAuthDIDInvalid.WithReason("DID document mismatch")
+	case errors.Is(err, auth.ErrNoAcceptableKey), errors.Is(err, auth.ErrSmallOrderKey):
+		return ErrAuthDIDInvalid.WithReason("no acceptable verification key")
+	case errors.Is(err, auth.ErrInvalidDIDFormat), errors.Is(err, auth.ErrDIDMethodEmpty),
+		errors.Is(err, auth.ErrDIDIDEmpty), errors.Is(err, auth.ErrDIDContainsInvalid),
+		errors.Is(err, auth.ErrDIDTooLong), errors.Is(err, auth.ErrInvalidDIDKey):
+		return ErrAuthDIDInvalid.WithReason("invalid DID")
 	case errors.Is(err, auth.ErrEnvelopeNil):
 		return ErrMalformedRequest.WithReason("envelope is nil")
 	}
 
-	// Default: unknown error
-	return ErrUnknown.WithReason(err.Error())
+	// Default: unknown error. The original error text is not exposed.
+	return ErrUnknown.WithReason("internal error")
 }
 
 // FromErrorCode creates a ProtocolError from an error code.

@@ -21,6 +21,10 @@ var (
 
 	// ErrSessionClosed indicates the session has been closed
 	ErrSessionClosed = errors.New("auth: session closed")
+
+	// ErrSequenceNotBound indicates a signing request without PayloadForSequence.
+	// The signed payload must cover the replay sequence allocated by the session.
+	ErrSequenceNotBound = errors.New("auth: signing payload must bind the sequence; use PayloadForSequence")
 )
 
 // Session manages authentication state for an AXCP connection.
@@ -60,6 +64,12 @@ type SessionConfig struct {
 
 	// Clock is the time source (if nil, uses system clock)
 	Clock Clock
+
+	// FirstSequence is the sequence number of the first signed message.
+	// Zero selects the current Unix time in microseconds, which keeps sequence
+	// numbers increasing across process restarts so receivers do not reject a
+	// restarted sender as a replay.
+	FirstSequence uint64
 }
 
 // NewSession creates a new authentication session.
@@ -69,11 +79,19 @@ func NewSession(config SessionConfig) *Session {
 		clock = RealClock{}
 	}
 
+	first := config.FirstSequence
+	if first == 0 {
+		first = uint64(clock.Now().UnixMicro())
+		if first == 0 {
+			first = 1
+		}
+	}
+
 	return &Session{
 		localDID:   config.LocalDID,
 		privateKey: config.PrivateKey,
 		clock:      clock,
-		sequence:   0,
+		sequence:   first - 1,
 	}
 }
 
@@ -129,9 +147,9 @@ func (s *Session) CurrentSequence() uint64 {
 type SignatureInput struct {
 	// Payload is a prebuilt canonical signing payload.
 	//
-	// For AXCP Secure Baseline envelope signing, the payload must include the
-	// final replay sequence. Prefer PayloadForSequence when the session owns
-	// sequence allocation.
+	// Deprecated: a prebuilt payload cannot cover the sequence allocated by the
+	// session, so SignEnvelope rejects requests that set only Payload. Use
+	// PayloadForSequence.
 	Payload []byte
 
 	// PayloadForSequence builds the canonical signing payload after the session
@@ -139,7 +157,9 @@ type SignatureInput struct {
 	// envelope signing because sequence must be covered by the signature.
 	PayloadForSequence func(sequence uint64) ([]byte, error)
 
-	// RecipientDID overrides the remote DID for directed messages (optional)
+	// RecipientDID overrides the remote DID for directed messages. Either this
+	// field or the negotiated remote DID must be set: every Secure Baseline
+	// message is bound to its recipient.
 	RecipientDID string
 }
 
@@ -171,6 +191,10 @@ func (s *Session) SignEnvelope(ctx context.Context, input SignatureInput) (*Sign
 		s.mu.RUnlock()
 		return nil, ErrNoPrivateKey
 	}
+	if len(s.privateKey) != ed25519.PrivateKeySize {
+		s.mu.RUnlock()
+		return nil, ErrInvalidPrivateKeySize
+	}
 
 	localDID := s.localDID
 	remoteDID := s.remoteDID
@@ -182,19 +206,21 @@ func (s *Session) SignEnvelope(ctx context.Context, input SignatureInput) (*Sign
 	if input.RecipientDID != "" {
 		recipientDID = input.RecipientDID
 	}
+	if recipientDID == "" {
+		return nil, ErrRecipientMissing
+	}
+	if input.PayloadForSequence == nil {
+		return nil, ErrSequenceNotBound
+	}
 
 	// Get timestamp and sequence
 	now := s.clock.Now()
 	timestampMs := uint64(now.UnixMilli())
 	sequence := s.NextSequence()
 
-	signingPayload := input.Payload
-	if input.PayloadForSequence != nil {
-		var err error
-		signingPayload, err = input.PayloadForSequence(sequence)
-		if err != nil {
-			return nil, fmt.Errorf("auth: build signing payload: %w", err)
-		}
+	signingPayload, err := input.PayloadForSequence(sequence)
+	if err != nil {
+		return nil, fmt.Errorf("auth: build signing payload: %w", err)
 	}
 
 	// Build transcript for signing
@@ -276,42 +302,25 @@ func (r *MemoryDIDResolver) Resolve(ctx context.Context, did string) (*DIDDocume
 	return doc, nil
 }
 
-// GenerateTestIdentity creates a new DID and keypair for testing.
-// The DID is in the format did:key:test-<random-suffix>.
-func GenerateTestIdentity() (did string, publicKey ed25519.PublicKey, privateKey ed25519.PrivateKey, err error) {
-	publicKey, privateKey, err = ed25519.GenerateKey(nil)
+// GenerateIdentity creates a new Ed25519 keypair and its did:key identifier.
+func GenerateIdentity() (did string, publicKey ed25519.PublicKey, privateKey ed25519.PrivateKey, err error) {
+	publicKey, privateKey, err = GenerateEd25519Keypair()
 	if err != nil {
 		return "", nil, nil, err
 	}
-
-	// Create a simple test DID using base64url of first 8 bytes of public key
-	// In production, use proper did:key encoding
-	did = "did:key:test-" + encodeBase64URL(publicKey[:8])
+	did, err = EncodeDIDKey(publicKey)
+	if err != nil {
+		return "", nil, nil, err
+	}
 	return did, publicKey, privateKey, nil
 }
 
-// encodeBase64URL encodes bytes to base64url without padding
-func encodeBase64URL(data []byte) string {
-	const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
-	result := make([]byte, 0, (len(data)*8+5)/6)
-
-	var bits uint32
-	var numBits uint
-
-	for _, b := range data {
-		bits = (bits << 8) | uint32(b)
-		numBits += 8
-		for numBits >= 6 {
-			numBits -= 6
-			result = append(result, alphabet[(bits>>numBits)&0x3f])
-		}
-	}
-
-	if numBits > 0 {
-		result = append(result, alphabet[(bits<<(6-numBits))&0x3f])
-	}
-
-	return string(result)
+// GenerateTestIdentity creates a new did:key identifier and keypair.
+//
+// Deprecated: use GenerateIdentity. Kept for compatibility; it now returns a
+// standard did:key instead of an ad-hoc test identifier.
+func GenerateTestIdentity() (did string, publicKey ed25519.PublicKey, privateKey ed25519.PrivateKey, err error) {
+	return GenerateIdentity()
 }
 
 // TimestampNow returns the current timestamp in milliseconds.

@@ -238,7 +238,7 @@ func validateCapabilitiesForProfile(profile Profile, cap Capabilities) error {
 	case ProfileSecureBaseline:
 		// Secure Baseline requires auth and replay protection
 		// Client cannot explicitly disable them
-		if cap.RequireAuth == false {
+		if !cap.RequireAuth {
 			// Note: we check explicit false here. If client doesn't care, server enforces.
 			// Actually, the struct zero value is false, so we need different logic.
 			// Let's require that for SecureBaseline, if client explicitly sets false

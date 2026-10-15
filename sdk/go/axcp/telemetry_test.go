@@ -13,9 +13,9 @@ func TestNewTelemetryDatagram(t *testing.T) {
 	assert.NotNil(t, td)
 	assert.Greater(t, td.TimestampMs, uint64(0))
 
-	// Verifica che il timestamp sia approssimativamente corretto
+	// Verify the timestamp is approximately correct
 	now := uint64(time.Now().UnixNano() / int64(time.Millisecond))
-	assert.InDelta(t, now, td.TimestampMs, 1000) // Tolleranza di 1 secondo
+	assert.InDelta(t, now, td.TimestampMs, 1000) // 1 second tolerance
 }
 
 func TestWithSystemStats(t *testing.T) {
@@ -26,7 +26,7 @@ func TestWithSystemStats(t *testing.T) {
 
 	result := WithSystemStats(td, cpuPercent, memBytes, tempC)
 
-	// Verifica che il datagramma sia stato aggiornato correttamente
+	// Verify the datagram was updated correctly
 	system, ok := result.Payload.(*pb.TelemetryDatagram_System)
 	assert.True(t, ok, "Payload should be of type SystemStats")
 	assert.Equal(t, cpuPercent, system.System.CpuPercent)
@@ -41,7 +41,7 @@ func TestWithTokenUsage(t *testing.T) {
 
 	result := WithTokenUsage(td, promptTokens, completionTokens)
 
-	// Verifica che il datagramma sia stato aggiornato correttamente
+	// Verify the datagram was updated correctly
 	tokens, ok := result.Payload.(*pb.TelemetryDatagram_Tokens)
 	assert.True(t, ok, "Payload should be of type TokenUsage")
 	assert.Equal(t, promptTokens, tokens.Tokens.PromptTokens)
@@ -49,7 +49,7 @@ func TestWithTokenUsage(t *testing.T) {
 }
 
 func TestGetSystemStats(t *testing.T) {
-	// Caso 1: Il datagramma contiene statistiche di sistema
+	// Case 1: the datagram contains system stats
 	td1 := NewTelemetryDatagram()
 	WithSystemStats(td1, 80, 4*1024*1024*1024, 50)
 
@@ -57,7 +57,7 @@ func TestGetSystemStats(t *testing.T) {
 	assert.NotNil(t, stats)
 	assert.Equal(t, uint32(80), stats.CpuPercent)
 
-	// Caso 2: Il datagramma contiene altri dati
+	// Case 2: the datagram contains other data
 	td2 := NewTelemetryDatagram()
 	WithTokenUsage(td2, 100, 200)
 
@@ -66,7 +66,7 @@ func TestGetSystemStats(t *testing.T) {
 }
 
 func TestGetTokenUsage(t *testing.T) {
-	// Caso 1: Il datagramma contiene statistiche di utilizzo token
+	// Case 1: the datagram contains token usage stats
 	td1 := NewTelemetryDatagram()
 	WithTokenUsage(td1, 100, 200)
 
@@ -75,7 +75,7 @@ func TestGetTokenUsage(t *testing.T) {
 	assert.Equal(t, uint32(100), tokens.PromptTokens)
 	assert.Equal(t, uint32(200), tokens.CompletionTokens)
 
-	// Caso 2: Il datagramma contiene altri dati
+	// Case 2: the datagram contains other data
 	td2 := NewTelemetryDatagram()
 	WithSystemStats(td2, 80, 4*1024*1024*1024, 50)
 
@@ -83,33 +83,33 @@ func TestGetTokenUsage(t *testing.T) {
 	assert.Nil(t, tokens)
 }
 
-// TestCombinedTelemetryOperations verifica che più operazioni di telemetria
-// funzionino correttamente insieme, simulando un flusso di lavoro reale
+// TestCombinedTelemetryOperations verifies that multiple telemetry operations
+// work correctly together, simulating a real workflow
 func TestCombinedTelemetryOperations(t *testing.T) {
-	// Crea un nuovo datagramma di telemetria
+	// Create a new telemetry datagram
 	td := NewTelemetryDatagram()
 
-	// Aggiungi statistiche di sistema
+	// Add system stats
 	td = WithSystemStats(td, 75, 4*1024*1024*1024, 42)
 
-	// Verifica che le statistiche di sistema siano state impostate correttamente
+	// Verify the system stats were set correctly
 	system := GetSystemStats(td)
 	assert.NotNil(t, system)
 	assert.Equal(t, uint32(75), system.CpuPercent)
 
-	// Il tipo di payload è stato cambiato, quindi non dovremmo più avere token usage
+	// The payload type changed, so token usage should no longer be present
 	tokens := GetTokenUsage(td)
 	assert.Nil(t, tokens)
 
-	// Ora cambiamo il payload in token usage
+	// Now switch the payload to token usage
 	td = WithTokenUsage(td, 150, 300)
 
-	// Verifica che l'utilizzo dei token sia stato impostato correttamente
+	// Verify the token usage was set correctly
 	tokens = GetTokenUsage(td)
 	assert.NotNil(t, tokens)
 	assert.Equal(t, uint32(150), tokens.PromptTokens)
 
-	// Il tipo di payload è stato cambiato, quindi non dovremmo più avere system stats
+	// The payload type changed, so system stats should no longer be present
 	system = GetSystemStats(td)
 	assert.Nil(t, system)
 }

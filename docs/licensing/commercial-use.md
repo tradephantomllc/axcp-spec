@@ -19,7 +19,7 @@
 | Modifying AXCP Core | ✅ Yes |
 | Keeping modifications private | ✅ Yes |
 
-**Apache 2.0 is a permissive license.** You can use AXCP Core for any purpose, including commercial use, without paying fees or obtaining special permission.
+**Apache 2.0 is a permissive license.** You can use AXCP Core for any purpose, including commercial use, without paying fees or obtaining special permission. Apache 2.0 places no field-of-use restrictions on Core: you may extend it yourself in any direction, including your own mutual TLS, privacy, audit or orchestration features, without a commercial license.
 
 ### Requirements
 
@@ -35,7 +35,7 @@ See the maintained [Core scope matrix](../../README.md#what-core-provides) for p
 
 ## Private commercial product
 
-TradePhantom's commercial implementations are distributed under a separate license, with capabilities enabled according to that license. Advanced and Enterprise are historical repository/feature names. Automatic orchestration, CRDT synchronization, privacy controls, managed certificates/attestation, PII and governance capabilities are outside this public repository. This describes the vendor's product boundary and does not restrict independent implementations under Core's Apache 2.0 license.
+TradePhantom's own commercial implementations are distributed under a separate license, with capabilities enabled according to that license. A commercial license is only needed to use those vendor-provided components. Advanced and Enterprise are historical repository/feature names. Automatic orchestration, CRDT synchronization, privacy controls, managed certificates/attestation, PII and governance capabilities are outside this public repository. This describes the vendor's product boundary and does not restrict independent implementations under Core's Apache 2.0 license.
 
 Confirm delivered capabilities and support terms with TradePhantom. This repository does not certify GDPR, HIPAA or SOC 2 compliance.
 
@@ -53,13 +53,13 @@ Contact TradePhantom LLC:
 
 > "I want to build a SaaS platform that orchestrates AI agents using AXCP."
 
-**Answer:** You can use AXCP Core freely under Apache 2.0. If you need Context-Sync, Differential Privacy, or compliance features, contact us for a commercial license.
+**Answer:** You can use AXCP Core freely under Apache 2.0, and you may build any additional features yourself. If you want TradePhantom's commercial components (for example context synchronization or privacy controls), contact us for a commercial license.
 
 ### Example 2: Enterprise Internal Deployment
 
 > "We want to use AXCP internally for our company's AI infrastructure."
 
-**Answer:** AXCP Core is free for internal use. If you need advanced features like mTLS, audit trails, or GDPR compliance tools, contact us for a commercial license.
+**Answer:** AXCP Core is free for internal use. You may configure your own mutual TLS or build other extensions yourself under Apache 2.0. If you want TradePhantom's managed certificate lifecycle, audit or compliance tooling, contact us for a commercial license.
 
 ### Example 3: Open Source Project
 

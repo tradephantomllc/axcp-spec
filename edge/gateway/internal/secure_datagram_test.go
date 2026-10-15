@@ -137,7 +137,7 @@ func TestQUICStreamAndDatagramDelivery(t *testing.T) {
 	}
 	defer client.Close()
 	env := makeEnv(1)
-	if err := client.SendTelemetryEnvelope(&axcp.Envelope{AxcpEnvelope: *env}); err != nil {
+	if err := client.SendTelemetryEnvelope(axcp.CloneEnvelope(env)); err != nil {
 		t.Fatal(err)
 	}
 	select {
@@ -149,7 +149,7 @@ func TestQUICStreamAndDatagramDelivery(t *testing.T) {
 		t.Fatal("no datagram delivered")
 	}
 	env = makeEnv(2)
-	if err := client.SendEnvelope(&axcp.Envelope{AxcpEnvelope: *env}); err != nil {
+	if err := client.SendEnvelope(axcp.CloneEnvelope(env)); err != nil {
 		t.Fatal(err)
 	}
 	select {

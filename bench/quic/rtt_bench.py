@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+"""UDP echo round-trip micro-benchmark.
+
+Despite its location under ``bench/quic``, this script does not use QUIC, TLS or
+AXCP envelopes. It measures round-trip time of plain UDP datagrams to a local
+asyncio echo server and is only a smoke test of the host network stack. Its
+results say nothing about AXCP or QUIC performance.
+
+Usage: python bench/quic/rtt_bench.py [COUNT]
+"""
 import asyncio
 import socket
 import time

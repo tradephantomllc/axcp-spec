@@ -1,12 +1,36 @@
 [Unit]
-Description=AXCP Edge Agent
+Description=AXCP Edge Agent (experimental telemetry collector)
 After=network-online.target
+Wants=network-online.target
 
 [Service]
-ExecStart=/usr/local/bin/axcp-agent -config /etc/axcp/config.yaml
-Restart=always
+ExecStart=/usr/local/bin/axcp-agent
+Restart=on-failure
+RestartSec=5
 User=axcp
+Group=axcp
 Environment=GOTRACEBACK=crash
+
+# Hardening: the agent only reads system statistics.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 
 [Install]
 WantedBy=multi-user.target

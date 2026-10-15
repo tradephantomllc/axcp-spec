@@ -24,6 +24,9 @@
 ### Q: Can I modify AXCP Core?
 **A:** Yes. You can modify it freely. If you redistribute the modified code, you must indicate that changes were made.
 
+### Q: Can I extend AXCP Core myself, for example with my own mTLS setup or other security features?
+**A:** Yes. Apache 2.0 places no field-of-use restrictions on Core. You may build any extension yourself, including features similar to commercial capabilities, without a commercial license.
+
 ### Q: Do I have to open source my modifications?
 **A:** No. Apache 2.0 does not require you to share modifications. You can keep them private.
 
@@ -42,14 +45,15 @@
 ## Commercial capabilities
 
 ### Q: Which vendor-provided components require a commercial license?
-**A:** See the [Commercial Use Guide](./commercial-use.md) for the complete list. Capabilities outside Core include:
-- Context-Sync with CRDT delta patches
-- Differential Privacy
-- Managed mTLS lifecycle
-- SGX/SEV enclave support
+**A:** Only TradePhantom's own commercial components, which are distributed separately from this repository. See the [Commercial Use Guide](./commercial-use.md) for an overview. Examples of capability areas outside Core include:
+- Automatic context synchronization (CRDT)
+- Differential privacy controls
+- Managed mTLS certificate lifecycle and attestation
 - Compliance-related tooling (no certification guarantee)
-- Audit trails with Merkle tree verification
-- TRI-AI Orchestration System
+- Audit and governance tooling
+- Automatic orchestration and routing
+
+Contact enterprise@getaxcp.com for the current commercial scope.
 
 ### Q: Can I evaluate commercial features before buying?
 **A:** Contact us at enterprise@getaxcp.com to discuss evaluation options.
@@ -75,13 +79,13 @@
 ## Contributing
 
 ### Q: Do I need to sign a CLA to contribute?
-**A:** No. Contributions are accepted under the same Apache 2.0 license via the Developer Certificate of Origin (DCO).
+**A:** Yes. Contributors must sign the Contributor License Agreement through [CLA Assistant](https://cla-assistant.io/tradephantomllc/axcp-spec); CLA Assistant prompts you on your first pull request, and the `license/cla` check must pass before merge. In addition, every commit needs a Developer Certificate of Origin sign-off (`Signed-off-by`, added with `git commit -s`). See [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
-### Q: Who owns my contributions?
-**A:** You retain copyright of your contributions. By contributing, you grant a license for your code to be used under Apache 2.0.
+### Q: Who owns my contributions, and what rights do I grant?
+**A:** The rights you grant are defined by the CLA presented by CLA Assistant. Please read it before signing. Accepted contributions are distributed as part of AXCP Core under Apache 2.0.
 
 ### Q: Can my contributions end up in the commercial versions?
-**A:** Contributions to AXCP Core remain Apache 2.0. Commercial features are developed separately.
+**A:** Contributions to AXCP Core are distributed under Apache 2.0 as part of Core. Commercial features are developed separately. For any further use of contributions, the CLA terms apply.
 
 ---
 

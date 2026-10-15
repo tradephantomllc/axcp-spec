@@ -1,7 +1,8 @@
-//! Data models for the AXCP protocol.
+//! Data models for the experimental HTTP telemetry adapter.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fmt;
 
 /// Represents a telemetry data point.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -24,12 +25,15 @@ pub struct TelemetryBatch {
     pub points: Vec<TelemetryData>,
 }
 
-/// Configuration for the AXCP client.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Configuration for the telemetry HTTP client.
+///
+/// `Debug` output redacts `api_key`.
+#[derive(Clone, Serialize, Deserialize)]
 pub struct ClientConfig {
-    /// The base URL of the AXCP server.
+    /// The base URL of the telemetry HTTP endpoint.
     pub base_url: String,
-    /// The API key for authentication.
+    /// Bearer token sent with each request. Requires an `https://` base URL unless
+    /// `allow_insecure_http` is set.
     pub api_key: Option<String>,
     /// The timeout for requests in seconds.
     #[serde(default = "default_timeout")]
@@ -37,6 +41,21 @@ pub struct ClientConfig {
     /// Whether to enable telemetry collection.
     #[serde(default = "default_true")]
     pub enable_telemetry: bool,
+    /// Explicitly allow sending `api_key` over plain `http://` (local development only).
+    #[serde(default)]
+    pub allow_insecure_http: bool,
+}
+
+impl fmt::Debug for ClientConfig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ClientConfig")
+            .field("base_url", &self.base_url)
+            .field("api_key", &self.api_key.as_ref().map(|_| "<redacted>"))
+            .field("timeout_secs", &self.timeout_secs)
+            .field("enable_telemetry", &self.enable_telemetry)
+            .field("allow_insecure_http", &self.allow_insecure_http)
+            .finish()
+    }
 }
 
 fn default_timeout() -> u64 {
@@ -54,6 +73,7 @@ impl Default for ClientConfig {
             api_key: None,
             timeout_secs: default_timeout(),
             enable_telemetry: true,
+            allow_insecure_http: false,
         }
     }
 }

@@ -1,15 +1,18 @@
 import tls from "node:tls";
 import { TransportConfigError } from "../errors.js";
-import { NodeStreamConnection } from "./connection.js";
+import { DEFAULT_READ_TIMEOUT_MS, NodeStreamConnection } from "./connection.js";
 import {
   DEFAULT_ALPN,
   DEFAULT_CONNECT_TIMEOUT_MS,
   DEFAULT_MAX_FRAME_SIZE,
   validateMaxFrameSize,
 } from "./framing.js";
-import type { StreamHandler } from "./tcp.js";
+import { HandlerErrorSink, type StreamHandler } from "./tcp.js";
 
 type SecureMaterial = string | Buffer | Array<string | Buffer>;
+
+/** Default minimum TLS version for clients and servers (D11). */
+export const DEFAULT_TLS_MIN_VERSION: tls.SecureVersion = "TLSv1.3";
 
 export interface TlsClientConfig {
   readonly host: string;
@@ -23,6 +26,9 @@ export interface TlsClientConfig {
   readonly insecureSkipVerify?: boolean;
   readonly connectTimeoutMs?: number;
   readonly maxFrameSize?: number;
+  readonly readTimeoutMs?: number;
+  /** Minimum TLS version (default "TLSv1.3"). */
+  readonly minVersion?: tls.SecureVersion;
 }
 
 export interface TlsServerConfig {
@@ -35,6 +41,10 @@ export interface TlsServerConfig {
   readonly rejectUnauthorized?: boolean;
   readonly alpnProtocols?: readonly string[];
   readonly maxFrameSize?: number;
+  readonly readTimeoutMs?: number;
+  /** Minimum TLS version (default "TLSv1.3"). */
+  readonly minVersion?: tls.SecureVersion;
+  /** Receives stream-handler errors; when omitted they are retained and re-thrown by `close()`. */
   readonly onConnectionError?: (error: Error) => void;
 }
 
@@ -53,13 +63,17 @@ export class TlsClient extends NodeStreamConnection {
   static async connect(config: TlsClientConfig): Promise<TlsClient> {
     const normalized = validateTlsClientConfig(config);
     const socket = await connectTlsSocket(normalized);
-    return new TlsClient(socket, { maxFrameSize: normalized.maxFrameSize });
+    return new TlsClient(socket, {
+      maxFrameSize: normalized.maxFrameSize,
+      readTimeoutMs: normalized.readTimeoutMs,
+    });
   }
 }
 
 export class TlsServer {
   private readonly server: tls.Server;
   private readonly connections = new Set<NodeStreamConnection>();
+  private readonly errorSink: HandlerErrorSink;
   private closed = false;
 
   private constructor(
@@ -67,6 +81,12 @@ export class TlsServer {
     private readonly config: NormalizedTlsServerConfig,
   ) {
     this.server = server;
+    this.errorSink = new HandlerErrorSink(config.onConnectionError);
+  }
+
+  /** Handler errors retained because no `onConnectionError` callback was configured. */
+  get handlerErrors(): readonly Error[] {
+    return this.errorSink.errors;
   }
 
   static async listen(config: TlsServerConfig, handler: StreamHandler): Promise<TlsServer> {
@@ -80,14 +100,19 @@ export class TlsServer {
           requestCert: normalized.requestCert,
           rejectUnauthorized: normalized.rejectUnauthorized,
           ALPNProtocols: [...normalized.alpnProtocols],
+          minVersion: normalized.minVersion,
         },
         (socket) => {
-          const connection = new NodeStreamConnection(socket, { maxFrameSize: normalized.maxFrameSize });
+          const connection = new NodeStreamConnection(socket, {
+            maxFrameSize: normalized.maxFrameSize,
+            readTimeoutMs: normalized.readTimeoutMs,
+          });
           serverWrapper.connections.add(connection);
           socket.once("close", () => serverWrapper.connections.delete(connection));
-          Promise.resolve(handler(connection))
-            .catch((error: Error) => {
-              normalized.onConnectionError?.(error);
+          Promise.resolve()
+            .then(() => handler(connection))
+            .catch((error: unknown) => {
+              serverWrapper.errorSink.record(error);
             })
             .finally(() => {
               void connection.close();
@@ -122,6 +147,7 @@ export class TlsServer {
     return { host: address.address, port: address.port };
   }
 
+  /** Close the server; re-throws the first retained handler error, if any. */
   async close(): Promise<void> {
     if (this.closed) {
       return;
@@ -137,6 +163,7 @@ export class TlsServer {
         resolve();
       });
     });
+    this.errorSink.throwFirst();
   }
 }
 
@@ -160,6 +187,8 @@ function validateTlsClientConfig(config: TlsClientConfig): NormalizedTlsClientCo
     insecureSkipVerify: config.insecureSkipVerify ?? false,
     connectTimeoutMs: validateTimeout(config.connectTimeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS),
     maxFrameSize: validateMaxFrameSize(config.maxFrameSize ?? DEFAULT_MAX_FRAME_SIZE),
+    readTimeoutMs: config.readTimeoutMs ?? DEFAULT_READ_TIMEOUT_MS,
+    minVersion: config.minVersion ?? DEFAULT_TLS_MIN_VERSION,
   };
 }
 
@@ -184,6 +213,8 @@ function validateTlsServerConfig(config: TlsServerConfig): NormalizedTlsServerCo
     rejectUnauthorized: config.rejectUnauthorized ?? true,
     alpnProtocols,
     maxFrameSize: validateMaxFrameSize(config.maxFrameSize ?? DEFAULT_MAX_FRAME_SIZE),
+    readTimeoutMs: config.readTimeoutMs ?? DEFAULT_READ_TIMEOUT_MS,
+    minVersion: config.minVersion ?? DEFAULT_TLS_MIN_VERSION,
     onConnectionError: config.onConnectionError,
   };
 }
@@ -199,6 +230,7 @@ function connectTlsSocket(config: NormalizedTlsClientConfig): Promise<tls.TLSSoc
       key: config.key,
       ALPNProtocols: [...config.alpnProtocols],
       rejectUnauthorized: !config.insecureSkipVerify,
+      minVersion: config.minVersion,
     });
 
     const timer = setTimeout(() => {

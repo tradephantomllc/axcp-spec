@@ -5,6 +5,20 @@
 
 ---
 
+## Errata (2026-10-15)
+
+A review on 2026-10-15 found that this pack claims more than its committed evidence shows. Read the results above with these corrections:
+
+1. **Missing or empty logs.** `artifacts/protocol-proof/20260130-220816/client.log` and `replay_test.log` are empty (0 bytes); only `server.log` has content. The client-side excerpts in 4a and 4b and the replay excerpt in 4d are not backed by committed logs. The unit-test output quoted in 4e was not committed either.
+2. **Gateway not in the loop.** The authenticated-chat client connects directly to the example's own server (example ALPN `axcp-auth-chat`). No envelope passed through the reference gateway, so the "Gateway enforcement" row and the conclusion "Gateway enforcement of all security checks" are not demonstrated end to end. Gateway evidence is limited to unit tests whose output was not committed.
+3. **Replay demonstration.** The `-replay` run checks sequences against a local map inside the example program. It does not exercise the SDK replay protector or the gateway, and in that program the replay check runs before signature verification.
+4. **Transcript version.** This run predates the 2026-07-05 transcript revision of the specification. Its signatures used the original 1.0.0 transcript and are not evidence for the current transcript.
+5. **No profile negotiation.** Both demo peers were configured for Secure Baseline; no negotiation took place on the wire.
+6. **Provenance.** The commit identifier above is recorded for provenance only and is not guaranteed to be retrievable from the current `main` branch. To reproduce, rerun the commands on a current checkout.
+7. **Scope.** "Verified and ready for Apache 2.0 release" overstates a localhost demonstration with fixed test keys. This pack is historical and does not cover the 2026-10-15 specification revision.
+
+---
+
 ## 1. Commit SHA Tested
 
 ```

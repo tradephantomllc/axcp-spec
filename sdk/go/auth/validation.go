@@ -3,6 +3,7 @@ package auth
 
 import (
 	"context"
+	"crypto/ed25519"
 	"errors"
 )
 
@@ -22,6 +23,12 @@ var (
 
 	// ErrEnvelopeNil indicates the envelope is nil
 	ErrEnvelopeNil = errors.New("auth: envelope is nil")
+
+	// ErrSignatureLength indicates a signature that is not 64 bytes
+	ErrSignatureLength = errors.New("auth: signature must be 64 bytes")
+
+	// ErrSequenceMissing indicates a zero sequence number
+	ErrSequenceMissing = errors.New("auth: sequence must be greater than zero")
 )
 
 // EnvelopeFields contains the fields needed for envelope validation.
@@ -92,18 +99,33 @@ func ValidateSender(env EnvelopeFields) error {
 	return nil
 }
 
-// ValidateSignaturePresent checks that the envelope has a signature.
+// ValidateSignaturePresent checks that the envelope has a 64-byte signature.
 //
-// Returns nil if signature is present, ErrSignatureMissing if empty.
+// Returns nil if a signature of the right size is present, ErrSignatureMissing
+// if empty and ErrSignatureLength for any other size.
 func ValidateSignaturePresent(env EnvelopeFields) error {
 	if env == nil {
 		return ErrEnvelopeNil
 	}
 
-	if len(env.GetSignature()) == 0 {
+	switch n := len(env.GetSignature()); {
+	case n == 0:
 		return ErrSignatureMissing
+	case n != ed25519.SignatureSize:
+		return ErrSignatureLength
 	}
 
+	return nil
+}
+
+// ValidateSequence checks that the envelope carries a replay sequence (> 0).
+func ValidateSequence(env EnvelopeFields) error {
+	if env == nil {
+		return ErrEnvelopeNil
+	}
+	if env.GetSequence() == 0 {
+		return ErrSequenceMissing
+	}
 	return nil
 }
 
@@ -112,21 +134,28 @@ type EnvelopeValidator struct {
 	// Resolver resolves DIDs to public keys
 	Resolver DIDResolver
 
-	// TimestampValidator validates message timestamps
+	// TimestampValidator validates message timestamps (nil uses the default policy)
 	TimestampValidator *TimestampValidator
 
-	// ReplayProtector checks for replay attacks after signature verification (optional)
+	// ReplayProtector checks for replay attacks after signature verification.
+	// NewEnvelopeValidator installs a default protector; set it to nil only in
+	// tests or when replay protection is enforced elsewhere.
 	ReplayProtector *ReplayProtector
 
 	// LocalDID is this node's DID (used for recipient validation)
 	LocalDID string
 }
 
-// NewEnvelopeValidator creates a new EnvelopeValidator with the given configuration.
+// NewEnvelopeValidator creates a new EnvelopeValidator with the default
+// timestamp policy and a default replay protector.
 func NewEnvelopeValidator(resolver DIDResolver, localDID string) *EnvelopeValidator {
+	tv := DefaultTimestampValidator()
+	rp := NewDefaultReplayProtector()
+	rp.EnsureMinTTL(tv.MaxAge + tv.ClockSkew)
 	return &EnvelopeValidator{
 		Resolver:           resolver,
-		TimestampValidator: DefaultTimestampValidator(),
+		TimestampValidator: tv,
+		ReplayProtector:    rp,
 		LocalDID:           localDID,
 	}
 }
@@ -134,17 +163,55 @@ func NewEnvelopeValidator(resolver DIDResolver, localDID string) *EnvelopeValida
 // WithTimestampValidator sets a custom timestamp validator.
 func (v *EnvelopeValidator) WithTimestampValidator(tv *TimestampValidator) *EnvelopeValidator {
 	v.TimestampValidator = tv
+	v.alignReplayTTL()
 	return v
 }
 
-// WithReplayProtector sets a replay protector for post-signature replay attack detection.
+// WithReplayProtector sets the replay protector used after signature verification.
 //
 // Replay state is mutated only by validation paths that verify the envelope signature
 // first, such as ValidateAndVerifySignature. ValidateEnvelope is intentionally
-// non-mutating and does not call the replay protector.
+// non-mutating and does not call the replay protector. The protector's TTL is
+// raised to at least the timestamp max age plus clock skew.
 func (v *EnvelopeValidator) WithReplayProtector(rp *ReplayProtector) *EnvelopeValidator {
 	v.ReplayProtector = rp
+	v.alignReplayTTL()
 	return v
+}
+
+func (v *EnvelopeValidator) timestampValidator() *TimestampValidator {
+	if v.TimestampValidator == nil {
+		return DefaultTimestampValidator()
+	}
+	return v.TimestampValidator
+}
+
+func (v *EnvelopeValidator) alignReplayTTL() {
+	if v.ReplayProtector == nil {
+		return
+	}
+	tv := v.timestampValidator()
+	v.ReplayProtector.EnsureMinTTL(tv.MaxAge + tv.ClockSkew)
+}
+
+// preflight runs the checks shared by every validation path.
+func (v *EnvelopeValidator) preflight(env EnvelopeFields) error {
+	if env == nil {
+		return ErrEnvelopeNil
+	}
+	if err := ValidateRecipient(env, v.LocalDID); err != nil {
+		return err
+	}
+	if err := ValidateSender(env); err != nil {
+		return err
+	}
+	if err := v.timestampValidator().Validate(env.GetTimestampMs()); err != nil {
+		return err
+	}
+	if err := ValidateSignaturePresent(env); err != nil {
+		return err
+	}
+	return ValidateSequence(env)
 }
 
 // ValidateEnvelope performs non-mutating preflight validation of an incoming envelope.
@@ -154,7 +221,7 @@ func (v *EnvelopeValidator) WithReplayProtector(rp *ReplayProtector) *EnvelopeVa
 //  2. Validate recipient matches LocalDID
 //  3. Validate sender DID format
 //  4. Validate timestamp is within acceptable window
-//  5. Validate signature is present
+//  5. Validate signature is present (64 bytes) and sequence is non-zero
 //  6. Resolve sender's public key
 //
 // Note: This method does NOT verify the signature because it doesn't have
@@ -162,40 +229,13 @@ func (v *EnvelopeValidator) WithReplayProtector(rp *ReplayProtector) *EnvelopeVa
 // ValidateAndVerifySignature for complete validation with post-signature replay
 // protection.
 func (v *EnvelopeValidator) ValidateEnvelope(ctx context.Context, env EnvelopeFields) error {
-	// 1. Check envelope not nil
-	if env == nil {
-		return ErrEnvelopeNil
-	}
-
-	// 2. Validate recipient
-	if err := ValidateRecipient(env, v.LocalDID); err != nil {
+	if err := v.preflight(env); err != nil {
 		return err
 	}
 
-	// 3. Validate sender
-	if err := ValidateSender(env); err != nil {
-		return err
-	}
-
-	// 4. Validate timestamp
-	if v.TimestampValidator != nil {
-		if err := v.TimestampValidator.Validate(env.GetTimestampMs()); err != nil {
-			return err
-		}
-	}
-
-	// 5. Validate signature present
-	if err := ValidateSignaturePresent(env); err != nil {
-		return err
-	}
-
-	// 6. Resolve sender's public key (validates DID is resolvable)
+	// Resolve sender's public key (validates DID is resolvable)
 	_, err := ResolveEd25519PublicKey(ctx, v.Resolver, env.GetSenderDid())
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 // ValidateAndVerifySignature validates the envelope and verifies the signature.
@@ -205,29 +245,13 @@ func (v *EnvelopeValidator) ValidateEnvelope(ctx context.Context, env EnvelopeFi
 //  2. Verify Ed25519 signature over the provided transcript
 //  3. Check replay protection, mutating replay state only after successful signature verification
 //
-// The transcript should be built using BuildDIDAuthTranscript or similar
-// to ensure proper binding of the signature to the message context.
+// The transcript MUST be built from this same envelope. For AXCP envelopes use
+// axcp.BuildAuthTranscript, which covers version, trace ID, profile, payload,
+// sequence, sender, recipient and timestamp. A transcript that does not cover
+// the sequence would let an attacker resend a signed message with a different
+// sequence; prefer axcp.Validator, which builds the transcript itself.
 func (v *EnvelopeValidator) ValidateAndVerifySignature(ctx context.Context, env EnvelopeFields, transcript []byte) error {
-	// Run basic validations (except replay - we do it after signature verification)
-	if env == nil {
-		return ErrEnvelopeNil
-	}
-
-	if err := ValidateRecipient(env, v.LocalDID); err != nil {
-		return err
-	}
-
-	if err := ValidateSender(env); err != nil {
-		return err
-	}
-
-	if v.TimestampValidator != nil {
-		if err := v.TimestampValidator.Validate(env.GetTimestampMs()); err != nil {
-			return err
-		}
-	}
-
-	if err := ValidateSignaturePresent(env); err != nil {
+	if err := v.preflight(env); err != nil {
 		return err
 	}
 
@@ -244,9 +268,7 @@ func (v *EnvelopeValidator) ValidateAndVerifySignature(ctx context.Context, env 
 	// Replay protection AFTER signature verification
 	// (to prevent DoS by flooding with invalid signatures)
 	if v.ReplayProtector != nil {
-		peerID := env.GetSenderDid()
-		seq := env.GetSequence()
-		if err := v.ReplayProtector.CheckAndMark(peerID, seq); err != nil {
+		if err := v.ReplayProtector.CheckAndMark(env.GetSenderDid(), env.GetSequence()); err != nil {
 			return err
 		}
 	}
@@ -261,28 +283,15 @@ func (v *EnvelopeValidator) ValidateAndVerifySignature(ctx context.Context, env 
 //   - Envelope not nil
 //   - Recipient matches
 //   - Sender present and valid format
-//   - Timestamp valid
-//   - Signature present
+//   - Timestamp valid (default policy)
+//   - Signature present (64 bytes) and sequence non-zero
 func QuickValidate(env EnvelopeFields, expectedRecipient string) error {
-	if env == nil {
-		return ErrEnvelopeNil
-	}
+	return QuickValidateWithTimestamp(env, expectedRecipient, nil)
+}
 
-	if err := ValidateRecipient(env, expectedRecipient); err != nil {
-		return err
-	}
-
-	if err := ValidateSender(env); err != nil {
-		return err
-	}
-
-	if err := ValidateTimestamp(env.GetTimestampMs()); err != nil {
-		return err
-	}
-
-	if err := ValidateSignaturePresent(env); err != nil {
-		return err
-	}
-
-	return nil
+// QuickValidateWithTimestamp is QuickValidate with an explicit timestamp
+// policy; a nil validator selects the default policy.
+func QuickValidateWithTimestamp(env EnvelopeFields, expectedRecipient string, tv *TimestampValidator) error {
+	v := EnvelopeValidator{LocalDID: expectedRecipient, TimestampValidator: tv}
+	return v.preflight(env)
 }

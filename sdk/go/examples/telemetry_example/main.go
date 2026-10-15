@@ -52,7 +52,7 @@ func generateTLSConfig() (*tls.Config, error) {
 
 	return &tls.Config{
 		Certificates: []tls.Certificate{tlsCert},
-		NextProtos:   []string{"axcp/1.0"},
+		NextProtos:   []string{"axcp/1"},
 		MinVersion:   tls.VersionTLS13,
 	}, nil
 }
@@ -119,9 +119,11 @@ func startServer(addr string) error {
 
 // startClient starts a simple QUIC client that sends telemetry data
 func startClient(serverAddr string) error {
+	// Local demo only: the server uses a throwaway self-signed certificate.
 	tlsConfig := &tls.Config{
-		InsecureSkipVerify: true, // Only for testing!
-		NextProtos:         []string{"axcp/1.0"},
+		InsecureSkipVerify: true, // #nosec G402 -- localhost demo
+		MinVersion:         tls.VersionTLS13,
+		NextProtos:         []string{"axcp/1"},
 	}
 
 	// Connect to the server

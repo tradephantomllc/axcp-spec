@@ -81,8 +81,8 @@ AXCP Core addresses this gap with a Secure Baseline profile built around:
 - DID-based agent identity.
 - Ed25519 detached signatures.
 - Canonical authentication transcripts.
-- Sequence and nonce replay protection.
-- Security-first profile negotiation.
+- Per-sender sequence replay protection.
+- Security-first profile selection.
 - Deterministic cross-SDK compatibility tests.
 
 The design goal is deliberately narrow: AXCP Core is not a full agent framework, not an LLM runtime, not a tool marketplace, and not a commercial governance plane. It is the open protocol substrate for authenticated, replay-resistant message exchange between agents and gateways.
@@ -142,7 +142,7 @@ An attacker modifies an envelope in transit, in storage, or through a compromise
 
 ### 3.2 Replay Attacks
 
-An attacker captures a valid message and resends it later to trigger duplicated side effects. AXCP addresses this with sequence or nonce replay protection. Sequence numbers are tracked per peer with a sliding window and TTL. Nonce-based replay protection can be used where monotonic sequencing is not appropriate.
+An attacker captures a valid message and resends it later to trigger duplicated side effects. AXCP addresses this with per-sender sequence replay protection. Sequence numbers are covered by the signature and tracked per sender DID with a sliding window; idle sender state is kept at least as long as an envelope can pass the timestamp freshness check.
 
 ### 3.3 Identity Confusion
 
@@ -215,6 +215,8 @@ Profile negotiation is security-first:
 
 This prevents a peer from silently falling back to an unsigned transport-only mode.
 
+In specification v1.0 the negotiation wire format is informative: deployments configure Secure Baseline out of band, every verifier enforces `profile = 1` on each envelope, and the Go SDK offers an optional handshake helper. The reference gateway uses a fixed configured profile.
+
 ---
 
 ## 5. Identity and Authentication
@@ -277,22 +279,22 @@ This point is important for the updated paper. Earlier implementation drift excl
 
 ## 6. Replay Protection
 
-AXCP Core provides replay protection through sequence numbers or nonces.
+AXCP Core provides replay protection through per-sender sequence numbers.
 
 ### 6.1 Sequence Mode
 
-In sequence mode, each incoming message includes a sequence number. The receiver maintains replay state per peer:
+Each envelope carries a sequence number greater than zero. The receiver keeps, per sender DID, the highest accepted sequence and a sliding window of recently accepted sequences:
 
-1. Expire replay entries older than the TTL.
-2. Reject any sequence already seen within the TTL.
-3. Reject sequences outside the configured sliding window.
-4. Accept new sequences and update the highest-seen sequence when appropriate.
+1. Accept a sequence above the highest seen and advance the window.
+2. Within the window, reject a sequence that was already accepted and accept an unseen one.
+3. Reject sequences below the window as too old.
+4. Evict idle sender state only after a peer-state TTL that is at least the timestamp maximum age plus clock skew, so that an envelope can never outlive the replay state that would detect it.
 
-Sequence mode is appropriate for ordered or mostly ordered communication channels where each peer can maintain monotonic counters.
+Senders start each signing session at a time-derived sequence (current Unix time in microseconds) so that sequences remain monotonic across restarts.
 
 ### 6.2 Nonce Mode
 
-Nonce mode is appropriate where strict sequence ordering is not feasible. Each message uses a unique nonce. The receiver stores seen nonces for the TTL and rejects duplicates.
+The v1 envelope has no nonce field, so nonce-based replay protection is not available in Secure Baseline v1. The specification reserves it for a possible future profile.
 
 ### 6.3 Verification Order
 
@@ -306,7 +308,7 @@ Implementations should verify the detached signature before mutating replay stat
 
 AXCP is designed to run over efficient transport layers such as QUIC/TLS. However, the security model does not depend solely on the transport channel. Secure Baseline adds application-layer authenticity and replay protection above the transport.
 
-The M7 proof path uses the authenticated-chat example ALPN `axcp-auth-chat`. The final paper should describe that value as a proof/example ALPN unless the Core specification explicitly standardizes a universal ALPN registry entry.
+The Core specification (v1.0, Section 8.4) defines the ALPN value `axcp/1` for AXCP connections over QUIC/TLS 1.3; the reference gateway and the Go and Python SDK transports use it. The authenticated-chat example used in the M7/M8 proof packs negotiates its own example-specific ALPN `axcp-auth-chat` and is not an `axcp/1` endpoint; the paper should present that value only as an example detail.
 
 ### 7.2 Protobuf Encoding
 
@@ -376,8 +378,8 @@ The TypeScript SDK implements the Core security surface:
 - Deterministic AXCP Protobuf envelope encoding.
 - DID authentication transcript signing and verification.
 - Timestamp validation.
-- Sequence and nonce replay protection.
-- Secure Baseline profile negotiation.
+- Sequence replay protection.
+- Secure Baseline profile negotiation primitives.
 - Stream framing and Node TLS transport.
 
 ### 8.4 Rust Boundary
@@ -404,7 +406,7 @@ The recipient DID is included in the authentication transcript. A signature crea
 
 ### 9.4 Replay Resistance
 
-Sequence or nonce state prevents re-accepting the same signed message within the configured replay window.
+Per-sender sequence state prevents re-accepting the same signed message, provided the peer-state TTL is at least the timestamp maximum age plus clock skew and the receiver has not lost its replay state (for example through a restart).
 
 ### 9.5 Auditability
 
@@ -412,7 +414,7 @@ Because signatures are at the message layer, an AXCP message can remain verifiab
 
 ### 9.6 Downgrade Resistance
 
-Secure Baseline negotiation prevents silent fallback into unsigned transport-only mode.
+Secure Baseline is enforced per envelope: a verifier rejects any envelope whose profile is not Secure Baseline, and no selection mechanism may silently fall back to unsigned transport-only mode.
 
 ---
 

@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// mockMetrics è un'implementazione mock dell'interfaccia Metrics per i test
+// mockMetrics is a mock implementation of the Metrics interface for tests
 type mockMetrics struct {
 	envelopesInCount  int
 	envelopesOutCount int
@@ -91,7 +91,7 @@ func TestMultiMetrics(t *testing.T) {
 	multi.RecordRetryAttempt()
 	multi.RecordRetrySuccess()
 	multi.RecordRetryDropped()
-	
+
 	// Verify that both mock metrics received the calls
 	assert.Equal(t, 1, mock1.envelopesInCount, "First mock should record envelope in")
 	assert.Equal(t, 1, mock2.envelopesInCount, "Second mock should record envelope in")

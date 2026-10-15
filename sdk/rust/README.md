@@ -3,7 +3,7 @@
 [![Rust](https://github.com/tradephantomllc/axcp-spec/actions/workflows/rust-ci.yml/badge.svg)](https://github.com/tradephantomllc/axcp-spec/actions/workflows/rust-ci.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-This crate is kept in the public AXCP Core repository as an experimental Rust telemetry adapter. It is not currently published to crates.io and should not be treated as the canonical AXCP QUIC/protobuf transport implementation.
+This crate is kept in the public AXCP Core repository as an experimental Rust HTTP/JSON telemetry adapter. It is **not** an implementation of the AXCP protocol: it has no QUIC transport, Protobuf envelopes, DID/Ed25519 signatures, recipient binding or replay protection. It is not published to crates.io.
 
 ## Current Scope
 
@@ -38,7 +38,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     axcp::init()?;
 
     let config = ClientConfig {
-        base_url: "http://localhost:8080".to_string(),
+        base_url: "https://telemetry.example.com".to_string(),
         api_key: Some("your-api-key".to_string()),
         ..Default::default()
     };
@@ -60,7 +60,7 @@ cargo test --locked --all-features
 
 ## Delivery semantics
 
-The adapter POSTs JSON to `/api/v1/telemetry` on a separately supplied HTTP service. The Core QUIC/MQTT gateway does not expose that endpoint. `api_key` is sent as a Bearer token; `enable_telemetry=false` returns an explicit configuration error. A positive HTTP timeout is required.
+The adapter POSTs JSON to `/api/v1/telemetry` on a separately supplied HTTP service. The Core QUIC/MQTT gateway does not expose that endpoint. `api_key` is sent as a Bearer token and requires an `https://` base URL; `Client::new` refuses a plain `http://` URL with an API key unless `allow_insecure_http: true` is set explicitly (local development only). Redirects are not followed, error response bodies are read up to 4 KiB, and `Debug` output redacts the API key. `enable_telemetry=false` returns an explicit configuration error. A positive HTTP timeout is required.
 
 `telemetry::TelemetryClient::record_metric` sends one point immediately. `Client::telemetry()` returns the buffered `client::TelemetryClient`: call `record(point)`, then `flush()` for a partial final batch. Reaching its positive batch size flushes automatically without re-entering the buffer mutex. Flushes are serialized; errors or cancellation preserve the original batch for explicit retry. A remote success followed by a lost response can produce duplicates. The buffer is in memory and is not flushed by dropping a client.
 

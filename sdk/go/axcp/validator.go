@@ -2,7 +2,9 @@ package axcp
 
 import (
 	"context"
+	"crypto/ed25519"
 	"fmt"
+	"sync"
 
 	"github.com/tradephantomllc/axcp-spec/sdk/go/auth"
 )
@@ -15,24 +17,42 @@ type ValidatorConfig struct {
 	// Resolver resolves DIDs to public keys for signature verification
 	Resolver auth.DIDResolver
 
-	// TimestampValidator validates message timestamps (nil uses default)
+	// TimestampValidator validates message timestamps (nil uses the default policy)
 	TimestampValidator *auth.TimestampValidator
 
-	// ReplayProtector checks for replay attacks after signature verification (nil disables replay protection)
+	// ReplayProtector checks for replay attacks after signature verification.
+	// Nil selects a new default protector owned by this Validator; share one
+	// protector between validators that accept messages from the same senders.
+	// Its TTL is raised to at least the timestamp max age plus clock skew.
 	ReplayProtector *auth.ReplayProtector
 
-	// SkipSignatureVerification skips signature verification (for testing only)
+	// DisableReplayProtection turns replay protection off. Testing only.
+	DisableReplayProtection bool
+
+	// AllowedDIDs restricts accepted senders (empty = any resolvable sender).
+	AllowedDIDs []string
+
+	// AllowedProfiles lists accepted envelope profile numbers
+	// (empty = secure-baseline-v1 only).
+	AllowedProfiles []uint32
+
+	// SkipSignatureVerification skips signature verification and replay
+	// protection. Testing only: unauthenticated messages are accepted.
 	SkipSignatureVerification bool
 }
 
 // Validator provides unified message validation for AXCP protocol.
 // It wraps auth.EnvelopeValidator and integrates with the error framework.
 type Validator struct {
-	config  ValidatorConfig
-	authVal *auth.EnvelopeValidator
+	config   ValidatorConfig
+	authVal  *auth.EnvelopeValidator
+	allowed  map[string]struct{}
+	profiles map[uint32]struct{}
 }
 
 // NewValidator creates a new Validator with the given configuration.
+//
+// Replay protection and timestamp validation are enabled by default.
 func NewValidator(config ValidatorConfig) *Validator {
 	authVal := auth.NewEnvelopeValidator(config.Resolver, config.LocalDID)
 
@@ -40,14 +60,59 @@ func NewValidator(config ValidatorConfig) *Validator {
 		authVal.WithTimestampValidator(config.TimestampValidator)
 	}
 
-	if config.ReplayProtector != nil {
+	switch {
+	case config.DisableReplayProtection:
+		authVal.ReplayProtector = nil
+	case config.ReplayProtector != nil:
 		authVal.WithReplayProtector(config.ReplayProtector)
 	}
 
-	return &Validator{
-		config:  config,
-		authVal: authVal,
+	v := &Validator{
+		config:   config,
+		authVal:  authVal,
+		profiles: map[uint32]struct{}{},
 	}
+	if len(config.AllowedDIDs) > 0 {
+		v.allowed = make(map[string]struct{}, len(config.AllowedDIDs))
+		for _, did := range config.AllowedDIDs {
+			v.allowed[did] = struct{}{}
+		}
+	}
+	if len(config.AllowedProfiles) == 0 {
+		v.profiles[ProfileSecureBaselineNumber] = struct{}{}
+	}
+	for _, p := range config.AllowedProfiles {
+		v.profiles[p] = struct{}{}
+	}
+	return v
+}
+
+// ReplayProtector returns the replay protector in use (nil when disabled).
+func (v *Validator) ReplayProtector() *auth.ReplayProtector {
+	return v.authVal.ReplayProtector
+}
+
+// checkEnvelope runs the structural and authorization checks shared by all
+// validation paths.
+func (v *Validator) checkEnvelope(env *Envelope) *ProtocolError {
+	if env == nil {
+		return ErrMalformedRequest.WithReason("envelope is nil")
+	}
+	if err := ValidateEnvelopeStructure(env); err != nil {
+		return ToProtocolError(err)
+	}
+	if _, ok := v.profiles[env.GetProfile()]; !ok {
+		return ErrProfileUnsupported.WithReason("envelope profile is not accepted")
+	}
+	if err := strictMarshalCheck(&env.AxcpEnvelope); err != nil {
+		return ToProtocolError(err)
+	}
+	if v.allowed != nil {
+		if _, ok := v.allowed[env.GetSenderDid()]; !ok {
+			return ErrUnauthorized.WithReason("sender is not allowed")
+		}
+	}
+	return nil
 }
 
 // ValidateEnvelope performs non-mutating preflight validation without signature verification.
@@ -55,11 +120,10 @@ func NewValidator(config ValidatorConfig) *Validator {
 // be mutated after successful signature verification.
 // Returns a ProtocolError if validation fails.
 func (v *Validator) ValidateEnvelope(ctx context.Context, env *Envelope) *ProtocolError {
-	if env == nil {
-		return ErrMalformedRequest.WithReason("envelope is nil")
+	if perr := v.checkEnvelope(env); perr != nil {
+		return perr
 	}
 
-	// Use auth validator for basic validation
 	if err := v.authVal.ValidateEnvelope(ctx, env); err != nil {
 		return ToProtocolError(err)
 	}
@@ -67,25 +131,24 @@ func (v *Validator) ValidateEnvelope(ctx context.Context, env *Envelope) *Protoc
 	return nil
 }
 
-// ValidateAndVerify validates an envelope including signature verification.
+// ValidateAndVerify validates an envelope including signature verification
+// and, after the signature is verified, replay protection.
 // Returns a ProtocolError if validation fails.
 func (v *Validator) ValidateAndVerify(ctx context.Context, env *Envelope) *ProtocolError {
-	if env == nil {
-		return ErrMalformedRequest.WithReason("envelope is nil")
+	if perr := v.checkEnvelope(env); perr != nil {
+		return perr
 	}
 
 	// Skip signature verification if configured (testing only)
 	if v.config.SkipSignatureVerification {
-		// Do quick validation only (no DID resolution)
-		return v.QuickValidate(env)
+		return v.quickValidate(env)
 	}
 
 	transcript, err := BuildAuthTranscript(env)
 	if err != nil {
-		return ErrMalformedRequest.WithReason(err.Error())
+		return ErrMalformedRequest.WithReason("cannot build authentication transcript")
 	}
 
-	// Use auth validator for full validation with signature verification
 	if err := v.authVal.ValidateAndVerifySignature(ctx, env, transcript); err != nil {
 		return ToProtocolError(err)
 	}
@@ -96,14 +159,16 @@ func (v *Validator) ValidateAndVerify(ctx context.Context, env *Envelope) *Proto
 // QuickValidate performs fast validation without DID resolution.
 // Returns a ProtocolError if validation fails.
 func (v *Validator) QuickValidate(env *Envelope) *ProtocolError {
-	if env == nil {
-		return ErrMalformedRequest.WithReason("envelope is nil")
+	if perr := v.checkEnvelope(env); perr != nil {
+		return perr
 	}
+	return v.quickValidate(env)
+}
 
-	if err := auth.QuickValidate(env, v.config.LocalDID); err != nil {
+func (v *Validator) quickValidate(env *Envelope) *ProtocolError {
+	if err := auth.QuickValidateWithTimestamp(env, v.config.LocalDID, v.authVal.TimestampValidator); err != nil {
 		return ToProtocolError(err)
 	}
-
 	return nil
 }
 
@@ -148,69 +213,28 @@ type ValidationResult struct {
 	SenderPublicKey []byte
 }
 
-// ValidateWithResult validates an envelope and returns detailed results.
+// ValidateWithResult validates an envelope exactly like ValidateAndVerify and
+// returns detailed results.
 func (v *Validator) ValidateWithResult(ctx context.Context, env *Envelope) ValidationResult {
-	if env == nil {
-		return ValidationResult{
-			Valid: false,
-			Error: ErrMalformedRequest.WithReason("envelope is nil"),
-		}
+	if perr := v.ValidateAndVerify(ctx, env); perr != nil {
+		return ValidationResult{Valid: false, Error: perr}
 	}
-
-	// Quick validation first
-	if perr := v.QuickValidate(env); perr != nil {
-		return ValidationResult{
-			Valid: false,
-			Error: perr,
-		}
-	}
-
-	// Skip signature verification if configured
 	if v.config.SkipSignatureVerification {
 		return ValidationResult{Valid: true}
 	}
 
-	// Resolve public key
 	publicKey, err := auth.ResolveEd25519PublicKey(ctx, v.config.Resolver, env.GetSenderDid())
 	if err != nil {
-		return ValidationResult{
-			Valid: false,
-			Error: ToProtocolError(err),
-		}
+		return ValidationResult{Valid: false, Error: ToProtocolError(err)}
 	}
-
-	transcript, err := BuildAuthTranscript(env)
-	if err != nil {
-		return ValidationResult{
-			Valid: false,
-			Error: ErrMalformedRequest.WithReason(err.Error()),
-		}
-	}
-	if !auth.VerifyEd25519(publicKey, transcript, env.GetSignature()) {
-		return ValidationResult{
-			Valid: false,
-			Error: ErrAuthSignatureInvalid.WithReason("signature verification failed"),
-		}
-	}
-
-	// Check replay (if configured)
-	if v.config.ReplayProtector != nil {
-		if err := v.config.ReplayProtector.CheckAndMark(env.GetSenderDid(), env.GetSequence()); err != nil {
-			return ValidationResult{
-				Valid: false,
-				Error: ToProtocolError(err),
-			}
-		}
-	}
-
-	return ValidationResult{
-		Valid:           true,
-		SenderPublicKey: publicKey,
-	}
+	return ValidationResult{Valid: true, SenderPublicKey: ed25519.PublicKey(publicKey)}
 }
 
 // ErrorResponseMiddleware wraps a handler to convert errors to error envelopes.
 // This middleware should be placed early in the chain to catch errors from inner handlers.
+//
+// Error envelopes are not signed: receivers must treat them as advisory.
+// Internal error details are never copied into the response.
 func ErrorResponseMiddleware(localDID string) Middleware {
 	return func(next Handler) Handler {
 		return HandlerFunc(func(ctx context.Context, req *Envelope) (*Envelope, error) {
@@ -271,10 +295,17 @@ func WithTimestampValidation(tv *auth.TimestampValidator) ValidatorOption {
 	}
 }
 
-// WithReplayProtection enables replay protection with the given protector.
+// WithReplayProtection sets the replay protector.
 func WithReplayProtection(rp *auth.ReplayProtector) ValidatorOption {
 	return func(c *ValidatorConfig) {
 		c.ReplayProtector = rp
+	}
+}
+
+// WithAllowedDIDs restricts accepted senders.
+func WithAllowedDIDs(dids ...string) ValidatorOption {
+	return func(c *ValidatorConfig) {
+		c.AllowedDIDs = append(c.AllowedDIDs, dids...)
 	}
 }
 
@@ -287,12 +318,31 @@ func NewValidatorWithOptions(opts ...ValidatorOption) *Validator {
 	return NewValidator(config)
 }
 
+var (
+	sharedReplayOnce sync.Once
+	sharedReplay     *auth.ReplayProtector
+)
+
+// SharedReplayProtector returns a process-wide default replay protector.
+// It is used where callers do not supply one (ValidateRequest,
+// ReplayProtectionMiddleware(nil), SecureBaselineMiddleware with nil), so that
+// replay protection still spans connections and calls.
+func SharedReplayProtector() *auth.ReplayProtector {
+	sharedReplayOnce.Do(func() {
+		sharedReplay = auth.NewDefaultReplayProtector()
+		sharedReplay.EnsureMinTTL(auth.DefaultMaxTimestampAge + auth.DefaultClockSkew)
+	})
+	return sharedReplay
+}
+
 // ValidateRequest is a convenience function for one-off validation.
-// For repeated validation, create a Validator instance instead.
+// It uses the process-wide SharedReplayProtector. For repeated validation,
+// create a Validator instance instead.
 func ValidateRequest(ctx context.Context, env *Envelope, localDID string, resolver auth.DIDResolver) *ProtocolError {
 	validator := NewValidator(ValidatorConfig{
-		LocalDID: localDID,
-		Resolver: resolver,
+		LocalDID:        localDID,
+		Resolver:        resolver,
+		ReplayProtector: SharedReplayProtector(),
 	})
 	return validator.ValidateAndVerify(ctx, env)
 }

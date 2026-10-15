@@ -112,7 +112,7 @@ func (c *ServerConnection) RecvEnvelope() (*axcp.Envelope, error) {
 	if err != nil {
 		return nil, err
 	}
-	return axcp.FromBytes(data)
+	return axcp.FromBytesStrict(data)
 }
 
 // SendMessage sends raw bytes over the connection with length prefix.

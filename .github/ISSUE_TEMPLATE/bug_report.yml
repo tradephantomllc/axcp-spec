@@ -1,11 +1,45 @@
 name: "Bug report"
-description: Create a report to help us improve
-labels: bug
+description: Report a reproducible problem in AXCP Core. Do not use this form for security vulnerabilities.
+labels: ["bug"]
 body:
   - type: markdown
     attributes:
-      value: "### What happened?"
+      value: |
+        Thanks for reporting a bug. **Security vulnerabilities must not be reported here**; see [SECURITY.md](https://github.com/tradephantomllc/axcp-spec/blob/main/SECURITY.md) for private reporting.
   - type: textarea
+    id: what-happened
     attributes:
-      id: what-happened
-      label: Describe the bug
+      label: What happened?
+      description: Describe the bug and what you expected to happen instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Commands, configuration or a minimal code sample. Use test identities only; never paste private keys or tokens.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: AXCP Core release, SDK version or commit SHA.
+    validations:
+      required: false
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Specification
+        - Go SDK
+        - Python SDK
+        - TypeScript SDK
+        - Rust adapter
+        - Gateway
+        - Examples or documentation
+        - CI
+        - Other
+    validations:
+      required: true

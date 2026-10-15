@@ -2,7 +2,7 @@ package internal
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"sync"
 	"testing"
@@ -13,19 +13,19 @@ import (
 	"github.com/tradephantomllc/axcp-spec/sdk/go/axcp"
 )
 
-// MockTestLogger è un semplice wrapper per log.Logger che implementa l'interfaccia minima richiesta
-// dal RetryBuffer al posto di zap.Logger
+// MockTestLogger is a simple log.Logger wrapper that implements the minimal interface required
+// by RetryBuffer in place of zap.Logger
 type MockTestLogger struct {
 	l *log.Logger
 }
 
 func NewMockTestLogger(t *testing.T) *MockTestLogger {
 	return &MockTestLogger{
-		l: log.New(ioutil.Discard, "", 0), // Logger silenzioso per i test
+		l: log.New(io.Discard, "", 0), // Silent logger for tests
 	}
 }
 
-// I metodi necessari per implementare l'interfaccia di logging minima
+// Debug and the methods below implement the minimal logging interface
 func (m *MockTestLogger) Debug(msg string, fields ...interface{}) {}
 func (m *MockTestLogger) Info(msg string, fields ...interface{})  {}
 func (m *MockTestLogger) Warn(msg string, fields ...interface{})  {}
@@ -36,44 +36,44 @@ func (m *MockTestLogger) Sync() error                             { return nil }
 func TestRetryBufferBasicOperations(t *testing.T) {
 	logger := NewMockTestLogger(t)
 
-	// Mock per la funzione di pubblicazione
+	// Mock publish function
 	publishCalls := 0
 	publishMutex := sync.Mutex{}
 	mockPublish := func(env *axcp.Envelope) error {
 		publishMutex.Lock()
 		publishCalls++
 		publishMutex.Unlock()
-		return nil // Simula sempre successo
+		return nil // Always simulate success
 	}
 
-	// Configurazione con intervalli brevi per i test
+	// Short intervals for tests
 	config := DefaultRetryBufferConfig()
 	config.MinRetryInterval = 10 * time.Millisecond
 	config.MaxRetryInterval = 100 * time.Millisecond
 
-	// Crea il buffer di retry
+	// Create the retry buffer
 	rb := NewRetryBuffer(&config, logger, mockPublish)
 	defer rb.Close()
 
-	// Test aggiunta di un envelope
+	// Test adding an envelope
 	env := axcp.NewEnvelope("test-1", 0)
 
 	err := rb.AddEnvelope("test-1", env)
 	require.NoError(t, err)
 	assert.Equal(t, 1, rb.Size(), "Buffer size should be 1")
 
-	// Avvia il buffer
+	// Start the buffer
 	rb.Start()
 
-	// Attendi che il buffer processi l'elemento
+	// Wait for the buffer to process the entry
 	time.Sleep(50 * time.Millisecond)
 
-	// Verifica che l'elemento sia stato processato
+	// Verify the entry was processed
 	assert.Eventually(t, func() bool {
 		return rb.Size() == 0
 	}, 200*time.Millisecond, 10*time.Millisecond, "Buffer should be empty after processing")
 
-	// Verifica che la funzione di pubblicazione sia stata chiamata
+	// Verify the publish function was called
 	assert.Eventually(t, func() bool {
 		publishMutex.Lock()
 		defer publishMutex.Unlock()
@@ -103,55 +103,55 @@ func TestRetryBufferDefaultsLoggerAndPublisher(t *testing.T) {
 func TestRetryBufferFailedRetries(t *testing.T) {
 	logger := NewMockTestLogger(t)
 
-	// Mock per la funzione di pubblicazione che fallisce sempre
+	// Mock publish function that always fails
 	failingPublish := func(env *axcp.Envelope) error {
 		return assert.AnError
 	}
 
-	// Configurazione con valori ridotti per i test
+	// Reduced values for tests
 	config := DefaultRetryBufferConfig()
 	config.MinRetryInterval = 10 * time.Millisecond
 	config.MaxRetryInterval = 50 * time.Millisecond
 	config.MaxAttempts = 3
 
-	// Crea il buffer di retry
+	// Create the retry buffer
 	rb := NewRetryBuffer(&config, logger, failingPublish)
 	defer rb.Close()
 
-	// Aggiungi un envelope
+	// Add an envelope
 	env := axcp.NewEnvelope("test-retry", 0)
 
 	err := rb.AddEnvelope("test-retry", env)
 	require.NoError(t, err)
 
-	// Avvia il buffer
+	// Start the buffer
 	rb.Start()
 
-	// Dovrebbe fare 3 tentativi e poi rimuovere l'elemento
-	// Il tempo totale dovrebbe essere circa:
-	// 10ms (primo tentativo immediato) + 20ms (secondo tentativo) + 40ms (terzo tentativo) = ~70ms
+	// Should make 3 attempts and then remove the entry
+	// Total time should be roughly:
+	// 10ms (immediate first attempt) + 20ms (second attempt) + 40ms (third attempt) = ~70ms
 	time.Sleep(200 * time.Millisecond)
 
-	// Verifica che il buffer sia vuoto dopo il massimo dei tentativi
+	// Verify the buffer is empty after max attempts
 	assert.Equal(t, 0, rb.Size(), "Buffer should be empty after max attempts")
 }
 
 func TestRetryBufferCapacity(t *testing.T) {
 	logger := NewMockTestLogger(t)
 
-	// Mock per la funzione di pubblicazione
+	// Mock publish function
 	mockPublish := func(env *axcp.Envelope) error {
 		return nil
 	}
 
-	// Configurazione con capacità limitata
+	// Limited capacity configuration
 	config := DefaultRetryBufferConfig()
 	config.MaxCapacity = 5
 
-	// Crea il buffer di retry
+	// Create the retry buffer
 	rb := NewRetryBuffer(&config, logger, mockPublish)
 
-	// Aggiungi più elementi della capacità massima
+	// Add more entries than the maximum capacity
 	for i := 0; i < 10; i++ {
 		id := fmt.Sprintf("id-%d", i)
 		env := axcp.NewEnvelope(id, 0)
@@ -170,7 +170,7 @@ func TestRetryBufferCapacity(t *testing.T) {
 func TestRetryBufferStop(t *testing.T) {
 	logger := NewMockTestLogger(t)
 
-	// Mock sincrono per la funzione di pubblicazione con controllo
+	// Synchronous mock publish function that records calls
 	callMutex := sync.Mutex{}
 	publishCalled := false
 	mockPublish := func(env *axcp.Envelope) error {
@@ -180,13 +180,13 @@ func TestRetryBufferStop(t *testing.T) {
 		return nil
 	}
 
-	// Crea il buffer di retry con configurazione veloce per i test
+	// Create the retry buffer with a fast configuration for tests
 	config := DefaultRetryBufferConfig()
-	config.MinRetryInterval = 5 * time.Millisecond // Ridotto per test più veloci
+	config.MinRetryInterval = 5 * time.Millisecond // Reduced for faster tests
 	config.MaxRetryInterval = 20 * time.Millisecond
 	rb := NewRetryBuffer(&config, logger, mockPublish)
 
-	// Aggiungi alcuni elementi al buffer
+	// Add a few entries to the buffer
 	for i := 0; i < 3; i++ {
 		id := fmt.Sprintf("test-stop-%d", i)
 		env := axcp.NewEnvelope(id, 0)
@@ -194,28 +194,28 @@ func TestRetryBufferStop(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	// Verifica dimensione iniziale
+	// Verify initial size
 	assert.Equal(t, 3, rb.Size(), "Buffer should contain 3 items")
 
-	// Avvia il buffer
+	// Start the buffer
 	rb.Start()
 
-	// Attendiamo che la pubblicazione venga chiamata
+	// Wait for publish to be called
 	require.Eventually(t, func() bool {
 		callMutex.Lock()
 		defer callMutex.Unlock()
 		return publishCalled
 	}, 100*time.Millisecond, 5*time.Millisecond, "Publish function should be called")
 
-	// Attendiamo che la coda si svuoti
+	// Wait for the queue to drain
 	require.Eventually(t, func() bool {
 		return rb.Size() == 0
 	}, 200*time.Millisecond, 10*time.Millisecond, "Queue should be empty after processing")
 
-	// Ferma il buffer
+	// Stop the buffer
 	rb.Stop()
 
-	// Verifica che dopo lo stop non si possano aggiungere nuovi elementi
+	// Verify no new entries can be added after stop
 	env2 := axcp.NewEnvelope("test-after-stop", 0)
 	err := rb.AddEnvelope("test-after-stop", env2)
 	assert.Error(t, err, "Adding elements after stop should fail")
@@ -224,7 +224,7 @@ func TestRetryBufferStop(t *testing.T) {
 func TestRetryBufferBackoff(t *testing.T) {
 	logger := NewMockTestLogger(t)
 
-	// Traccia i tempi di chiamata per verificare il backoff
+	// Track call times to verify backoff
 	callTimes := []time.Time{}
 	callTimesMutex := sync.Mutex{}
 
@@ -235,37 +235,37 @@ func TestRetryBufferBackoff(t *testing.T) {
 		return assert.AnError
 	}
 
-	// Configurazione con backoff esponenziale
+	// Exponential backoff configuration
 	config := DefaultRetryBufferConfig()
 	config.MinRetryInterval = 20 * time.Millisecond
 	config.BackoffFactor = 2.0
 	config.MaxAttempts = 4
 
-	// Crea il buffer di retry
+	// Create the retry buffer
 	rb := NewRetryBuffer(&config, logger, failingPublish)
 
-	// Aggiungi un envelope
+	// Add an envelope
 	env := axcp.NewEnvelope("test-backoff", 0)
 
 	err := rb.AddEnvelope("test-backoff", env)
 	require.NoError(t, err)
 
-	// Avvia il buffer
+	// Start the buffer
 	rb.Start()
 
-	// Attendi che vengano effettuati tutti i tentativi
-	// (20ms + 40ms + 80ms = 140ms minimo)
+	// Wait for all attempts to complete
+	// (20ms + 40ms + 80ms = 140ms minimum)
 	time.Sleep(300 * time.Millisecond)
 
-	// Verifica che il buffer sia vuoto dopo il massimo dei tentativi
+	// Verify the buffer is empty after max attempts
 	assert.Equal(t, 0, rb.Size(), "Buffer should be empty after max attempts")
 
-	// Verifica che ci siano almeno 3 chiamate
+	// Verify there were at least 3 calls
 	callTimesMutex.Lock()
 	defer callTimesMutex.Unlock()
 	require.GreaterOrEqual(t, len(callTimes), 3, "Should have at least 3 retry attempts")
 
-	// Verifica che gli intervalli siano crescenti (backoff)
+	// Verify the intervals increase (backoff)
 	if len(callTimes) >= 3 {
 		interval1 := callTimes[1].Sub(callTimes[0])
 		interval2 := callTimes[2].Sub(callTimes[1])

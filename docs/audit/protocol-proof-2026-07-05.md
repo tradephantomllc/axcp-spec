@@ -3,6 +3,10 @@
 **Milestone**: M8.0
 **Result**: **PASS**
 
+## Errata (2026-10-15)
+
+This summary inherits the corrections in the [M8 proof pack errata](../protocol-proof/M8_PROOF_PACK.md#errata-2026-10-15): the Go evidence comes from cached test results, the gateway was not in the loop, and the replay demonstration uses a map inside the example rather than the SDK replay protector. The commit identifier is recorded for provenance only.
+
 ## Commit SHA
 
 ```text

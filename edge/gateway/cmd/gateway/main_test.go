@@ -14,6 +14,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/tradephantomllc/axcp-spec/sdk/go/auth"
 )
 
 func TestTrustedDIDFlagBuildsResolver(t *testing.T) {
@@ -22,7 +24,7 @@ func TestTrustedDIDFlagBuildsResolver(t *testing.T) {
 		t.Fatalf("GenerateKey failed: %v", err)
 	}
 
-	const did = "did:key:test-client"
+	const did = "did:example:test-client"
 	var trusted trustedDIDFlag
 	if err := trusted.Set(did + "=" + base64.RawURLEncoding.EncodeToString(pub)); err != nil {
 		t.Fatalf("Set failed: %v", err)
@@ -42,7 +44,7 @@ func TestTrustedDIDFlagBuildsResolver(t *testing.T) {
 
 func TestTrustedDIDFlagRejectsInvalidPublicKeyLength(t *testing.T) {
 	var trusted trustedDIDFlag
-	err := trusted.Set("did:key:test-client=" + base64.StdEncoding.EncodeToString([]byte("short")))
+	err := trusted.Set("did:example:test-client=" + base64.StdEncoding.EncodeToString([]byte("short")))
 	if err == nil {
 		t.Fatal("expected invalid public key length error")
 	}
@@ -114,4 +116,28 @@ func writeTestTLSKeypair(t *testing.T) (string, string) {
 	}
 
 	return certFile, keyFile
+}
+
+func TestTrustedDIDFlagValidatesDIDKeyBinding(t *testing.T) {
+	did, pub, _, err := auth.GenerateIdentity()
+	if err != nil {
+		t.Fatal(err)
+	}
+	other, _, _ := ed25519.GenerateKey(nil)
+
+	var trusted trustedDIDFlag
+	if err := trusted.Set(did + "=" + base64.StdEncoding.EncodeToString(pub)); err != nil {
+		t.Fatalf("matching did:key rejected: %v", err)
+	}
+	if err := trusted.Set(did + "=" + base64.StdEncoding.EncodeToString(other)); err == nil {
+		t.Fatal("did:key paired with a different key was accepted")
+	}
+	if err := trusted.Set("did:key:sender=" + base64.StdEncoding.EncodeToString(pub)); err == nil {
+		t.Fatal("non-standard did:key label was accepted")
+	}
+	identity := make([]byte, 32)
+	identity[0] = 1
+	if err := trusted.Set("did:example:x=" + base64.StdEncoding.EncodeToString(identity)); err == nil {
+		t.Fatal("small-order key was accepted")
+	}
 }

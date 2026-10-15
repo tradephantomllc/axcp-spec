@@ -2,8 +2,11 @@
 
 from axcp.transport.quic import (
     DEFAULT_ALPN,
+    DEFAULT_MAX_DATAGRAM_QUEUE,
+    DEFAULT_READ_TIMEOUT,
     MAX_DATAGRAM_SIZE,
     MAX_FRAME_SIZE,
+    HandlerErrors,
     QuicClient,
     QuicClientConfig,
     QuicConnection,
@@ -11,14 +14,18 @@ from axcp.transport.quic import (
     QuicServerConfig,
     TransportClosedError,
     TransportConfigError,
+    TransportError,
     TransportFrameError,
     TransportTimeoutError,
 )
 
 __all__ = [
     "DEFAULT_ALPN",
+    "DEFAULT_MAX_DATAGRAM_QUEUE",
+    "DEFAULT_READ_TIMEOUT",
     "MAX_DATAGRAM_SIZE",
     "MAX_FRAME_SIZE",
+    "HandlerErrors",
     "QuicClient",
     "QuicClientConfig",
     "QuicConnection",
@@ -26,6 +33,7 @@ __all__ = [
     "QuicServerConfig",
     "TransportClosedError",
     "TransportConfigError",
+    "TransportError",
     "TransportFrameError",
     "TransportTimeoutError",
 ]

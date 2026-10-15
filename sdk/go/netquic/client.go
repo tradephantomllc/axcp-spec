@@ -48,6 +48,17 @@ func Dial(addr string, tlsConf *tls.Config) (*Client, error) {
 		KeepAlivePeriod: 30 * time.Second, // Send a PING every 30 seconds
 	}
 
+	if tlsConf == nil {
+		return nil, fmt.Errorf("netquic: TLS config is required")
+	}
+	tlsConf = tlsConf.Clone()
+	if tlsConf.MinVersion < tls.VersionTLS13 {
+		tlsConf.MinVersion = tls.VersionTLS13
+	}
+	if len(tlsConf.NextProtos) == 0 {
+		tlsConf.NextProtos = []string{"axcp/1"}
+	}
+
 	// Establish QUIC connection
 	conn, err := quic.DialAddr(ctx, addr, tlsConf, config)
 	if err != nil {

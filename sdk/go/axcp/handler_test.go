@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 )
 
 func TestHandlerFunc(t *testing.T) {
@@ -142,11 +143,28 @@ func TestGetRouteKey_Default(t *testing.T) {
 	}
 }
 
-func TestGetRouteKey_TracePrefix(t *testing.T) {
+func TestGetRouteKey_TraceIDIsNeverARoutingKey(t *testing.T) {
 	env := NewEnvelope("12345678-extra-stuff", 1)
 	key := getRouteKey(env)
-	if key != "12345678" {
-		t.Errorf("expected trace prefix '12345678', got %q", key)
+	if key != "default" {
+		t.Errorf("payload-less envelope must route to default, got %q", key)
+	}
+}
+
+func TestRouter_HandlerCanRegisterRoutes(t *testing.T) {
+	router := NewRouter()
+	done := make(chan struct{})
+	router.SetDefaultFunc(func(ctx context.Context, req *Envelope) (*Envelope, error) {
+		// Registering while handling must not deadlock.
+		router.RegisterFunc("late", func(context.Context, *Envelope) (*Envelope, error) { return nil, nil })
+		close(done)
+		return nil, nil
+	})
+	go func() { _, _ = router.Handle(context.Background(), NewEnvelope("t", 1)) }()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("router deadlocked when a handler registered a route")
 	}
 }
 

@@ -1,213 +1,178 @@
 #!/usr/bin/env python3
 """
-Test bridge round-trip for both transport-only and secure-baseline profiles.
+Test bridge round-trip for secure-baseline (default) and opt-in transport-only profiles.
 
-Run: python scripts/test_bridge_roundtrip.py
+Run: python -m pytest scripts/test_bridge_roundtrip.py
 """
-import sys
 import os
+import sys
+import time
 
-# Add the root directory and proto directory to sys.path
+import pytest
+
 # Go up 1 level from scripts/ to reach the root of the repo
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'proto')))
 
-import json
-import base64
-from google.protobuf import json_format
-import proto.axcp_pb2 as axcp
+from axcp.envelope import sign_envelope, verify_envelope
+from axcp.errors import InvalidPrivateKeyError, SignatureVerificationError
+from axcp.identity import Identity
+from axcp.timestamp import now_us
 from gateway.mcp_bridge import (
-    mcp_to_axcp, axcp_to_mcp,
-    BridgeIdentity, BridgeSession,
-    PROFILE_TRANSPORT_ONLY, PROFILE_SECURE_BASELINE,
-    generate_test_identity, verify_envelope_signature,
-    NACL_AVAILABLE
+    PROFILE_SECURE_BASELINE,
+    PROFILE_TRANSPORT_ONLY,
+    BridgeIdentity,
+    BridgeSession,
+    axcp_to_mcp,
+    generate_test_identity,
+    mcp_to_axcp,
+    verify_envelope_signature,
 )
 
 
-def test_transport_only():
-    """Test bridge round-trip with transport-only profile (no auth)."""
+def _pair():
+    """Alice (sender) and Bob (receiver) sessions addressed to each other."""
+    alice = generate_test_identity()
+    bob = generate_test_identity()
+    alice_session = BridgeSession(alice, remote_did=bob.did, profile=PROFILE_SECURE_BASELINE, negotiated=True)
+    bob_session = BridgeSession(bob, remote_did=alice.did, profile=PROFILE_SECURE_BASELINE, negotiated=True)
+    return alice, bob, alice_session, bob_session
+
+
+def test_secure_baseline_is_the_default_profile():
+    identity = generate_test_identity()
+    assert BridgeSession(identity).profile == PROFILE_SECURE_BASELINE
+    with pytest.raises(ValueError, match="allow_transport_only"):
+        mcp_to_axcp({"id": "req", "tool": {"name": "search"}})
+
+
+def test_transport_only_requires_explicit_opt_in():
     mcp = {"id": "req-123", "tool": {"name": "search", "version": "1.0"}}
-    env = mcp_to_axcp(mcp)
+    env = mcp_to_axcp(mcp, allow_transport_only=True)
 
     assert env.version == 1
     assert env.profile == PROFILE_TRANSPORT_ONLY
     assert env.capability_msg.offer.desc.tool_id == "search"
-    assert env.sender_did == ""  # No auth fields for transport-only
+    assert env.sender_did == ""
     assert env.signature == b""
 
     back = axcp_to_mcp(env)
     assert back["id"] == "req-123"
-    assert "_auth" not in back  # No auth metadata for transport-only
-
-    print("  transport-only round-trip OK")
-
-
-def test_transport_only_with_session():
-    """Test bridge with explicit transport-only session."""
-    identity = generate_test_identity()
-    session = BridgeSession(
-        local_identity=identity,
-        profile=PROFILE_TRANSPORT_ONLY,
-        negotiated=True
-    )
-
-    mcp = {"id": "req-456", "tool": {"name": "query", "version": "2.0"}}
-    env = mcp_to_axcp(mcp, session)
-
-    assert env.profile == PROFILE_TRANSPORT_ONLY
-    assert env.sender_did == ""  # No auth even with session for transport-only
-
-    back = axcp_to_mcp(env)
-    assert back["id"] == "req-456"
-
-    print("  transport-only with session OK")
-
-
-def test_secure_baseline():
-    """Test bridge round-trip with secure-baseline profile."""
-    if not NACL_AVAILABLE:
-        print("  secure-baseline SKIPPED (PyNaCl not installed)")
-        return
+    assert "_auth" not in back
 
     identity = generate_test_identity()
-    session = BridgeSession(
-        local_identity=identity,
-        remote_did="did:key:gateway-server",
-        profile=PROFILE_SECURE_BASELINE,
-        negotiated=True
-    )
+    refused = BridgeSession(identity, profile=PROFILE_TRANSPORT_ONLY, negotiated=True)
+    with pytest.raises(ValueError, match="explicit allow_transport_only"):
+        mcp_to_axcp(mcp, refused)
+    allowed = BridgeSession(identity, profile=PROFILE_TRANSPORT_ONLY, negotiated=True, allow_transport_only=True)
+    assert mcp_to_axcp(mcp, allowed).sender_did == ""
 
-    mcp = {"id": "req-789", "tool": {"name": "execute", "version": "1.0"}}
-    env = mcp_to_axcp(mcp, session)
 
-    assert env.version == 1
+def test_secure_baseline_roundtrip_emits_auth_only_after_verification():
+    alice, bob, alice_session, bob_session = _pair()
+    env = mcp_to_axcp({"id": "req-789", "tool": {"name": "execute", "version": "1.0"}}, alice_session)
+
     assert env.profile == PROFILE_SECURE_BASELINE
-    assert env.capability_msg.offer.desc.tool_id == "execute"
-    assert env.sender_did == identity.did
-    assert env.recipient_did == "did:key:gateway-server"
+    assert env.sender_did == alice.did
+    assert env.recipient_did == bob.did
     assert env.timestamp_ms > 0
-    assert env.sequence == 1
-    assert len(env.signature) == 64  # Ed25519 signature is 64 bytes
+    assert len(env.signature) == 64
 
-    back = axcp_to_mcp(env)
+    # Without a verifying session no _auth metadata is ever emitted.
+    assert "_auth" not in axcp_to_mcp(env)
+
+    back = axcp_to_mcp(env, bob_session)
     assert back["id"] == "req-789"
-    assert "_auth" in back
-    assert back["_auth"]["sender_did"] == identity.did
+    assert back["_auth"]["sender_did"] == alice.did
     assert back["_auth"]["profile"] == "secure-baseline-v1"
 
-    print("  secure-baseline round-trip OK")
+    # Replay of the same envelope is rejected.
+    with pytest.raises(ValueError, match="verification"):
+        axcp_to_mcp(env, bob_session)
 
 
-def test_secure_baseline_sequence():
-    """Test that sequence numbers increment correctly."""
-    if not NACL_AVAILABLE:
-        print("  sequence increment SKIPPED (PyNaCl not installed)")
-        return
+def test_unverified_envelopes_never_get_auth_metadata():
+    alice, _, alice_session, bob_session = _pair()
+    env = mcp_to_axcp({"id": "forged", "tool": {"name": "x"}}, alice_session)
+    env.capability_msg.offer.desc.tool_id = "tampered"
+    with pytest.raises(ValueError):
+        axcp_to_mcp(env, bob_session)
 
-    identity = generate_test_identity()
-    session = BridgeSession(
-        local_identity=identity,
-        remote_did="did:key:zserver",
-        profile=PROFILE_SECURE_BASELINE,
-        negotiated=True
+    unsigned = mcp_to_axcp({"id": "plain", "tool": {"name": "x"}}, allow_transport_only=True)
+    unsigned.sender_did = alice.did  # claims an identity without a signature
+    assert "_auth" not in axcp_to_mcp(unsigned)
+    with pytest.raises(ValueError):
+        axcp_to_mcp(unsigned, bob_session)
+
+
+def test_secure_baseline_sequence_is_time_based_and_increments():
+    before = now_us()
+    _, _, alice_session, _ = _pair()
+    sequences = [
+        mcp_to_axcp({"id": f"req-{index}", "tool": {"name": "test", "version": "1.0"}}, alice_session).sequence
+        for index in range(5)
+    ]
+    assert sequences[0] >= before
+    assert sequences == list(range(sequences[0], sequences[0] + 5))
+
+
+def test_verification_checks_recipient_timestamp_and_replay():
+    alice, bob, alice_session, bob_session = _pair()
+    carol = generate_test_identity()
+    carol_session = BridgeSession(carol, remote_did=alice.did, negotiated=True)
+    resolver = {alice.did: alice.verify_key}
+
+    env = mcp_to_axcp({"id": "req-verify", "tool": {"name": "verify_test"}}, alice_session)
+    assert not verify_envelope_signature(env, resolver, carol_session)  # wrong recipient
+    assert verify_envelope_signature(env, resolver, bob_session)
+    assert not verify_envelope_signature(env, resolver, bob_session)  # replay
+
+    stale = mcp_to_axcp({"id": "stale", "tool": {"name": "verify_test"}}, alice_session)
+    sign_envelope(
+        stale,
+        Identity.from_seed(alice.signing_key),
+        recipient_did=bob.did,
+        sequence=stale.sequence,
+        timestamp_ms=int(time.time() * 1000) - 10 * 60 * 1000,
     )
+    assert not verify_envelope_signature(stale, resolver, bob_session)  # expired timestamp
 
-    for expected_seq in range(1, 6):
-        mcp = {"id": f"req-{expected_seq}", "tool": {"name": "test", "version": "1.0"}}
-        env = mcp_to_axcp(mcp, session)
-        assert env.sequence == expected_seq, f"Expected sequence {expected_seq}, got {env.sequence}"
-
-    print("  sequence increment OK")
-
-
-def test_signature_verification():
-    """Test that signatures can be verified with the resolver."""
-    if not NACL_AVAILABLE:
-        print("  signature verification SKIPPED (PyNaCl not installed)")
-        return
-
-    identity = generate_test_identity()
-    session = BridgeSession(
-        local_identity=identity,
-        remote_did="did:key:verifier",
-        profile=PROFILE_SECURE_BASELINE,
-        negotiated=True
-    )
-
-    mcp = {"id": "req-verify", "tool": {"name": "verify_test", "version": "1.0"}}
-    env = mcp_to_axcp(mcp, session)
-
-    # Create resolver with the identity's public key
-    resolver = {identity.did: identity.verify_key}
-
-    # Verify signature
-    assert verify_envelope_signature(env, resolver), "Signature verification failed"
-
-    # Verify that wrong key fails
-    other_identity = generate_test_identity()
-    wrong_resolver = {identity.did: other_identity.verify_key}
-    assert not verify_envelope_signature(env, wrong_resolver), "Wrong key should fail"
-
-    print("  signature verification OK")
+    wrong_key = {alice.did: generate_test_identity().verify_key}
+    fresh = mcp_to_axcp({"id": "wrong-key", "tool": {"name": "verify_test"}}, alice_session)
+    assert not verify_envelope_signature(fresh, wrong_key, bob_session)
+    assert not verify_envelope_signature(fresh, {}, bob_session)  # resolver acts as allowlist
 
 
-def test_identity_generation():
-    """Test that generated identities are unique and valid."""
+def test_identity_generation_and_repr_hygiene():
     identity1 = generate_test_identity()
     identity2 = generate_test_identity()
 
-    assert identity1.did != identity2.did, "DIDs should be unique"
+    assert identity1.did != identity2.did
     assert identity1.did.startswith("did:key:z")
+    assert len(identity1.verify_key) == 32
+    assert identity1.verify_key != identity2.verify_key
 
-    if NACL_AVAILABLE:
-        assert identity1.verify_key is not None
-        assert identity2.verify_key is not None
-        assert identity1.verify_key != identity2.verify_key
-        assert len(identity1.verify_key) == 32  # Ed25519 public key size
-
-    print("  identity generation OK")
-
-
-def main():
-    print("MCP <-> AXCP Bridge Tests")
-    print("-" * 40)
-
-    test_transport_only()
-    test_transport_only_with_session()
-    test_secure_baseline()
-    test_secure_baseline_sequence()
-    test_signature_verification()
-    test_identity_generation()
-
-    print("-" * 40)
-    print("All bridge tests PASSED")
-
-
-if __name__ == "__main__":
-    main()
+    session = BridgeSession(identity1, remote_did=identity2.did, negotiated=True)
+    rendered = repr(identity1) + repr(session)
+    assert identity1.signing_key.hex() not in rendered
+    assert repr(identity1.signing_key) not in rendered
+    assert repr(identity1.verify_key) not in rendered
+    assert identity1.did in rendered
 
 
 def test_bridge_uses_sdk_signature_and_rejects_sequence_tampering():
-    import pytest
-    from axcp.envelope import verify_envelope, sign_envelope
-    from axcp.errors import SignatureVerificationError
-    from axcp.identity import Identity
     identity = generate_test_identity()
     session = BridgeSession(identity, "did:example:gateway", PROFILE_SECURE_BASELINE, negotiated=True)
     env = mcp_to_axcp({"id": "signed", "tool": {"name": "test"}}, session)
-    verify_envelope(env, public_key=identity.verify_key)
+    verify_envelope(env, expected_recipient_did="did:example:gateway", public_key=identity.verify_key)
     env.sequence += 1
     with pytest.raises(SignatureVerificationError):
-        verify_envelope(env, public_key=identity.verify_key)
+        verify_envelope(env, expected_recipient_did="did:example:gateway", public_key=identity.verify_key)
     assert not verify_envelope_signature(env, {identity.did: identity.verify_key})
     sign_envelope(env, Identity.from_seed(identity.signing_key), recipient_did=session.remote_did, sequence=3)
     assert verify_envelope_signature(env, {identity.did: identity.verify_key})
 
 
 def test_secure_bridge_fails_closed():
-    import pytest
-    from axcp.errors import InvalidPrivateKeyError
     request = {"id": "fail", "tool": {"name": "test"}}
     identity = generate_test_identity()
     with pytest.raises(ValueError, match="configured"):

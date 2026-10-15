@@ -3,35 +3,39 @@
 ## Supported Scope
 
 This repository contains AXCP Core. Security issues affecting the public Core
-specification, SDKs, gateway examples, CI, or release artifacts are in scope.
+specification, SDKs, gateway, examples, CI, or release artifacts are in scope.
 
-Advanced and Enterprise code is maintained separately and should be reported
-through the private support channel used for those repositories.
+Commercial components are maintained separately. Report issues in them through
+your commercial support channel or to the address below.
 
 ## Reporting Vulnerabilities
 
-Use GitHub private vulnerability reporting for this repository when available.
-Do not open a public issue containing exploit details, private keys, tokens,
-reproduction payloads, or sensitive deployment information.
+**Do not open public GitHub issues, pull requests or discussions for security
+vulnerabilities.** Report them privately through one of these channels:
 
-If private reporting is unavailable, open a minimal public issue requesting a
-security contact and omit technical details until a private channel is agreed.
+1. **GitHub private vulnerability reporting:** use
+   [Report a vulnerability](https://github.com/tradephantomllc/axcp-spec/security/advisories/new)
+   on this repository.
+2. **Email:** support@getaxcp.com, with "AXCP security" in the subject line.
+
+Please include the affected component and version or commit, a description of
+the issue and its impact, and reproduction steps. Do not include real private
+keys, tokens or production data; use test identities.
+
+We will acknowledge your report, keep you informed while we investigate, and
+coordinate disclosure with you once a fix or mitigation is available.
 
 ## Branch Protection
 
 All changes to `main` must go through a pull request. Branch protection is
-enforced for administrators, requires the branch to be up to date, and requires
-these checks before merge:
+enforced for administrators and requires the branch to be up to date before
+merge. Force pushes and branch deletions are disabled, and conversations must be
+resolved before merging.
 
-- `Test Go`
-- `Test Python`
-- `Test TypeScript`
-- `Test Gateway Telemetry`
-- `Test RPi Agent`
-- `Check Examples`
-
-Force pushes and branch deletions are disabled. Conversations must be resolved
-before merging.
+Required status checks are defined in the branch protection settings, which are
+authoritative. At the time of writing they cover the Core CI jobs (Go, Python,
+TypeScript, gateway telemetry, Raspberry Pi agent and examples), the Rust CI
+jobs and the `license/cla` Contributor License Agreement check.
 
 ## Dependency Handling
 

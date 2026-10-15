@@ -5,6 +5,13 @@ const BASE58_INDEX = new Map<string, number>(
   [...BASE58_ALPHABET].map((char, index) => [char, index]),
 );
 
+/**
+ * Hard upper bound for base58 input accepted by {@link base58Decode}. Decoding is
+ * quadratic in the input length, so callers must apply their own (smaller) limit
+ * before decoding attacker-controlled data; this is a last line of defence.
+ */
+export const MAX_BASE58_DECODE_LENGTH = 256;
+
 export function base58Encode(data: Uint8Array): string {
   let value = 0n;
   for (const byte of data) {
@@ -29,12 +36,15 @@ export function base58Encode(data: Uint8Array): string {
   return "1".repeat(leadingZeroes) + encoded;
 }
 
-export function base58Decode(value: string): Uint8Array {
+export function base58Decode(value: string, maxLength = MAX_BASE58_DECODE_LENGTH): Uint8Array {
+  if (value.length > maxLength) {
+    throw new InvalidDIDFormat(`base58btc input exceeds ${maxLength} characters`);
+  }
   let decoded = 0n;
   for (const char of value) {
     const digit = BASE58_INDEX.get(char);
     if (digit === undefined) {
-      throw new InvalidDIDFormat(`invalid base58btc character: ${JSON.stringify(char)}`);
+      throw new InvalidDIDFormat("invalid base58btc character");
     }
     decoded = decoded * 58n + BigInt(digit);
   }

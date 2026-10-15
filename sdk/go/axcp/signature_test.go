@@ -12,8 +12,8 @@ import (
 
 func TestSigningPayloadExcludesDetachedAuthFields(t *testing.T) {
 	env := NewEnvelope("trace-123", 1)
-	env.SenderDid = "did:key:sender"
-	env.RecipientDid = "did:key:recipient"
+	env.SenderDid = "did:example:sender"
+	env.RecipientDid = "did:example:recipient"
 	env.TimestampMs = 1700000000000
 	env.Sequence = 42
 	env.Signature = []byte("signature")
@@ -57,15 +57,15 @@ func TestSigningPayloadExcludesDetachedAuthFields(t *testing.T) {
 
 func TestSigningPayloadStableWhenAuthFieldsChange(t *testing.T) {
 	left := NewEnvelope("trace-123", 1)
-	left.SenderDid = "did:key:left"
-	left.RecipientDid = "did:key:recipient"
+	left.SenderDid = "did:example:left"
+	left.RecipientDid = "did:example:recipient"
 	left.TimestampMs = 1700000000000
 	left.Sequence = 1
 	left.Signature = []byte("left")
 
 	right := NewEnvelope("trace-123", 1)
-	right.SenderDid = "did:key:right"
-	right.RecipientDid = "did:key:other"
+	right.SenderDid = "did:example:right"
+	right.RecipientDid = "did:example:other"
 	right.TimestampMs = 1700000001000
 	right.Sequence = 1
 	right.Signature = []byte("right")
@@ -105,8 +105,8 @@ func TestSigningPayloadChangesWhenSequenceChanges(t *testing.T) {
 
 func TestBuildAuthTranscriptMatchesDIDAuthTranscript(t *testing.T) {
 	env := NewEnvelope("trace-123", 1)
-	env.SenderDid = "did:key:sender"
-	env.RecipientDid = "did:key:recipient"
+	env.SenderDid = "did:example:sender"
+	env.RecipientDid = "did:example:recipient"
 	env.TimestampMs = 1700000000000
 
 	payload, err := SigningPayload(env)

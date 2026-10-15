@@ -39,7 +39,7 @@ func TestChain(t *testing.T) {
 
 	chained := Chain(mw1, mw2)(handler)
 
-	env := NewEnvelope("test", 1)
+	env := newTestEnvelope("test")
 	_, _ = chained.HandleEnvelope(context.Background(), env)
 
 	expected := []string{"mw1-before", "mw2-before", "handler", "mw2-after", "mw1-after"}
@@ -60,7 +60,7 @@ func TestRecoveryMiddleware(t *testing.T) {
 
 	recovered := RecoveryMiddleware()(handler)
 
-	env := NewEnvelope("test", 1)
+	env := newTestEnvelope("test")
 	_, err := recovered.HandleEnvelope(context.Background(), env)
 
 	if err == nil {
@@ -78,7 +78,7 @@ func TestRecoveryMiddleware_NoError(t *testing.T) {
 
 	recovered := RecoveryMiddleware()(handler)
 
-	env := NewEnvelope("test", 1)
+	env := newTestEnvelope("test")
 	resp, err := recovered.HandleEnvelope(context.Background(), env)
 
 	if err != nil {
@@ -107,8 +107,8 @@ func TestLoggingMiddleware(t *testing.T) {
 
 	logged := LoggingMiddleware(logger)(handler)
 
-	env := NewEnvelope("test-trace-123", 1)
-	env.SenderDid = "did:key:sender"
+	env := newTestEnvelope("test-trace-123")
+	env.SenderDid = "did:example:sender"
 	_, _ = logged.HandleEnvelope(context.Background(), env)
 
 	if len(logger.logs) != 2 {
@@ -124,7 +124,7 @@ func TestLoggingMiddleware_NilLogger(t *testing.T) {
 	// Should not panic with nil logger
 	logged := LoggingMiddleware(nil)(handler)
 
-	env := NewEnvelope("test", 1)
+	env := newTestEnvelope("test")
 	_, err := logged.HandleEnvelope(context.Background(), env)
 
 	if err != nil {
@@ -139,7 +139,7 @@ func TestTimestampValidationMiddleware_Valid(t *testing.T) {
 
 	validated := TimestampValidationMiddleware(nil)(handler)
 
-	env := NewEnvelope("test", 1)
+	env := newTestEnvelope("test")
 	env.TimestampMs = auth.NowMs()
 
 	_, err := validated.HandleEnvelope(context.Background(), env)
@@ -155,7 +155,7 @@ func TestTimestampValidationMiddleware_Expired(t *testing.T) {
 
 	validated := TimestampValidationMiddleware(nil)(handler)
 
-	env := NewEnvelope("test", 1)
+	env := newTestEnvelope("test")
 	env.TimestampMs = uint64(time.Now().Add(-10 * time.Minute).UnixMilli())
 
 	_, err := validated.HandleEnvelope(context.Background(), env)
@@ -173,8 +173,8 @@ func TestReplayProtectionMiddleware_Valid(t *testing.T) {
 
 	protected := ReplayProtectionMiddleware(protector)(handler)
 
-	env := NewEnvelope("test", 1)
-	env.SenderDid = "did:key:sender"
+	env := newTestEnvelope("test")
+	env.SenderDid = "did:example:sender"
 	env.Sequence = 1
 
 	// First call should succeed
@@ -195,10 +195,10 @@ func TestRecipientValidationMiddleware_Valid(t *testing.T) {
 		return req, nil
 	})
 
-	validated := RecipientValidationMiddleware("did:key:local")(handler)
+	validated := RecipientValidationMiddleware("did:example:local")(handler)
 
-	env := NewEnvelope("test", 1)
-	env.RecipientDid = "did:key:local"
+	env := newTestEnvelope("test")
+	env.RecipientDid = "did:example:local"
 
 	_, err := validated.HandleEnvelope(context.Background(), env)
 	if err != nil {
@@ -211,9 +211,9 @@ func TestRecipientValidationMiddleware_Missing(t *testing.T) {
 		return req, nil
 	})
 
-	validated := RecipientValidationMiddleware("did:key:local")(handler)
+	validated := RecipientValidationMiddleware("did:example:local")(handler)
 
-	env := NewEnvelope("test", 1)
+	env := newTestEnvelope("test")
 	// No recipient set
 
 	_, err := validated.HandleEnvelope(context.Background(), env)
@@ -227,10 +227,10 @@ func TestRecipientValidationMiddleware_Mismatch(t *testing.T) {
 		return req, nil
 	})
 
-	validated := RecipientValidationMiddleware("did:key:local")(handler)
+	validated := RecipientValidationMiddleware("did:example:local")(handler)
 
-	env := NewEnvelope("test", 1)
-	env.RecipientDid = "did:key:other"
+	env := newTestEnvelope("test")
+	env.RecipientDid = "did:example:other"
 
 	_, err := validated.HandleEnvelope(context.Background(), env)
 	if !errors.Is(err, auth.ErrRecipientMismatch) {
@@ -245,8 +245,8 @@ func TestSenderValidationMiddleware_Valid(t *testing.T) {
 
 	validated := SenderValidationMiddleware()(handler)
 
-	env := NewEnvelope("test", 1)
-	env.SenderDid = "did:key:sender"
+	env := newTestEnvelope("test")
+	env.SenderDid = "did:example:sender"
 
 	_, err := validated.HandleEnvelope(context.Background(), env)
 	if err != nil {
@@ -261,7 +261,7 @@ func TestSenderValidationMiddleware_Missing(t *testing.T) {
 
 	validated := SenderValidationMiddleware()(handler)
 
-	env := NewEnvelope("test", 1)
+	env := newTestEnvelope("test")
 	// No sender set
 
 	_, err := validated.HandleEnvelope(context.Background(), env)
@@ -277,7 +277,7 @@ func TestSenderValidationMiddleware_Invalid(t *testing.T) {
 
 	validated := SenderValidationMiddleware()(handler)
 
-	env := NewEnvelope("test", 1)
+	env := newTestEnvelope("test")
 	env.SenderDid = "invalid-did-format"
 
 	_, err := validated.HandleEnvelope(context.Background(), env)
@@ -297,7 +297,7 @@ func TestTimeoutMiddleware(t *testing.T) {
 
 	timed := TimeoutMiddleware(5 * time.Second)(handler)
 
-	env := NewEnvelope("test", 1)
+	env := newTestEnvelope("test")
 	_, err := timed.HandleEnvelope(context.Background(), env)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -318,7 +318,7 @@ func TestContextValueMiddleware(t *testing.T) {
 
 	valued := ContextValueMiddleware(key, "test-value")(handler)
 
-	env := NewEnvelope("test", 1)
+	env := newTestEnvelope("test")
 	_, err := valued.HandleEnvelope(context.Background(), env)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -327,8 +327,8 @@ func TestContextValueMiddleware(t *testing.T) {
 
 func TestSignatureValidationMiddleware_Valid(t *testing.T) {
 	pub, priv, _ := ed25519.GenerateKey(nil)
-	senderDID := "did:key:sender"
-	recipientDID := "did:key:recipient"
+	senderDID := "did:example:sender"
+	recipientDID := "did:example:recipient"
 
 	resolver := auth.NewMemoryDIDResolver()
 	resolver.AddDID(senderDID, pub)
@@ -340,7 +340,7 @@ func TestSignatureValidationMiddleware_Valid(t *testing.T) {
 	validated := SignatureValidationMiddleware(resolver)(handler)
 
 	// Create and sign envelope
-	env := NewEnvelope("test-trace", 1)
+	env := newTestEnvelope("test-trace")
 	env.SenderDid = senderDID
 	env.RecipientDid = recipientDID
 	env.TimestampMs = auth.NowMs()
@@ -365,8 +365,8 @@ func TestSignatureValidationMiddleware_Missing(t *testing.T) {
 
 	validated := SignatureValidationMiddleware(resolver)(handler)
 
-	env := NewEnvelope("test", 1)
-	env.SenderDid = "did:key:sender"
+	env := newTestEnvelope("test")
+	env.SenderDid = "did:example:sender"
 	// No signature
 
 	_, err := validated.HandleEnvelope(context.Background(), env)
@@ -377,7 +377,7 @@ func TestSignatureValidationMiddleware_Missing(t *testing.T) {
 
 func TestSignatureValidationMiddleware_Invalid(t *testing.T) {
 	pub, _, _ := ed25519.GenerateKey(nil)
-	senderDID := "did:key:sender"
+	senderDID := "did:example:sender"
 
 	resolver := auth.NewMemoryDIDResolver()
 	resolver.AddDID(senderDID, pub)
@@ -388,9 +388,9 @@ func TestSignatureValidationMiddleware_Invalid(t *testing.T) {
 
 	validated := SignatureValidationMiddleware(resolver)(handler)
 
-	env := NewEnvelope("test", 1)
+	env := newTestEnvelope("test")
 	env.SenderDid = senderDID
-	env.RecipientDid = "did:key:recipient"
+	env.RecipientDid = "did:example:recipient"
 	env.TimestampMs = auth.NowMs()
 	env.Signature = make([]byte, 64) // Invalid signature (zeros)
 
@@ -405,8 +405,8 @@ func TestSignatureValidationMiddleware_Invalid(t *testing.T) {
 
 func TestSecureBaselineMiddleware(t *testing.T) {
 	pub, priv, _ := ed25519.GenerateKey(nil)
-	senderDID := "did:key:sender"
-	localDID := "did:key:local"
+	senderDID := "did:example:sender"
+	localDID := "did:example:local"
 
 	resolver := auth.NewMemoryDIDResolver()
 	resolver.AddDID(senderDID, pub)
@@ -422,7 +422,7 @@ func TestSecureBaselineMiddleware(t *testing.T) {
 	secured := SecureBaselineMiddleware(localDID, resolver, protector)(handler)
 
 	// Create valid envelope
-	env := NewEnvelope("test-trace", 1)
+	env := newTestEnvelope("test-trace")
 	env.SenderDid = senderDID
 	env.RecipientDid = localDID
 	env.TimestampMs = auth.NowMs()

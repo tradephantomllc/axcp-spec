@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
+	"runtime"
 	"testing"
 )
 
@@ -70,5 +71,39 @@ func TestDisconnectedEnvelopeMethods(t *testing.T) {
 	}
 	if _, err := c.RecvEnvelope(); !errors.Is(err, ErrNotConnected) {
 		t.Fatal(err)
+	}
+}
+
+// slowReader returns its data one byte at a time and counts reads.
+type slowReader struct {
+	data []byte
+}
+
+func (r *slowReader) Read(p []byte) (int, error) {
+	if len(r.data) == 0 {
+		return 0, io.EOF
+	}
+	p[0] = r.data[0]
+	r.data = r.data[1:]
+	return 1, nil
+}
+
+func TestReadFrameDoesNotTrustAnnouncedSize(t *testing.T) {
+	// A peer announces a maximum-size frame but sends only a few bytes:
+	// the reader must fail without having allocated the announced size.
+	header := make([]byte, 4)
+	binary.LittleEndian.PutUint32(header, MaxMessageSize)
+	r := &slowReader{data: append(header, []byte("tiny")...)}
+
+	var before, after runtime.MemStats
+	runtime.GC()
+	runtime.ReadMemStats(&before)
+	_, err := readFrame(r, binary.LittleEndian, true)
+	runtime.ReadMemStats(&after)
+	if !errors.Is(err, io.ErrUnexpectedEOF) {
+		t.Fatalf("got %v, want io.ErrUnexpectedEOF", err)
+	}
+	if grew := after.TotalAlloc - before.TotalAlloc; grew > MaxMessageSize/4 {
+		t.Fatalf("allocated %d bytes for a 4-byte body", grew)
 	}
 }

@@ -9,7 +9,7 @@ import (
 
 func TestCachingDIDResolver_BasicCaching(t *testing.T) {
 	pub, _, _ := ed25519.GenerateKey(nil)
-	did := "did:key:test"
+	did := "did:example:test"
 
 	// Create underlying resolver with one DID
 	underlying := NewMemoryDIDResolver()
@@ -44,7 +44,7 @@ func TestCachingDIDResolver_BasicCaching(t *testing.T) {
 
 func TestCachingDIDResolver_Expiration(t *testing.T) {
 	pub, _, _ := ed25519.GenerateKey(nil)
-	did := "did:key:test"
+	did := "did:example:test"
 
 	underlying := NewMemoryDIDResolver()
 	underlying.AddDID(did, pub)
@@ -74,7 +74,7 @@ func TestCachingDIDResolver_Expiration(t *testing.T) {
 
 func TestCachingDIDResolver_NoExpiration(t *testing.T) {
 	pub, _, _ := ed25519.GenerateKey(nil)
-	did := "did:key:test"
+	did := "did:example:test"
 
 	underlying := NewMemoryDIDResolver()
 	underlying.AddDID(did, pub)
@@ -108,13 +108,13 @@ func TestCachingDIDResolver_NegativeCaching(t *testing.T) {
 	ctx := context.Background()
 
 	// First resolution should fail and cache the failure
-	_, err1 := caching.Resolve(ctx, "did:key:unknown")
+	_, err1 := caching.Resolve(ctx, "did:example:unknown")
 	if err1 == nil {
 		t.Fatal("Expected error for unknown DID")
 	}
 
 	// Second resolution should also fail (from cache)
-	_, err2 := caching.Resolve(ctx, "did:key:unknown")
+	_, err2 := caching.Resolve(ctx, "did:example:unknown")
 	if err2 == nil {
 		t.Fatal("Expected cached error for unknown DID")
 	}
@@ -122,7 +122,7 @@ func TestCachingDIDResolver_NegativeCaching(t *testing.T) {
 
 func TestCachingDIDResolver_Invalidate(t *testing.T) {
 	pub, _, _ := ed25519.GenerateKey(nil)
-	did := "did:key:test"
+	did := "did:example:test"
 
 	underlying := NewMemoryDIDResolver()
 	underlying.AddDID(did, pub)
@@ -153,8 +153,8 @@ func TestCachingDIDResolver_Invalidate(t *testing.T) {
 func TestCachingDIDResolver_InvalidateAll(t *testing.T) {
 	pub1, _, _ := ed25519.GenerateKey(nil)
 	pub2, _, _ := ed25519.GenerateKey(nil)
-	did1 := "did:key:test1"
-	did2 := "did:key:test2"
+	did1 := "did:example:test1"
+	did2 := "did:example:test2"
 
 	underlying := NewMemoryDIDResolver()
 	underlying.AddDID(did1, pub1)
@@ -186,7 +186,7 @@ func TestCachingDIDResolver_InvalidateAll(t *testing.T) {
 
 func TestCachingDIDResolver_Preload(t *testing.T) {
 	pub, _, _ := ed25519.GenerateKey(nil)
-	did := "did:key:preloaded"
+	did := "did:example:preloaded"
 
 	// Create caching resolver with empty underlying
 	underlying := NewMemoryDIDResolver()
@@ -212,7 +212,7 @@ func TestCachingDIDResolver_Preload(t *testing.T) {
 
 func TestCachingDIDResolver_Stats(t *testing.T) {
 	pub, _, _ := ed25519.GenerateKey(nil)
-	did := "did:key:test"
+	did := "did:example:test"
 
 	underlying := NewMemoryDIDResolver()
 	underlying.AddDID(did, pub)

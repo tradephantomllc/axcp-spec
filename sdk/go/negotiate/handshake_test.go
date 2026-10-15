@@ -47,7 +47,7 @@ func TestWireClientHello_MarshalUnmarshal(t *testing.T) {
 
 	hello := &WireClientHello{
 		Version:   1,
-		SenderDID: "did:key:client123",
+		SenderDID: "did:example:client123",
 		Profiles:  []Profile{ProfileSecureBaseline},
 		Capabilities: Capabilities{
 			RequireAuth:   true,
@@ -94,7 +94,7 @@ func TestWireServerHello_MarshalUnmarshal(t *testing.T) {
 
 	hello := &WireServerHello{
 		Version:         1,
-		SenderDID:       "did:key:server456",
+		SenderDID:       "did:example:server456",
 		SelectedProfile: ProfileSecureBaseline,
 		Capabilities: Capabilities{
 			RequireAuth:   true,
@@ -141,7 +141,7 @@ func TestWireClientHello_SignVerify(t *testing.T) {
 
 	hello := &WireClientHello{
 		Version:      1,
-		SenderDID:    "did:key:test",
+		SenderDID:    "did:example:test",
 		Profiles:     []Profile{ProfileSecureBaseline},
 		Capabilities: DefaultCapabilities(),
 		TimestampMs:  auth.NowMs(),
@@ -169,7 +169,7 @@ func TestWireServerHello_SignVerify(t *testing.T) {
 
 	hello := &WireServerHello{
 		Version:         1,
-		SenderDID:       "did:key:test",
+		SenderDID:       "did:example:test",
 		SelectedProfile: ProfileSecureBaseline,
 		Capabilities:    DefaultCapabilities(),
 		TimestampMs:     auth.NowMs(),
@@ -220,9 +220,9 @@ func TestDefaultHandshakerConfig(t *testing.T) {
 	_, priv, _ := ed25519.GenerateKey(nil)
 	resolver := auth.NewMemoryDIDResolver()
 
-	config := DefaultHandshakerConfig("did:key:test", priv, resolver)
+	config := DefaultHandshakerConfig("did:example:test", priv, resolver)
 
-	if config.LocalDID != "did:key:test" {
+	if config.LocalDID != "did:example:test" {
 		t.Errorf("unexpected LocalDID: %s", config.LocalDID)
 	}
 	if len(config.Profiles) != 1 || config.Profiles[0] != ProfileSecureBaseline {
@@ -236,11 +236,11 @@ func TestDefaultHandshakerConfig(t *testing.T) {
 func TestHandshaker_FullHandshake(t *testing.T) {
 	// Setup client identity
 	clientPub, clientPriv, _ := ed25519.GenerateKey(nil)
-	clientDID := "did:key:client"
+	clientDID := "did:example:client"
 
 	// Setup server identity
 	serverPub, serverPriv, _ := ed25519.GenerateKey(nil)
-	serverDID := "did:key:server"
+	serverDID := "did:example:server"
 
 	// Create resolver with both DIDs
 	resolver := auth.NewMemoryDIDResolver()
@@ -309,11 +309,11 @@ func TestHandshaker_FullHandshake(t *testing.T) {
 func TestHandshaker_ProfileMismatch(t *testing.T) {
 	// Setup client with only deprecated profile
 	clientPub, clientPriv, _ := ed25519.GenerateKey(nil)
-	clientDID := "did:key:client"
+	clientDID := "did:example:client"
 
 	// Setup server with only secure profile
 	serverPub, serverPriv, _ := ed25519.GenerateKey(nil)
-	serverDID := "did:key:server"
+	serverDID := "did:example:server"
 
 	resolver := auth.NewMemoryDIDResolver()
 	resolver.AddDID(clientDID, clientPub)
@@ -370,7 +370,7 @@ func (s *blockingStream) ReceiveMessage() ([]byte, error) {
 
 func TestHandshaker_Timeout(t *testing.T) {
 	clientPub, clientPriv, _ := ed25519.GenerateKey(nil)
-	clientDID := "did:key:client"
+	clientDID := "did:example:client"
 
 	resolver := auth.NewMemoryDIDResolver()
 	resolver.AddDID(clientDID, clientPub)

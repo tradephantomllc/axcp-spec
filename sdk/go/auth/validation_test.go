@@ -24,17 +24,17 @@ func (m *mockEnvelope) GetSignature() []byte    { return m.signature }
 
 func TestValidateRecipient_Valid(t *testing.T) {
 	env := &mockEnvelope{
-		recipientDID: "did:key:test-recipient",
+		recipientDID: "did:example:test-recipient",
 	}
 
-	err := ValidateRecipient(env, "did:key:test-recipient")
+	err := ValidateRecipient(env, "did:example:test-recipient")
 	if err != nil {
 		t.Errorf("expected nil, got: %v", err)
 	}
 }
 
 func TestValidateRecipient_Nil(t *testing.T) {
-	err := ValidateRecipient(nil, "did:key:test")
+	err := ValidateRecipient(nil, "did:example:test")
 	if err != ErrEnvelopeNil {
 		t.Errorf("expected ErrEnvelopeNil, got: %v", err)
 	}
@@ -45,7 +45,7 @@ func TestValidateRecipient_Missing(t *testing.T) {
 		recipientDID: "",
 	}
 
-	err := ValidateRecipient(env, "did:key:test")
+	err := ValidateRecipient(env, "did:example:test")
 	if err != ErrRecipientMissing {
 		t.Errorf("expected ErrRecipientMissing, got: %v", err)
 	}
@@ -53,10 +53,10 @@ func TestValidateRecipient_Missing(t *testing.T) {
 
 func TestValidateRecipient_Mismatch(t *testing.T) {
 	env := &mockEnvelope{
-		recipientDID: "did:key:other-recipient",
+		recipientDID: "did:example:other-recipient",
 	}
 
-	err := ValidateRecipient(env, "did:key:expected-recipient")
+	err := ValidateRecipient(env, "did:example:expected-recipient")
 	if err != ErrRecipientMismatch {
 		t.Errorf("expected ErrRecipientMismatch, got: %v", err)
 	}
@@ -64,7 +64,7 @@ func TestValidateRecipient_Mismatch(t *testing.T) {
 
 func TestValidateSender_Valid(t *testing.T) {
 	env := &mockEnvelope{
-		senderDID: "did:key:valid-sender",
+		senderDID: "did:example:valid-sender",
 	}
 
 	err := ValidateSender(env)
@@ -107,7 +107,7 @@ func TestValidateSender_InvalidFormat(t *testing.T) {
 
 func TestValidateSignaturePresent_Valid(t *testing.T) {
 	env := &mockEnvelope{
-		signature: []byte("some-signature-bytes"),
+		signature: testSignature(),
 	}
 
 	err := ValidateSignaturePresent(env)
@@ -142,15 +142,43 @@ func TestValidateSignaturePresent_Missing(t *testing.T) {
 
 func TestQuickValidate_Valid(t *testing.T) {
 	env := &mockEnvelope{
-		senderDID:    "did:key:sender",
-		recipientDID: "did:key:recipient",
+		senderDID:    "did:example:sender",
+		recipientDID: "did:example:recipient",
 		timestampMs:  NowMs(),
-		signature:    []byte("signature"),
+		sequence:     1,
+		signature:    testSignature(),
 	}
 
-	err := QuickValidate(env, "did:key:recipient")
+	err := QuickValidate(env, "did:example:recipient")
 	if err != nil {
 		t.Errorf("expected nil, got: %v", err)
+	}
+
+	env.sequence = 0
+	if err := QuickValidate(env, "did:example:recipient"); err != ErrSequenceMissing {
+		t.Errorf("zero sequence: got %v, want ErrSequenceMissing", err)
+	}
+	env.sequence = 1
+	env.signature = make([]byte, 63)
+	if err := QuickValidate(env, "did:example:recipient"); err != ErrSignatureLength {
+		t.Errorf("short signature: got %v, want ErrSignatureLength", err)
+	}
+}
+
+func TestQuickValidateWithTimestamp_UsesConfiguredPolicy(t *testing.T) {
+	env := &mockEnvelope{
+		senderDID:    "did:example:sender",
+		recipientDID: "did:example:recipient",
+		timestampMs:  NowMs() - uint64((3 * time.Minute).Milliseconds()),
+		sequence:     1,
+		signature:    testSignature(),
+	}
+	strict := NewTimestampValidator(time.Minute, time.Second)
+	if err := QuickValidateWithTimestamp(env, "did:example:recipient", strict); err != ErrTimestampExpired {
+		t.Fatalf("got %v, want ErrTimestampExpired", err)
+	}
+	if err := QuickValidateWithTimestamp(env, "did:example:recipient", nil); err != nil {
+		t.Fatalf("default policy: %v", err)
 	}
 }
 
@@ -168,56 +196,56 @@ func TestQuickValidate_AllErrors(t *testing.T) {
 		{
 			name: "missing recipient",
 			env: &mockEnvelope{
-				senderDID:   "did:key:sender",
+				senderDID:   "did:example:sender",
 				timestampMs: NowMs(),
-				signature:   []byte("sig"),
+				signature:   testSignature(),
 			},
 			expected: ErrRecipientMissing,
 		},
 		{
 			name: "wrong recipient",
 			env: &mockEnvelope{
-				senderDID:    "did:key:sender",
-				recipientDID: "did:key:wrong",
+				senderDID:    "did:example:sender",
+				recipientDID: "did:example:wrong",
 				timestampMs:  NowMs(),
-				signature:    []byte("sig"),
+				signature:    testSignature(),
 			},
 			expected: ErrRecipientMismatch,
 		},
 		{
 			name: "missing sender",
 			env: &mockEnvelope{
-				recipientDID: "did:key:recipient",
+				recipientDID: "did:example:recipient",
 				timestampMs:  NowMs(),
-				signature:    []byte("sig"),
+				signature:    testSignature(),
 			},
 			expected: ErrSenderMissing,
 		},
 		{
 			name: "missing timestamp",
 			env: &mockEnvelope{
-				senderDID:    "did:key:sender",
-				recipientDID: "did:key:recipient",
+				senderDID:    "did:example:sender",
+				recipientDID: "did:example:recipient",
 				timestampMs:  0,
-				signature:    []byte("sig"),
+				signature:    testSignature(),
 			},
 			expected: ErrTimestampMissing,
 		},
 		{
 			name: "expired timestamp",
 			env: &mockEnvelope{
-				senderDID:    "did:key:sender",
-				recipientDID: "did:key:recipient",
+				senderDID:    "did:example:sender",
+				recipientDID: "did:example:recipient",
 				timestampMs:  uint64(time.Now().Add(-10 * time.Minute).UnixMilli()),
-				signature:    []byte("sig"),
+				signature:    testSignature(),
 			},
 			expected: ErrTimestampExpired,
 		},
 		{
 			name: "missing signature",
 			env: &mockEnvelope{
-				senderDID:    "did:key:sender",
-				recipientDID: "did:key:recipient",
+				senderDID:    "did:example:sender",
+				recipientDID: "did:example:recipient",
 				timestampMs:  NowMs(),
 				signature:    nil,
 			},
@@ -227,7 +255,7 @@ func TestQuickValidate_AllErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := QuickValidate(tt.env, "did:key:recipient")
+			err := QuickValidate(tt.env, "did:example:recipient")
 			if err != tt.expected {
 				t.Errorf("expected %v, got: %v", tt.expected, err)
 			}
@@ -241,15 +269,15 @@ func TestEnvelopeValidator_ValidateEnvelope(t *testing.T) {
 
 	// Create a mock resolver
 	resolver := NewMemoryDIDResolver()
-	resolver.AddDID("did:key:sender", pub)
+	resolver.AddDID("did:example:sender", pub)
 
 	// Create validator
-	v := NewEnvelopeValidator(resolver, "did:key:recipient")
+	v := NewEnvelopeValidator(resolver, "did:example:recipient")
 
 	// Valid envelope
 	env := &mockEnvelope{
-		senderDID:    "did:key:sender",
-		recipientDID: "did:key:recipient",
+		senderDID:    "did:example:sender",
+		recipientDID: "did:example:recipient",
 		timestampMs:  NowMs(),
 		sequence:     1,
 		signature:    make([]byte, 64), // ed25519 signature size
@@ -265,9 +293,9 @@ func TestEnvelopeValidator_ValidateEnvelope_Errors(t *testing.T) {
 	pub, _, _ := ed25519.GenerateKey(nil)
 
 	resolver := NewMemoryDIDResolver()
-	resolver.AddDID("did:key:sender", pub)
+	resolver.AddDID("did:example:sender", pub)
 
-	v := NewEnvelopeValidator(resolver, "did:key:recipient")
+	v := NewEnvelopeValidator(resolver, "did:example:recipient")
 
 	tests := []struct {
 		name string
@@ -280,8 +308,8 @@ func TestEnvelopeValidator_ValidateEnvelope_Errors(t *testing.T) {
 		{
 			name: "wrong recipient",
 			env: &mockEnvelope{
-				senderDID:    "did:key:sender",
-				recipientDID: "did:key:wrong",
+				senderDID:    "did:example:sender",
+				recipientDID: "did:example:wrong",
 				timestampMs:  NowMs(),
 				signature:    make([]byte, 64),
 			},
@@ -289,8 +317,8 @@ func TestEnvelopeValidator_ValidateEnvelope_Errors(t *testing.T) {
 		{
 			name: "unresolvable sender",
 			env: &mockEnvelope{
-				senderDID:    "did:key:unknown",
-				recipientDID: "did:key:recipient",
+				senderDID:    "did:example:unknown",
+				recipientDID: "did:example:recipient",
 				timestampMs:  NowMs(),
 				signature:    make([]byte, 64),
 			},
@@ -298,8 +326,8 @@ func TestEnvelopeValidator_ValidateEnvelope_Errors(t *testing.T) {
 		{
 			name: "expired timestamp",
 			env: &mockEnvelope{
-				senderDID:    "did:key:sender",
-				recipientDID: "did:key:recipient",
+				senderDID:    "did:example:sender",
+				recipientDID: "did:example:recipient",
 				timestampMs:  uint64(time.Now().Add(-10 * time.Minute).UnixMilli()),
 				signature:    make([]byte, 64),
 			},
@@ -320,19 +348,19 @@ func TestEnvelopeValidator_ValidateEnvelopeDoesNotMutateReplayProtector(t *testi
 	pub, _, _ := ed25519.GenerateKey(nil)
 
 	resolver := NewMemoryDIDResolver()
-	resolver.AddDID("did:key:sender", pub)
+	resolver.AddDID("did:example:sender", pub)
 
 	rp, err := NewReplayProtector(5*time.Minute, 100, nil)
 	if err != nil {
 		t.Fatalf("failed to create replay protector: %v", err)
 	}
 
-	v := NewEnvelopeValidator(resolver, "did:key:recipient").
+	v := NewEnvelopeValidator(resolver, "did:example:recipient").
 		WithReplayProtector(rp)
 
 	env := &mockEnvelope{
-		senderDID:    "did:key:sender",
-		recipientDID: "did:key:recipient",
+		senderDID:    "did:example:sender",
+		recipientDID: "did:example:recipient",
 		timestampMs:  NowMs(),
 		sequence:     1,
 		signature:    make([]byte, 64),
@@ -354,21 +382,21 @@ func TestEnvelopeValidator_WithReplayProtector(t *testing.T) {
 	pub, priv, _ := ed25519.GenerateKey(nil)
 
 	resolver := NewMemoryDIDResolver()
-	resolver.AddDID("did:key:sender", pub)
+	resolver.AddDID("did:example:sender", pub)
 
 	rp, err := NewReplayProtector(5*time.Minute, 100, nil)
 	if err != nil {
 		t.Fatalf("failed to create replay protector: %v", err)
 	}
 
-	v := NewEnvelopeValidator(resolver, "did:key:recipient").
+	v := NewEnvelopeValidator(resolver, "did:example:recipient").
 		WithReplayProtector(rp)
 
 	transcript := []byte("test-transcript-data")
 	signature := ed25519.Sign(priv, transcript)
 	env := &mockEnvelope{
-		senderDID:    "did:key:sender",
-		recipientDID: "did:key:recipient",
+		senderDID:    "did:example:sender",
+		recipientDID: "did:example:recipient",
 		timestampMs:  NowMs(),
 		sequence:     1,
 		signature:    signature,
@@ -398,21 +426,21 @@ func TestEnvelopeValidator_InvalidSignatureDoesNotConsumeReplaySequence(t *testi
 	pub, priv, _ := ed25519.GenerateKey(nil)
 
 	resolver := NewMemoryDIDResolver()
-	resolver.AddDID("did:key:sender", pub)
+	resolver.AddDID("did:example:sender", pub)
 
 	rp, err := NewReplayProtector(5*time.Minute, 100, nil)
 	if err != nil {
 		t.Fatalf("failed to create replay protector: %v", err)
 	}
 
-	v := NewEnvelopeValidator(resolver, "did:key:recipient").
+	v := NewEnvelopeValidator(resolver, "did:example:recipient").
 		WithReplayProtector(rp)
 
 	transcript := []byte("test-transcript-data")
 	validSignature := ed25519.Sign(priv, transcript)
 	env := &mockEnvelope{
-		senderDID:    "did:key:sender",
-		recipientDID: "did:key:recipient",
+		senderDID:    "did:example:sender",
+		recipientDID: "did:example:recipient",
 		timestampMs:  NowMs(),
 		sequence:     42,
 		signature:    make([]byte, ed25519.SignatureSize),
@@ -434,18 +462,18 @@ func TestEnvelopeValidator_WithCustomTimestampValidator(t *testing.T) {
 	pub, _, _ := ed25519.GenerateKey(nil)
 
 	resolver := NewMemoryDIDResolver()
-	resolver.AddDID("did:key:sender", pub)
+	resolver.AddDID("did:example:sender", pub)
 
 	// Use strict timestamp validator (1 minute max age)
 	tv := NewTimestampValidator(1*time.Minute, 10*time.Second)
 
-	v := NewEnvelopeValidator(resolver, "did:key:recipient").
+	v := NewEnvelopeValidator(resolver, "did:example:recipient").
 		WithTimestampValidator(tv)
 
 	// 2 minutes old should be rejected
 	env := &mockEnvelope{
-		senderDID:    "did:key:sender",
-		recipientDID: "did:key:recipient",
+		senderDID:    "did:example:sender",
+		recipientDID: "did:example:recipient",
 		timestampMs:  uint64(time.Now().Add(-2 * time.Minute).UnixMilli()),
 		sequence:     1,
 		signature:    make([]byte, 64),
@@ -469,17 +497,17 @@ func TestEnvelopeValidator_ValidateAndVerifySignature(t *testing.T) {
 	pub, priv, _ := ed25519.GenerateKey(nil)
 
 	resolver := NewMemoryDIDResolver()
-	resolver.AddDID("did:key:sender", pub)
+	resolver.AddDID("did:example:sender", pub)
 
-	v := NewEnvelopeValidator(resolver, "did:key:recipient")
+	v := NewEnvelopeValidator(resolver, "did:example:recipient")
 
 	// Create a transcript and sign it
 	transcript := []byte("test-transcript-data")
 	signature := ed25519.Sign(priv, transcript)
 
 	env := &mockEnvelope{
-		senderDID:    "did:key:sender",
-		recipientDID: "did:key:recipient",
+		senderDID:    "did:example:sender",
+		recipientDID: "did:example:recipient",
 		timestampMs:  NowMs(),
 		sequence:     1,
 		signature:    signature,
@@ -500,8 +528,8 @@ func TestEnvelopeValidator_ValidateAndVerifySignature(t *testing.T) {
 
 	// Tampered signature should fail
 	tamperedEnv := &mockEnvelope{
-		senderDID:    "did:key:sender",
-		recipientDID: "did:key:recipient",
+		senderDID:    "did:example:sender",
+		recipientDID: "did:example:recipient",
 		timestampMs:  NowMs(),
 		sequence:     2,
 		signature:    make([]byte, 64), // zeros instead of valid signature
@@ -510,4 +538,11 @@ func TestEnvelopeValidator_ValidateAndVerifySignature(t *testing.T) {
 	if err != ErrVerificationFailed {
 		t.Errorf("tampered signature should fail, got: %v", err)
 	}
+}
+
+// testSignature returns a placeholder signature of the correct length.
+func testSignature() []byte {
+	sig := make([]byte, 64)
+	sig[0] = 1
+	return sig
 }

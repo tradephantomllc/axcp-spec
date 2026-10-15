@@ -10,10 +10,12 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
 
 from axcp import Agent, Identity, QuicClient, QuicClientConfig, QuicServer, QuicServerConfig
+from axcp.errors import AXCPError, InvalidEnvelopeError
 from axcp.pb import axcp_pb2
 from axcp.transport import (
     QuicConnection, TransportClosedError, TransportFrameError, TransportTimeoutError,
 )
+from axcp.transport.quic import _AXCPQuicProtocol
 
 
 def _write_self_signed_cert(tmp_path: Path) -> tuple[str, str]:
@@ -184,13 +186,16 @@ def test_quic_transport_rejects_oversized_message(tmp_path: Path) -> None:
 
 async def _rejects_oversized_message(tmp_path: Path) -> None:
     cert_file, key_file = _write_self_signed_cert(tmp_path)
+    server_saw: list[str] = []
 
     async def handler(conn: QuicConnection) -> None:
-        with pytest.raises(TransportTimeoutError):
-            await conn.receive_message(timeout=0.2)
+        # The client announces a 100-byte frame; the server limit is 16 bytes.
+        with pytest.raises(TransportFrameError, match="exceeds max_frame_size 16"):
+            await conn.receive_message(timeout=2)
+        server_saw.append("rejected")
 
     server = await QuicServer.listen(
-        QuicServerConfig(host="127.0.0.1", port=0, cert_file=cert_file, key_file=key_file),
+        QuicServerConfig(host="127.0.0.1", port=0, cert_file=cert_file, key_file=key_file, max_frame_size=16),
         handler,
     )
     try:
@@ -205,12 +210,188 @@ async def _rejects_oversized_message(tmp_path: Path) -> None:
             )
         )
         try:
+            # The local limit is enforced before anything is sent.
             with pytest.raises(TransportFrameError):
                 await client.send_message(b"too-large")
+            # Announce a 100-byte frame (header only): rejected without waiting for a body.
+            client._writer.write((100).to_bytes(4, "big"))
+            for _ in range(100):
+                if server_saw:
+                    break
+                await asyncio.sleep(0.02)
+        finally:
+            await client.close()
+    finally:
+        # Handler assertions are enforced: a failed pytest.raises would be re-raised here.
+        await server.close()
+    assert server_saw == ["rejected"]
+
+
+def test_quic_server_surfaces_handler_exceptions(tmp_path: Path) -> None:
+    asyncio.run(_surfaces_handler_exceptions(tmp_path))
+
+
+async def _surfaces_handler_exceptions(tmp_path: Path) -> None:
+    cert_file, key_file = _write_self_signed_cert(tmp_path)
+
+    async def handler(conn: QuicConnection) -> None:
+        await conn.receive_message(timeout=2)
+        raise RuntimeError("handler exploded")
+
+    server = await QuicServer.listen(
+        QuicServerConfig(host="127.0.0.1", port=0, cert_file=cert_file, key_file=key_file),
+        handler,
+    )
+    host, port = server.address
+    client = await QuicClient.connect(
+        QuicClientConfig(host=host, port=port, server_name="localhost", insecure_skip_verify=True)
+    )
+    try:
+        await client.send_message(b"go")
+        for _ in range(100):
+            if server.handler_errors:
+                break
+            await asyncio.sleep(0.02)
+    finally:
+        await client.close()
+    assert [str(error) for error in server.handler_errors] == ["handler exploded"]
+    with pytest.raises(RuntimeError, match="handler exploded"):
+        await server.close()
+
+
+def test_quic_server_closes_connection_when_stream_buffer_exceeds_limit(tmp_path: Path) -> None:
+    asyncio.run(_stream_buffer_limit(tmp_path))
+
+
+async def _stream_buffer_limit(tmp_path: Path) -> None:
+    cert_file, key_file = _write_self_signed_cert(tmp_path)
+    observed: dict[str, object] = {}
+
+    async def handler(conn: QuicConnection) -> None:
+        protocol = conn._writer.transport.protocol
+        # Do not read: let the peer try to make us buffer more than max frame + 4 bytes.
+        for _ in range(100):
+            if protocol.stream_buffer_overflows:
+                break
+            await asyncio.sleep(0.02)
+        observed["overflows"] = protocol.stream_buffer_overflows
+        observed["buffered"] = len(conn._reader._buffer)
+        with pytest.raises(TransportFrameError, match="buffered stream data exceeds"):
+            await conn.receive_message(timeout=1)
+
+    server = await QuicServer.listen(
+        QuicServerConfig(host="127.0.0.1", port=0, cert_file=cert_file, key_file=key_file, max_frame_size=1024),
+        handler,
+    )
+    try:
+        host, port = server.address
+        client = await QuicClient.connect(
+            QuicClientConfig(host=host, port=port, server_name="localhost", insecure_skip_verify=True)
+        )
+        try:
+            for _ in range(8):
+                try:
+                    await client.send_message(b"z" * 1000)
+                except TransportClosedError:
+                    break
+            for _ in range(100):
+                if "overflows" in observed:
+                    break
+                await asyncio.sleep(0.02)
         finally:
             await client.close()
     finally:
         await server.close()
+    assert observed["overflows"] == 1
+    assert observed["buffered"] <= 1028
+
+
+def test_datagram_queue_is_bounded_and_counts_drops() -> None:
+    async def check() -> None:
+        protocol = _AXCPQuicProtocol(object(), max_datagram_queue=4)
+        for index in range(10):
+            protocol._deliver_datagram(bytes([index]))
+        assert protocol._datagrams.qsize() == 4
+        assert protocol.dropped_datagrams == 6
+        assert await protocol.receive_datagram(timeout=1) == b"\x00"
+
+    asyncio.run(check())
+
+
+def test_datagram_handler_tasks_are_tracked_bounded_and_errors_surfaced() -> None:
+    async def check() -> None:
+        release = asyncio.Event()
+
+        async def slow_handler(protocol, data: bytes) -> None:
+            await release.wait()
+            if data == b"\x01":
+                raise ValueError("bad datagram")
+
+        protocol = _AXCPQuicProtocol(object(), datagram_handler=slow_handler, max_datagram_queue=3)
+        for index in range(5):
+            protocol._deliver_datagram(bytes([index]))
+        assert len(protocol._datagram_tasks) == 3
+        assert protocol.dropped_datagrams == 2
+        assert protocol._datagrams.qsize() == 0
+        release.set()
+        for _ in range(50):
+            if not protocol._datagram_tasks:
+                break
+            await asyncio.sleep(0.01)
+        assert not protocol._datagram_tasks
+        assert [str(error) for error in protocol.handler_errors] == ["bad datagram"]
+
+        def sync_handler(protocol, data: bytes) -> None:
+            raise RuntimeError("sync datagram failure")
+
+        failing = _AXCPQuicProtocol(object(), datagram_handler=sync_handler)
+        failing._deliver_datagram(b"x")
+        assert [str(error) for error in failing.handler_errors] == ["sync datagram failure"]
+
+    asyncio.run(check())
+
+
+def test_receive_envelope_is_strict_by_default(tmp_path: Path) -> None:
+    asyncio.run(_receive_envelope_strict(tmp_path))
+
+
+async def _receive_envelope_strict(tmp_path: Path) -> None:
+    cert_file, key_file = _write_self_signed_cert(tmp_path)
+    results: list[str] = []
+
+    async def handler(conn: QuicConnection) -> None:
+        with pytest.raises(InvalidEnvelopeError, match="unknown field 50"):
+            await conn.receive_envelope(timeout=2)
+        results.append("strict")
+
+    server = await QuicServer.listen(
+        QuicServerConfig(host="127.0.0.1", port=0, cert_file=cert_file, key_file=key_file),
+        handler,
+    )
+    try:
+        host, port = server.address
+        client = await QuicClient.connect(
+            QuicClientConfig(host=host, port=port, server_name="localhost", insecure_skip_verify=True)
+        )
+        try:
+            import struct
+
+            data = _context_envelope().SerializeToString() + b"\x90\x03\x01"
+            client._writer.write(struct.pack("<I", len(data)) + data)
+            for _ in range(100):
+                if results:
+                    break
+                await asyncio.sleep(0.02)
+        finally:
+            await client.close()
+    finally:
+        await server.close()
+    assert results == ["strict"]
+
+
+def test_transport_errors_are_sdk_errors() -> None:
+    for error_type in (TransportClosedError, TransportFrameError, TransportTimeoutError):
+        assert issubclass(error_type, AXCPError)
 
 
 @pytest.mark.parametrize("reset_receive", [False, True])

@@ -1,11 +1,11 @@
-"""Generated AXCP protobuf bindings.
+"""Generated AXCP protobuf bindings bundled with the SDK.
 
-When running from the repository, reuse the root-level generated module so
-legacy bridge tests and SDK tests share one descriptor registration. Installed
-packages fall back to the packaged generated module.
+Only the bundled module is imported: an application-level ``proto`` package can never
+replace the SDK's bindings. (A repository-root ``proto/axcp_pb2.py`` generated from the
+same ``axcp.proto`` may still be imported alongside; both register the identical file
+descriptor and share message classes.)
 """
 
-try:
-    from proto import axcp_pb2 as axcp_pb2
-except Exception:  # pragma: no cover - exercised after package installation
-    from . import axcp_pb2 as axcp_pb2
+from . import axcp_pb2 as axcp_pb2
+
+__all__ = ["axcp_pb2"]

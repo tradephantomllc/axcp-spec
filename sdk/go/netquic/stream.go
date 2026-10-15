@@ -28,5 +28,5 @@ func (c *Client) RecvEnvelope() (*axcp.Envelope, error) {
 	if err != nil {
 		return nil, err
 	}
-	return axcp.FromBytes(data)
+	return axcp.FromBytesStrict(data)
 }

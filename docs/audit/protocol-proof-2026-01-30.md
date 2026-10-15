@@ -2,6 +2,10 @@
 
 **Result**: PASS
 
+## Errata (2026-10-15)
+
+This summary inherits the corrections in the [M7 proof pack errata](../protocol-proof/M7_PROOF_PACK.md#errata-2026-10-15): the client and replay logs are empty, the gateway was not in the loop, the replay demonstration uses a map inside the example rather than the SDK replay protector, and the run predates the 2026-07-05 transcript revision. The commit identifier is recorded for provenance only.
+
 ## Commit SHA
 
 ```

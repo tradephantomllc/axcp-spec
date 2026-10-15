@@ -1,4 +1,7 @@
-//! Client implementation for the AXCP protocol.
+//! Experimental HTTP/JSON telemetry client.
+//!
+//! This is not an AXCP protocol client: requests are plain HTTP(S) + JSON with an
+//! optional Bearer token, without AXCP envelopes, signatures or replay protection.
 
 use crate::error::{Error, Result};
 use crate::models::{ClientConfig, TelemetryBatch, TelemetryData};
@@ -6,7 +9,12 @@ use reqwest::Client as HttpClient;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-/// Client for interacting with the AXCP server.
+/// Maximum number of bytes of an error response body included in [`Error::Server`].
+pub const MAX_ERROR_BODY_BYTES: usize = 4096;
+
+/// HTTP client for a telemetry ingestion endpoint.
+///
+/// `Debug` output never contains the configured API key.
 #[derive(Debug, Clone)]
 pub struct Client {
     inner: Arc<ClientInner>,
@@ -33,8 +41,16 @@ impl Client {
                 "telemetry base URL must use HTTP or HTTPS with a host".into(),
             ));
         }
+        if config.api_key.is_some() && base_url.scheme() == "http" && !config.allow_insecure_http {
+            return Err(Error::Config(
+                "refusing to send an API key over plain http://; use https:// or set allow_insecure_http"
+                    .into(),
+            ));
+        }
         let http_client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(config.timeout_secs))
+            // Never forward the Bearer token to a redirect target.
+            .redirect(reqwest::redirect::Policy::none())
             .build()
             .map_err(Error::from)?;
 
@@ -66,7 +82,7 @@ impl Client {
 
         if !response.status().is_success() {
             let status = response.status();
-            let body = response.text().await.unwrap_or_default();
+            let body = read_capped_body(response, MAX_ERROR_BODY_BYTES).await;
             return Err(Error::Server(format!("Server returned {status}: {body}")));
         }
 
@@ -77,6 +93,21 @@ impl Client {
     pub fn telemetry(&self) -> TelemetryClient {
         TelemetryClient::new(self.clone())
     }
+}
+
+/// Reads at most `limit` bytes of a response body (lossy UTF-8), never the whole body.
+async fn read_capped_body(mut response: reqwest::Response, limit: usize) -> String {
+    let mut body = Vec::with_capacity(limit.min(1024));
+    while body.len() < limit {
+        match response.chunk().await {
+            Ok(Some(chunk)) => {
+                let take = chunk.len().min(limit - body.len());
+                body.extend_from_slice(&chunk[..take]);
+            }
+            Ok(None) | Err(_) => break,
+        }
+    }
+    String::from_utf8_lossy(&body).into_owned()
 }
 
 /// A client specifically for sending telemetry data.
@@ -184,6 +215,7 @@ mod tests {
         let client = Client::new(ClientConfig {
             base_url: server.url(),
             api_key: Some("test-key".into()),
+            allow_insecure_http: true,
             ..Default::default()
         })
         .unwrap();
@@ -307,6 +339,97 @@ mod tests {
         })
         .is_err());
     }
+    #[test]
+    fn bearer_token_requires_https_unless_explicitly_allowed() {
+        let insecure = ClientConfig {
+            base_url: "http://telemetry.example".into(),
+            api_key: Some("secret".into()),
+            ..Default::default()
+        };
+        assert!(matches!(
+            Client::new(insecure.clone()),
+            Err(Error::Config(_))
+        ));
+        assert!(Client::new(ClientConfig {
+            allow_insecure_http: true,
+            ..insecure.clone()
+        })
+        .is_ok());
+        assert!(Client::new(ClientConfig {
+            base_url: "https://telemetry.example".into(),
+            ..insecure.clone()
+        })
+        .is_ok());
+        assert!(Client::new(ClientConfig {
+            api_key: None,
+            ..insecure
+        })
+        .is_ok());
+    }
+
+    #[test]
+    fn debug_output_redacts_api_key() {
+        let config = ClientConfig {
+            base_url: "https://telemetry.example".into(),
+            api_key: Some("super-secret-token".into()),
+            ..Default::default()
+        };
+        let client = Client::new(config.clone()).unwrap();
+        for rendered in [format!("{config:?}"), format!("{client:?}")] {
+            assert!(!rendered.contains("super-secret-token"), "{rendered}");
+            assert!(rendered.contains("<redacted>"), "{rendered}");
+        }
+    }
+
+    #[tokio::test]
+    async fn error_bodies_are_capped() {
+        let mut server = Server::new_async().await;
+        let _m = server
+            .mock("POST", "/api/v1/telemetry")
+            .with_status(500)
+            .with_body("x".repeat(MAX_ERROR_BODY_BYTES * 8))
+            .create_async()
+            .await;
+        let client = Client::new(ClientConfig {
+            base_url: server.url(),
+            ..Default::default()
+        })
+        .unwrap();
+        match client.send_telemetry(TelemetryBatch::default()).await {
+            Err(Error::Server(message)) => {
+                assert!(
+                    message.len() <= MAX_ERROR_BODY_BYTES + 64,
+                    "{}",
+                    message.len()
+                );
+                assert!(message.contains("500"));
+            }
+            other => panic!("unexpected result: {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn redirects_are_not_followed_with_credentials() {
+        let mut server = Server::new_async().await;
+        let _redirect = server
+            .mock("POST", "/api/v1/telemetry")
+            .with_status(307)
+            .with_header("location", "https://elsewhere.example/collect")
+            .create_async()
+            .await;
+        let client = Client::new(ClientConfig {
+            base_url: server.url(),
+            api_key: Some("token".into()),
+            allow_insecure_http: true,
+            ..Default::default()
+        })
+        .unwrap();
+        assert!(matches!(
+            client.send_telemetry(TelemetryBatch::default()).await,
+            Err(Error::Server(_))
+        ));
+    }
+
     #[tokio::test]
     async fn sustained_outage_keeps_a_bounded_pending_batch() {
         let mut server = Server::new_async().await;

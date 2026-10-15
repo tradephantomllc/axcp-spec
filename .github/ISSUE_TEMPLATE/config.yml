@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/tradephantomllc/axcp-spec/security/advisories/new
+    about: Please report security vulnerabilities privately here (or to support@getaxcp.com), never in a public issue.

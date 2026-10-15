@@ -8,7 +8,6 @@ require (
 	github.com/quic-go/quic-go v0.63.0
 	github.com/stretchr/testify v1.12.1
 	github.com/tradephantomllc/axcp-spec/sdk/go v0.0.0
-	go.etcd.io/bbolt v1.3.8
 	go.opentelemetry.io/otel v1.47.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.47.0
 	go.opentelemetry.io/otel/metric v1.47.0
@@ -46,7 +45,3 @@ require (
 )
 
 replace github.com/tradephantomllc/axcp-spec/sdk/go => ../../sdk/go
-
-replace go.etcd.io/bbolt => go.etcd.io/bbolt v1.3.8
-
-replace github.com/tradephantomllc/axcp-spec/edge/gateway/internal => ./internal

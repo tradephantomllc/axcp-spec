@@ -1,5 +1,6 @@
 import Long from "long";
 import protobuf from "protobufjs";
+import { InvalidEnvelopeError } from "../errors.js";
 
 protobuf.util.Long = Long;
 protobuf.configure();
@@ -312,32 +313,43 @@ export const AxcpEnvelopeType = root.lookupType("axcp.v0_1.AxcpEnvelope");
 export const ContextPatchType = root.lookupType("axcp.v0_1.ContextPatch");
 export const DeltaOpTypeMessage = root.lookupType("axcp.v0_1.DeltaOp");
 
-export function toSafeNumber(value: UInt64Value | undefined, fieldName: string): number {
-  if (value === undefined) {
+/**
+ * Convert a uint64 protobuf value to a JavaScript number. Values that are not
+ * non-negative safe integers (for example above 2^53 - 1) are rejected with
+ * {@link InvalidEnvelopeError} (never a raw RangeError), so unauthenticated input
+ * only ever produces SDK errors (D10).
+ */
+export function toSafeNumber(value: UInt64Value | bigint | undefined, fieldName: string): number {
+  if (value === undefined || value === null) {
     return 0;
   }
+  let asNumber: number;
   if (Long.isLong(value)) {
-    const asNumber = value.toNumber();
-    if (!Number.isSafeInteger(asNumber)) {
-      throw new RangeError(`${fieldName} exceeds Number.MAX_SAFE_INTEGER`);
+    const long = value as Long;
+    if (long.isNegative() && !long.unsigned) {
+      throw new InvalidEnvelopeError(`${fieldName} must not be negative`);
     }
-    return asNumber;
-  }
-  if (typeof value === "bigint") {
-    if (value > BigInt(Number.MAX_SAFE_INTEGER) || value < BigInt(Number.MIN_SAFE_INTEGER)) {
-      throw new RangeError(`${fieldName} exceeds Number.MAX_SAFE_INTEGER`);
+    if (long.greaterThan(Long.fromNumber(Number.MAX_SAFE_INTEGER, long.unsigned))) {
+      throw new InvalidEnvelopeError(`${fieldName} exceeds Number.MAX_SAFE_INTEGER`);
     }
-    return Number(value);
-  }
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    if (!Number.isSafeInteger(parsed)) {
-      throw new RangeError(`${fieldName} must be a safe integer string`);
+    asNumber = long.toNumber();
+  } else if (typeof value === "bigint") {
+    if (value > BigInt(Number.MAX_SAFE_INTEGER) || value < 0n) {
+      throw new InvalidEnvelopeError(`${fieldName} must be a non-negative safe integer`);
     }
-    return parsed;
+    asNumber = Number(value);
+  } else if (typeof value === "string") {
+    if (!/^[0-9]{1,16}$/u.test(value)) {
+      throw new InvalidEnvelopeError(`${fieldName} must be a non-negative safe integer string`);
+    }
+    asNumber = Number(value);
+  } else if (typeof value === "number") {
+    asNumber = value;
+  } else {
+    throw new InvalidEnvelopeError(`${fieldName} must be an integer`);
   }
-  if (!Number.isSafeInteger(value)) {
-    throw new RangeError(`${fieldName} must be a safe integer`);
+  if (!Number.isSafeInteger(asNumber) || asNumber < 0) {
+    throw new InvalidEnvelopeError(`${fieldName} must be a non-negative safe integer`);
   }
-  return value;
+  return asNumber;
 }

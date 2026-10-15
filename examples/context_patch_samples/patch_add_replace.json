@@ -10,7 +10,7 @@
     {
       "op": "REPLACE",
       "path": "/agent/status/battery",
-      "data": "MTAw"  // 100 (percentuale)
+      "data": "MTAw"
     }
   ]
 }

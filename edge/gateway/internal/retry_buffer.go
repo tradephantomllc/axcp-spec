@@ -10,45 +10,43 @@ import (
 	"time"
 
 	"github.com/tradephantomllc/axcp-spec/sdk/go/axcp"
-	pb "github.com/tradephantomllc/axcp-spec/sdk/go/axcp/pb"
-	"google.golang.org/protobuf/proto"
 )
 
 var errRetryPublisherNotConfigured = errors.New("retry buffer publisher is not configured")
 
-// RetryBufferConfig contiene le configurazioni per il buffer di retry
+// RetryBufferConfig holds the configuration for the retry buffer
 type RetryBufferConfig struct {
-	// Capacità massima del buffer in memoria
+	// Maximum in-memory buffer capacity
 	MaxCapacity int
-	// Intervallo minimo tra i tentativi di ritrasmissione
+	// Minimum interval between retransmission attempts
 	MinRetryInterval time.Duration
-	// Intervallo massimo tra i tentativi di ritrasmissione
+	// Maximum interval between retransmission attempts
 	MaxRetryInterval time.Duration
-	// Fattore di backoff per i tentativi di ritrasmissione (es. 2.0 = raddoppia il tempo)
+	// Backoff factor for retransmission attempts (e.g. 2.0 = double the delay)
 	BackoffFactor float64
-	// Numero massimo di tentativi prima di eliminare un messaggio
+	// Maximum number of attempts before a message is dropped
 	MaxAttempts int
 }
 
-// RetryItem rappresenta un elemento nel buffer di retry
+// RetryItem represents an entry in the retry buffer
 type RetryItem struct {
 	inFlight   bool
 	generation uint64
-	// ID univoco del messaggio
+	// Unique message ID
 	ID string
-	// Contenuto dell'envelope AXCP
+	// AXCP envelope contents
 	Envelope *axcp.Envelope
-	// Timestamp di creazione
+	// Creation timestamp
 	CreatedAt time.Time
-	// Timestamp dell'ultimo tentativo di invio
+	// Timestamp of the last send attempt
 	LastAttempt time.Time
-	// Numero di tentativi effettuati
+	// Number of attempts made
 	Attempts int
-	// Prossimo intervallo di retry
+	// Next retry interval
 	NextRetryInterval time.Duration
 }
 
-// Logger definisce l'interfaccia minima richiesta per un logger compatibile
+// Logger defines the minimal interface required for a compatible logger
 type Logger interface {
 	Debug(msg string, fields ...interface{})
 	Info(msg string, fields ...interface{})
@@ -58,19 +56,19 @@ type Logger interface {
 	Sync() error
 }
 
-// StandardLogger è un wrapper attorno a log.Logger che implementa l'interfaccia Logger
+// StandardLogger wraps log.Logger and implements the Logger interface
 type StandardLogger struct {
 	l *log.Logger
 }
 
-// NewStandardLogger crea un nuovo logger standard
+// NewStandardLogger creates a new standard logger
 func NewStandardLogger(prefix string) *StandardLogger {
 	return &StandardLogger{
 		l: log.New(log.Writer(), prefix, log.LstdFlags|log.Lshortfile),
 	}
 }
 
-// Implementazione dei metodi dell'interfaccia Logger
+// Debug and the methods below implement the Logger interface
 func (s *StandardLogger) Debug(msg string, fields ...interface{}) {
 	s.l.Printf("DEBUG: %s %v", msg, fields)
 }
@@ -95,7 +93,7 @@ func (s *StandardLogger) Sync() error {
 	return nil
 }
 
-// RetryBuffer implementa un buffer in memoria per i messaggi AXCP da ritrasmettere
+// RetryBuffer implements an in-memory buffer for AXCP messages awaiting retransmission
 type RetryBuffer struct {
 	config      RetryBufferConfig
 	items       map[string]*RetryItem
@@ -112,7 +110,7 @@ type RetryBuffer struct {
 	wg          sync.WaitGroup
 }
 
-// DefaultRetryBufferConfig ritorna una configurazione predefinita per il retry buffer
+// DefaultRetryBufferConfig returns the default retry buffer configuration
 func DefaultRetryBufferConfig() RetryBufferConfig {
 	return RetryBufferConfig{
 		MaxCapacity:      1000,
@@ -123,7 +121,7 @@ func DefaultRetryBufferConfig() RetryBufferConfig {
 	}
 }
 
-// NewRetryBuffer crea un nuovo buffer di retry
+// NewRetryBuffer creates a new retry buffer
 func NewRetryBuffer(config *RetryBufferConfig, logger Logger, publishFn func(*axcp.Envelope) error) *RetryBuffer {
 	if config == nil {
 		defaultConfig := DefaultRetryBufferConfig()
@@ -154,14 +152,14 @@ func NewRetryBuffer(config *RetryBufferConfig, logger Logger, publishFn func(*ax
 	return rb
 }
 
-// SetMetrics associa le metriche al buffer di retry
+// SetMetrics attaches metrics to the retry buffer
 func (rb *RetryBuffer) SetMetrics(metrics *RetryMetrics) {
 	rb.mutex.Lock()
 	defer rb.mutex.Unlock()
 	rb.metrics = metrics
 }
 
-// AddEnvelope aggiunge un envelope al buffer di retry
+// AddEnvelope adds an envelope to the retry buffer
 func (rb *RetryBuffer) AddEnvelope(id string, env *axcp.Envelope) error {
 	rb.mutex.Lock()
 	defer rb.mutex.Unlock()
@@ -179,7 +177,7 @@ func (rb *RetryBuffer) AddEnvelope(id string, env *axcp.Envelope) error {
 		return fmt.Errorf("retry buffer is stopped")
 	}
 
-	clone := &axcp.Envelope{AxcpEnvelope: *proto.Clone(&env.AxcpEnvelope).(*pb.AxcpEnvelope)}
+	clone := axcp.CloneEnvelope(&env.AxcpEnvelope)
 	if item, exists := rb.items[id]; exists {
 		item.Envelope = clone
 		item.generation++
@@ -194,7 +192,7 @@ func (rb *RetryBuffer) AddEnvelope(id string, env *axcp.Envelope) error {
 		return fmt.Errorf("retry buffer is full (capacity: %d)", rb.config.MaxCapacity)
 	}
 
-	// Crea un nuovo elemento
+	// Create a new entry
 	item := &RetryItem{
 		ID:                id,
 		Envelope:          clone,
@@ -204,7 +202,7 @@ func (rb *RetryBuffer) AddEnvelope(id string, env *axcp.Envelope) error {
 		NextRetryInterval: rb.config.MinRetryInterval,
 	}
 
-	// Aggiungi l'elemento al buffer e alla coda
+	// Add the entry to the buffer and the queue
 	rb.items[id] = item
 	rb.queue = append(rb.queue, id)
 
@@ -217,7 +215,7 @@ func (rb *RetryBuffer) AddEnvelope(id string, env *axcp.Envelope) error {
 	return nil
 }
 
-// Start avvia il processo di gestione dei retry
+// Start launches the retry worker
 func (rb *RetryBuffer) Start() {
 	rb.mutex.Lock()
 	defer rb.mutex.Unlock()
@@ -233,37 +231,37 @@ func (rb *RetryBuffer) Start() {
 	go rb.processRetries()
 }
 
-// Stop ferma il processo di gestione dei retry
+// Stop halts the retry worker
 func (rb *RetryBuffer) Stop() {
-	// Impostiamo lo stato stopped
+	// Mark the buffer as stopped
 	rb.mutex.Lock()
 	rb.stopped = true
 	rb.mutex.Unlock()
 
-	// Annulliamo il contesto per tutte le operazioni pendenti
+	// Cancel the context for all pending operations
 	rb.cancelFunc()
 
-	// Attendiamo che tutte le goroutine completino
+	// Wait for all goroutines to finish
 	rb.wg.Wait()
 
-	// Log di debug
+	// Debug log
 	if rb.logger != nil {
 		rb.logger.Debug("Retry buffer stopped successfully")
 	}
 }
 
-// Size ritorna il numero di elementi nel buffer
+// Size returns the number of entries in the buffer
 func (rb *RetryBuffer) Size() int {
 	rb.mutex.RLock()
 	defer rb.mutex.RUnlock()
 	return len(rb.queue)
 }
 
-// processRetries è il worker che processa gli elementi nella coda di retry
+// processRetries is the worker that processes entries in the retry queue
 func (rb *RetryBuffer) processRetries() {
 	defer rb.wg.Done()
 
-	// Usa un intervallo molto più breve (10ms) per i test
+	// Use a short polling interval (10ms) so tests run quickly
 	ticker := time.NewTicker(10 * time.Millisecond)
 	defer ticker.Stop()
 
@@ -281,58 +279,57 @@ func (rb *RetryBuffer) processRetries() {
 	}
 }
 
-// retryPendingItems processa gli elementi pronti per il retry
+// retryPendingItems processes entries that are ready to be retried
 func (rb *RetryBuffer) retryPendingItems() {
 	now := time.Now()
 	var toRetry []*RetryItem
 
-	// Prima fase: trova elementi pronti per il retry
+	// Phase one: find entries ready to be retried
 	rb.mutex.RLock()
 	for _, id := range rb.queue {
 		item := rb.items[id]
-		// Se è il primo tentativo o è passato abbastanza tempo dall'ultimo tentativo
+		// First attempt, or enough time has passed since the last attempt
 		if !item.inFlight && (item.Attempts == 0 || now.Sub(item.LastAttempt) >= item.NextRetryInterval) {
 			toRetry = append(toRetry, item)
 		}
 	}
 	rb.mutex.RUnlock()
 
-	// Seconda fase: processa gli elementi pronti
+	// Phase two: process the ready entries
 	for _, item := range toRetry {
 		rb.processRetryItem(item)
 	}
 }
 
-// processRetryItem gestisce il retry di un singolo elemento
+// processRetryItem handles the retry of a single entry
 func (rb *RetryBuffer) processRetryItem(item *RetryItem) {
-	// Acquisisce il lock prima di qualsiasi modifica all'item
-	// e lo mantiene fino alla fine della funzione per evitare race condition
+	// Take the lock before modifying the item and hold it until the
+	// function returns to avoid race conditions
 	rb.mutex.Lock()
 	defer rb.mutex.Unlock()
 
-	// Verifichiamo che l'item esista ancora nel buffer
-	// potrebbe essere stato rimosso da un'altra goroutine
+	// Check that the item is still in the buffer;
+	// another goroutine may have removed it
 	if current, exists := rb.items[item.ID]; !exists || current != item || item.inFlight || rb.stopped {
 		return
 	}
 
-	// Incrementa il contatore dei tentativi e registra l'ultimo tentativo
+	// Increment the attempt counter and record the last attempt
 	item.inFlight = true
 	generation := item.generation
 	item.Attempts++
 	item.LastAttempt = time.Now()
 
-	// Creiamo una copia dell'envelope per processarla
-	// senza bloccare il mutex durante la chiamata di rete
-	envelopeCopy := &axcp.Envelope{AxcpEnvelope: *proto.Clone(&item.Envelope.AxcpEnvelope).(*pb.AxcpEnvelope)}
+	// Copy the envelope so the network call runs without holding the mutex.
+	envelopeCopy := axcp.CloneEnvelope(&item.Envelope.AxcpEnvelope)
 
-	// Rilascia il mutex durante l'operazione di pubblicazione
+	// Release the mutex during publication.
 	rb.mutex.Unlock()
 
-	// Prova a pubblicare l'envelope
+	// Try to publish the envelope
 	err := rb.publishFn(envelopeCopy)
 
-	// Riacquisisce il mutex per il resto della funzione
+	// Reacquire the mutex for the rest of the function
 	rb.mutex.Lock()
 
 	item.inFlight = false
@@ -340,7 +337,7 @@ func (rb *RetryBuffer) processRetryItem(item *RetryItem) {
 		return
 	}
 
-	// Se la pubblicazione è riuscita, rimuovi l'elemento dal buffer
+	// On successful publication, remove the entry from the buffer
 	if err == nil {
 		rb.removeItemLocked(item.ID)
 		rb.logger.Debug("Retry successful, removed from buffer", "id", item.ID, "attempts", item.Attempts)
@@ -352,12 +349,12 @@ func (rb *RetryBuffer) processRetryItem(item *RetryItem) {
 		return
 	}
 
-	// Pubblicazione fallita
+	// Publication failed
 	if rb.metrics != nil {
 		rb.metrics.RecordRetryAttempt(rb.ctx)
 	}
 
-	// Se abbiamo raggiunto il numero massimo di tentativi, rimuovi l'elemento
+	// Drop the entry once the maximum number of attempts is reached
 	if item.Attempts >= rb.config.MaxAttempts {
 		rb.removeItemLocked(item.ID)
 		rb.logger.Warn("Max retry attempts reached, dropped from buffer",
@@ -372,7 +369,7 @@ func (rb *RetryBuffer) processRetryItem(item *RetryItem) {
 		return
 	}
 
-	// Calcola il prossimo intervallo di retry con backoff esponenziale
+	// Compute the next retry interval with exponential backoff
 	delay := float64(rb.config.MinRetryInterval) * math.Pow(rb.config.BackoffFactor, float64(item.Attempts-1))
 	nextInterval := rb.config.MaxRetryInterval
 	if delay < float64(rb.config.MaxRetryInterval) {
@@ -392,15 +389,15 @@ func (rb *RetryBuffer) processRetryItem(item *RetryItem) {
 		"error", err)
 }
 
-// removeItemLocked rimuove un elemento dal buffer (deve essere chiamato con il mutex già acquisito)
+// removeItemLocked removes an entry from the buffer (the caller must hold the mutex)
 func (rb *RetryBuffer) removeItemLocked(id string) {
-	// Rimuovi l'elemento dalla mappa
+	// Remove the entry from the map
 	delete(rb.items, id)
 
-	// Rimuovi l'elemento dalla coda
+	// Remove the entry from the queue
 	for i, queueID := range rb.queue {
 		if queueID == id {
-			// Rimozione efficiente senza preservare l'ordine
+			// Efficient removal without preserving order
 			rb.queue[i] = rb.queue[len(rb.queue)-1]
 			rb.queue = rb.queue[:len(rb.queue)-1]
 			break
@@ -408,7 +405,7 @@ func (rb *RetryBuffer) removeItemLocked(id string) {
 	}
 }
 
-// Close implementa l'interfaccia io.Closer
+// Close implements the io.Closer interface
 func (rb *RetryBuffer) Close() error {
 	rb.Stop()
 	return nil

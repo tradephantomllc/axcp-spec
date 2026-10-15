@@ -19,11 +19,16 @@ _Work in progress – structure auto-generated._
 ## Table of Contents
 
 - [1. Preface](#1-preface)
-- ...
-- [Appendix A – Example Edge → Cloud Flow](#appendix-a-example-edge--cloud-flow)
-- [Appendix B – Comparison with MCP / A2A / ACP](#appendix-b-comparison-with-mcp--a2a--acp)
+- [2. Scope & Non-Goals](#2-scope--non-goals)
+- [3. Terminology](#3-terminology)
+- [5.7 Capability Handshake – Dynamic Profile Negotiation](#57-capability-handshake--dynamic-profile-negotiation)
+- [5.8 QUIC DATAGRAM Telemetry (optional)](#58-quic-datagram-telemetry-optional)
+- [6. Context-Sync Layer](#6-context-sync-layer)
+- [7. Capability-Negotiation Layer](#7-capability-negotiation-layer)
+- [9. Privacy & Confidential Execution](#9-privacy--confidential-execution)
+- [Glossary](#glossary)
+- [Appendix](#appendix) (Appendix A and B were never written)
 - [Appendix C – Interop Profiles](appendix_c_interop.md)
-- [Appendix D – Interop Profiles](appendix_d_interop.md)
 
 
 ## 1. Preface
@@ -273,7 +278,9 @@ sequenceDiagram
     Note over Edge,Cloud: encrypted 1-RTT traffic
     Edge->>Cloud: AxcpEnvelope(profile=2,…)
     Cloud->>Edge: AxcpEnvelope(profile=1,…)
-    ## 5.7 Capability Handshake – Dynamic Profile Negotiation
+```
+
+## 5.7 Capability Handshake – Dynamic Profile Negotiation
 
 > _Status: v0.2-dev_
 
@@ -306,8 +313,9 @@ sequenceDiagram
   Note over A,B: intersection = 0b0011 → chosen = 2
   B-->>A: CapabilityAck(2)
   A-->>B: CapabilityAck(2)
+```
 
-  ## 5.8 QUIC DATAGRAM Telemetry (optional)
+## 5.8 QUIC DATAGRAM Telemetry (optional)
 
 Certain AXCP payloads are *loss-tolerant* (e.g. heartbeat, CPU temp, token-usage
 counters).  For these the reliability of STREAM frames is wasteful.
@@ -316,10 +324,12 @@ AXCP therefore reserves QUIC DATAGRAM ID `0xA0` for **TelemetryDatagram**.
 
 ### 5.8.1 Encoding
 
+```text
 +---------+------------+--------------+
 | 1 byte | 2 bytes | … N bytes |
 | type | seq (u16) | protobuf TLV |
 +---------+------------+--------------+
+```
 
 
 * **type** – fixed `0xA0`  
@@ -339,12 +349,9 @@ sequenceDiagram
   Edge->>Cloud: DATAGRAM(type=A0, seq=17, cpu=42%, mem=310MB)
   Cloud--x Edge: (lost seq 18)
   Edge->>Cloud: DATAGRAM(seq=19, tokens=1500)
-
-
+```
 
 ## 6. Context-Sync Layer
-
-### 6.1 Versioned Context Graph
 
 ### 6.1 Versioned Context Graph
 
@@ -386,7 +393,7 @@ sequenceDiagram
   Cloud--)Cloud: buffer patches 46..48
   Edge-)Cloud: reconnect
   Cloud-->>Edge: RetryEnvelope{patch46..48, ttl_ok}
-
+```
 
 Each AXCP node maintains a directed acyclic graph (DAG) of context segments.  
 Each segment is uniquely identified by its `segment_id` and versioned via `context_version` fields.
@@ -405,6 +412,7 @@ Each operation follows this schema:
 
 ```json
 { "op": "replace", "path": "/user/intent", "value": "translate" }
+```
 
 Supported operations:
 
@@ -521,7 +529,7 @@ AXCP nodes MAY log tool executions, errors, and envelope flow. Logs MAY include:
 - Tool invoked and outcome (e.g., `ok`, `timeout`, `fail`)
 - Error codes if applicable
 
-Logs MUST be append-only and verifiable (Merkle tree or hash chain).  
+Logs MUST be append-only and verifiable (e.g., a hash chain).
 Nodes MAY expose a `LogProof` query to third parties for audit purposes.
 
 
@@ -570,35 +578,3 @@ _(To be compiled after first pass)_
 ---
 
 © 2025 TradePhantom LLC – All Rights Reserved
-
-
----
-
-## 7. Capability-Negotiation Layer
-
-### 7.1 DIDComm v2 Handshake
-(TODO: Specify fields used in initial capability handshake, including auth, encryption, and mutual features)
-
-### 7.2 Capability Descriptor
-(TODO: Define schema used to declare exposed functionality, parameters, and types)
-
-### 7.3 Policy & Access Control
-(TODO: Describe WASM policies applied at gateways to accept/reject invocation requests)
-
-### 7.4 Error Handling
-(TODO: Provide error codes and handling procedures for invalid offers, failed negotiation, or policy rejection)
-
----
-
-## 9. Privacy & Confidential-Execution
-
-### 9.1 SGX / Confidential-VM Envelope
-(TODO: Define envelope fields for attestation reports, measurement hashes, and enclave identity)
-
-### 9.2 Differential-Privacy Filter
-(See Enterprise Edition for DP capabilities)
-
-### 9.3 Audit & Logging
-(TODO: Describe tamper-resistant audit trails for envelope usage, including log formats and retention)
-
----

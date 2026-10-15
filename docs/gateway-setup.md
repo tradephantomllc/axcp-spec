@@ -23,9 +23,9 @@ Provision a persistent TLS certificate/key and sender identities using your own 
   -trusted-did "$AXCP_TRUSTED_DID"
 ```
 
-`AXCP_SERVER_DID` is the exact nonempty recipient DID clients must include and sign for; the gateway never fills in an omitted recipient. `AXCP_TRUSTED_DID` is `did:<method>:<identifier>=<base64-encoded raw 32-byte Ed25519 public key>`. Supply actual identities, not example labels. Keep private seeds out of arguments, logs and Git. Clients must validate the server's TLS certificate and use ALPN `axcp/1`.
+`AXCP_SERVER_DID` is the exact nonempty recipient DID clients must include and sign for; the gateway never fills in an omitted recipient. `AXCP_TRUSTED_DID` is `did:<method>:<identifier>=<base64-encoded raw 32-byte Ed25519 public key>`. Supply actual identities, not example labels. A `did:key` entry must encode the supplied public key (the gateway refuses to start otherwise), and small-order keys are rejected. Keep private seeds out of arguments, logs and Git. Clients must validate the server's TLS certificate and use ALPN `axcp/1`.
 
-Missing/invalid security settings are rejected before connecting to MQTT or starting retry workers. `-allow-insecure-demo-tls` enables an ephemeral self-signed certificate for local tests; it does not disable envelope authentication. `-secure-baseline=false` separately and explicitly enables deprecated transport-only mode. Profile 0 still uses TLS encryption.
+Missing/invalid security settings are rejected before connecting to MQTT or starting retry workers. Resource limits apply before authentication: `-max-connections` (default 512) and `-max-streams` per connection (default 16), a 10-second TLS handshake timeout, a 60-second idle timeout and a 30-second limit for receiving each frame body. Error replies contain only the error code; details are logged locally. `-allow-insecure-demo-tls` enables an ephemeral self-signed certificate for local tests; it does not disable envelope authentication. `-secure-baseline=false` separately and explicitly enables deprecated transport-only mode. Profile 0 still uses TLS encryption.
 
 ## Container deployment
 

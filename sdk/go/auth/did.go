@@ -7,7 +7,6 @@ import (
 	"errors"
 	"strings"
 	"time"
-	"unicode"
 )
 
 // DID errors
@@ -16,6 +15,7 @@ var (
 	ErrDIDMethodEmpty     = errors.New("auth: DID method cannot be empty")
 	ErrDIDIDEmpty         = errors.New("auth: DID identifier cannot be empty")
 	ErrDIDContainsInvalid = errors.New("auth: DID contains invalid characters (spaces or control chars)")
+	ErrDIDTooLong         = errors.New("auth: DID exceeds maximum length")
 	ErrDIDNotFound        = errors.New("auth: DID not found by resolver")
 	ErrDIDMismatch        = errors.New("auth: resolved document ID does not match requested DID")
 	ErrNoAcceptableKey    = errors.New("auth: no acceptable Ed25519 public key found in DID document")
@@ -36,41 +36,72 @@ var allowedEd25519KeyTypes = map[string]bool{
 type DID string
 
 // ParseDID validates and returns a DID from a string.
-// Validates:
-//   - Format matches did:<method>:<id>
-//   - Method and ID are non-empty
-//   - No spaces or control characters
+//
+// The syntax follows the W3C DID Core ABNF without path, query or fragment:
+//
+//	did                = "did:" method-name ":" method-specific-id
+//	method-name        = 1*( %x61-7A / DIGIT )
+//	method-specific-id = *( *idchar ":" ) 1*idchar
+//	idchar             = ALPHA / DIGIT / "." / "-" / "_" / pct-encoded
+//
+// Inputs longer than MaxDIDLength bytes are rejected before any other work.
 func ParseDID(s string) (DID, error) {
-	// Check for spaces and control characters
-	for _, r := range s {
-		if unicode.IsSpace(r) || unicode.IsControl(r) {
-			return "", ErrDIDContainsInvalid
-		}
+	if len(s) > MaxDIDLength {
+		return "", ErrDIDTooLong
 	}
-
-	// Must start with "did:"
 	if !strings.HasPrefix(s, "did:") {
+		for i := 0; i < len(s); i++ {
+			if c := s[i]; c <= 0x20 || c >= 0x7f {
+				return "", ErrDIDContainsInvalid
+			}
+		}
 		return "", ErrInvalidDIDFormat
 	}
-
-	// Split into parts: did:<method>:<id>
-	parts := strings.SplitN(s, ":", 3)
-	if len(parts) != 3 {
+	rest := s[len("did:"):]
+	sep := strings.IndexByte(rest, ':')
+	if sep < 0 {
 		return "", ErrInvalidDIDFormat
 	}
-
-	method := parts[1]
-	id := parts[2]
-
+	method, id := rest[:sep], rest[sep+1:]
 	if method == "" {
 		return "", ErrDIDMethodEmpty
 	}
-
+	for i := 0; i < len(method); i++ {
+		c := method[i]
+		if !(c >= 'a' && c <= 'z' || c >= '0' && c <= '9') {
+			if c <= 0x20 || c >= 0x7f {
+				return "", ErrDIDContainsInvalid
+			}
+			return "", ErrInvalidDIDFormat
+		}
+	}
 	if id == "" {
 		return "", ErrDIDIDEmpty
 	}
-
+	if id[len(id)-1] == ':' {
+		return "", ErrInvalidDIDFormat
+	}
+	for i := 0; i < len(id); i++ {
+		c := id[i]
+		switch {
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9',
+			c == '.', c == '-', c == '_', c == ':':
+		case c == '%':
+			if i+2 >= len(id) || !isHexDigit(id[i+1]) || !isHexDigit(id[i+2]) {
+				return "", ErrInvalidDIDFormat
+			}
+			i += 2
+		case c <= 0x20 || c >= 0x7f:
+			return "", ErrDIDContainsInvalid
+		default:
+			return "", ErrInvalidDIDFormat
+		}
+	}
 	return DID(s), nil
+}
+
+func isHexDigit(c byte) bool {
+	return c >= '0' && c <= '9' || c >= 'a' && c <= 'f' || c >= 'A' && c <= 'F'
 }
 
 // String returns the DID as a string.
@@ -152,8 +183,23 @@ func ResolveEd25519PublicKey(ctx context.Context, r DIDResolver, did string) (ed
 		return nil, err
 	}
 
+	return SelectEd25519Key(parsedDID.String(), doc)
+}
+
+// SelectEd25519Key validates a resolved DID document and returns its first
+// acceptable Ed25519 verification key.
+//
+// The document ID must equal the requested DID, the key type must be in the
+// Ed25519 allowlist, the key must be 32 bytes and must not have small order.
+// For did:key identifiers the selected key must also equal the key encoded in
+// the identifier, so a resolver cannot bind a did:key to a different key.
+func SelectEd25519Key(did string, doc *DIDDocument) (ed25519.PublicKey, error) {
+	if doc == nil {
+		return nil, ErrDIDNotFound
+	}
+
 	// Verify document ID matches requested DID exactly
-	if doc.ID != parsedDID.String() {
+	if doc.ID != did {
 		return nil, ErrDIDMismatch
 	}
 
@@ -169,7 +215,21 @@ func ResolveEd25519PublicKey(ctx context.Context, r DIDResolver, did string) (ed
 			continue
 		}
 
-		return ed25519.PublicKey(key.PublicKeyBytes), nil
+		if IsSmallOrderPublicKey(key.PublicKeyBytes) {
+			return nil, ErrSmallOrderKey
+		}
+
+		publicKey := ed25519.PublicKey(append([]byte(nil), key.PublicKeyBytes...))
+		if IsDIDKey(did) {
+			encoded, err := DecodeDIDKey(did)
+			if err != nil {
+				return nil, err
+			}
+			if !encoded.Equal(publicKey) {
+				return nil, ErrDIDMismatch
+			}
+		}
+		return publicKey, nil
 	}
 
 	return nil, ErrNoAcceptableKey

@@ -5,6 +5,15 @@
 
 ---
 
+## Errata (2026-10-15)
+
+- **Item 4 (Replay Protection)** cites the gateway unit test only; the end-to-end replay run used a map inside the example program, not the SDK replay protector.
+- **Item 5 (Gateway In The Loop)** is not demonstrated: the authenticated-chat client connected to the example's own server, not to the gateway. The listed rejections are unit-test claims whose output was not committed.
+- The `client.log` and `replay_test.log` files committed for this milestone (`../20260130-220816/`) are empty.
+- See the [M7 proof pack errata](../../../docs/protocol-proof/M7_PROOF_PACK.md#errata-2026-10-15).
+
+---
+
 ## Checklist Items
 
 ### 1. QUIC Transport Proof

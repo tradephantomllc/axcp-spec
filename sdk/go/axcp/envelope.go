@@ -1,6 +1,8 @@
 package axcp
 
 import (
+	"google.golang.org/protobuf/proto"
+
 	"github.com/tradephantomllc/axcp-spec/sdk/go/internal/pb"
 )
 
@@ -18,4 +20,15 @@ func NewEnvelope(traceID string, profile uint32) *Envelope {
 			Profile: profile,
 		},
 	}
+}
+
+// CloneEnvelope returns a deep copy of a protobuf envelope wrapped in an
+// Envelope. Use it instead of dereferencing proto.Clone results, which would
+// copy internal protobuf state by value.
+func CloneEnvelope(src *pb.AxcpEnvelope) *Envelope {
+	env := &Envelope{}
+	if src != nil {
+		proto.Merge(&env.AxcpEnvelope, src)
+	}
+	return env
 }

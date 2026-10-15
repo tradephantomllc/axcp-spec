@@ -17,3 +17,9 @@ Commit under test: `8275a501b3b627f7c9273ebd4bbfbf65c811eece`
 | TypeScript tests | `typescript_tests.log` | PASS |
 | TypeScript typecheck | `typescript_typecheck.log` | PASS |
 | TypeScript package dry-run | `typescript_pack_dry_run.log` | PASS |
+
+## Errata (2026-10-15)
+
+- "Go targeted tests" and "Go Core package tests" passed from cached results; "Go root module tests" ran no tests (only packages without test files).
+- "Replay protection" was demonstrated with a map inside the example program, not with the SDK replay protector or the gateway.
+- See the [M8 proof pack errata](../../../docs/protocol-proof/M8_PROOF_PACK.md#errata-2026-10-15).

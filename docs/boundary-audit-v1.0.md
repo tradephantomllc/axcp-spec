@@ -5,6 +5,8 @@
 **Scope**: axcp-spec repository (AXCP Core)
 **Branch**: main
 
+> **Errata (2026-10-15):** The keyword analysis in section 1.2 only scanned Go source files (`*.go`; see "Verification Commands Used"). It did not cover documentation, the Protobuf schema, CI configuration or other non-Go files, so the statement that all keyword matches are documentation boundary statements is not supported by the scan. This report is superseded by a broader review completed on 2026-10-15.
+
 ## Executive Summary
 
 This audit verifies that axcp-spec (AXCP Core) contains **no enterprise or advanced tier code** and maintains proper boundary separation as defined in the AXCP Core Specification v1.0.
