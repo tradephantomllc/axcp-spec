@@ -1,6 +1,6 @@
 # Raspberry Pi system-statistics collector (experimental)
 
-This executable samples CPU/memory statistics and logs the encoded message size every five seconds. It currently does **not** connect to a gateway, send QUIC/MQTT messages, load `config.yaml`, or collect a real hardware temperature (that field is a placeholder). Installing its service does not establish an AXCP integration.
+This executable samples CPU/memory statistics and logs the encoded message size every five seconds. It reads the CPU temperature from `/sys/class/thermal/thermal_zone0/temp` when available (0 otherwise). It currently does **not** connect to a gateway, send QUIC/MQTT messages or load `config.yaml`. Installing its hardened systemd unit does not establish an AXCP integration.
 
 From the repository root:
 

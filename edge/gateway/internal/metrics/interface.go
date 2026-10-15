@@ -23,10 +23,10 @@ type Metrics interface {
 // NopMetrics is a no-op implementation of the Metrics interface
 type NopMetrics struct{}
 
-func (n NopMetrics) RecordEnvelopeIn()                {}
-func (n NopMetrics) RecordEnvelopeOut()               {}
-func (n NopMetrics) SetRetryQueueSize(int)            {}
-func (n NopMetrics) RecordRetryAttempt()              {}
-func (n NopMetrics) RecordRetrySuccess()              {}
-func (n NopMetrics) RecordRetryDropped()              {}
+func (n NopMetrics) RecordEnvelopeIn()                  {}
+func (n NopMetrics) RecordEnvelopeOut()                 {}
+func (n NopMetrics) SetRetryQueueSize(int)              {}
+func (n NopMetrics) RecordRetryAttempt()                {}
+func (n NopMetrics) RecordRetrySuccess()                {}
+func (n NopMetrics) RecordRetryDropped()                {}
 func (n NopMetrics) Shutdown(ctx context.Context) error { return nil }

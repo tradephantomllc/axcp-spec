@@ -177,9 +177,9 @@ func ToProtocolError(err error) *ProtocolError {
 	case errors.Is(err, auth.ErrSequenceMissing):
 		return ErrMalformedRequest.WithReason("sequence missing")
 	case errors.Is(err, auth.ErrRecipientMissing):
-		return ErrMalformedRequest.WithReason("recipient missing")
+		return ErrAuthDIDInvalid.WithReason("recipient missing")
 	case errors.Is(err, auth.ErrRecipientMismatch):
-		return ErrMalformedRequest.WithReason("wrong recipient")
+		return ErrAuthDIDInvalid.WithReason("wrong recipient")
 	case errors.Is(err, auth.ErrSenderMissing):
 		return ErrAuthDIDInvalid.WithReason("sender missing")
 	case errors.Is(err, auth.ErrEmptyPeerID):

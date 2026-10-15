@@ -328,12 +328,12 @@ func TestToProtocolError(t *testing.T) {
 		{
 			name:         "auth recipient missing",
 			err:          auth.ErrRecipientMissing,
-			expectedCode: pb.ErrorCode_MALFORMED_REQUEST,
+			expectedCode: pb.ErrorCode_AUTH_DID_INVALID,
 		},
 		{
 			name:         "auth recipient mismatch",
 			err:          auth.ErrRecipientMismatch,
-			expectedCode: pb.ErrorCode_MALFORMED_REQUEST,
+			expectedCode: pb.ErrorCode_AUTH_DID_INVALID,
 		},
 		{
 			name:         "auth sender missing",

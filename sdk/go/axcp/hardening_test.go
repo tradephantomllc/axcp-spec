@@ -173,10 +173,10 @@ func TestHardening_EveryEntryPointRejects(t *testing.T) {
 		}, ErrMalformedRequest, nil},
 		{"missing recipient", func(t *testing.T) *Envelope {
 			return p.signedEnvelope(t, func(e *Envelope) { e.RecipientDid = "" })
-		}, ErrMalformedRequest, nil},
+		}, ErrAuthDIDInvalid, nil},
 		{"other recipient", func(t *testing.T) *Envelope {
 			return p.signedEnvelope(t, func(e *Envelope) { e.RecipientDid = other })
-		}, ErrMalformedRequest, nil},
+		}, ErrAuthDIDInvalid, nil},
 		{"stale timestamp", func(t *testing.T) *Envelope {
 			return p.signedEnvelope(t, func(e *Envelope) { e.TimestampMs = auth.NowMs() - uint64((10 * time.Minute).Milliseconds()) })
 		}, ErrAuthTimestampExpired, nil},

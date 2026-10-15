@@ -8,16 +8,16 @@ import (
 	pb "github.com/tradephantomllc/axcp-spec/sdk/go/axcp/pb"
 )
 
-// BrokerWrapper è un wrapper che adatta la funzione di pubblicazione
-// del broker esistente per funzionare con il retry buffer.
-// Risolve la discrepanza tra il tipo pb.AxcpEnvelope usato dal broker
-// e il tipo axcp.Envelope usato dal retry buffer.
+// BrokerWrapper adapts the existing broker's publish function
+// so it can be used by the retry buffer.
+// It bridges the pb.AxcpEnvelope type used by the broker
+// and the axcp.Envelope type used by the retry buffer.
 type BrokerWrapper struct {
 	broker        *Broker
 	convertLogger *log.Logger
 }
 
-// NewBrokerWrapper crea un nuovo wrapper per il broker.
+// NewBrokerWrapper creates a new wrapper for the broker.
 func NewBrokerWrapper(broker *Broker) *BrokerWrapper {
 	return &BrokerWrapper{
 		broker:        broker,
@@ -25,7 +25,7 @@ func NewBrokerWrapper(broker *Broker) *BrokerWrapper {
 	}
 }
 
-// PublishEnvelope pubblica un envelope axcp.Envelope convertendolo nel formato richiesto dal broker.
+// PublishEnvelope publishes an axcp.Envelope, converting it to the format required by the broker.
 func (w *BrokerWrapper) PublishEnvelope(env *axcp.Envelope) error {
 	if env == nil {
 		return fmt.Errorf("envelope is nil")
@@ -34,13 +34,13 @@ func (w *BrokerWrapper) PublishEnvelope(env *axcp.Envelope) error {
 	return w.broker.Publish(&env.AxcpEnvelope)
 }
 
-// PublishTelemetryWithEnvelope pubblica un datagramma di telemetria usando un envelope.
+// PublishTelemetryWithEnvelope publishes a telemetry datagram carried in an envelope.
 func (w *BrokerWrapper) PublishTelemetryWithEnvelope(env *axcp.Envelope) error {
 	if env == nil {
 		return fmt.Errorf("envelope is nil")
 	}
 
-	// Estrai telemetria dall'envelope
+	// Extract telemetry from the envelope
 	telemetry := GetTelemetryFromEnvelope(env)
 	if telemetry == nil {
 		return fmt.Errorf("no telemetry data in envelope ID %s", env.GetTraceId())
@@ -48,11 +48,11 @@ func (w *BrokerWrapper) PublishTelemetryWithEnvelope(env *axcp.Envelope) error {
 
 	w.convertLogger.Printf("Publishing telemetry from envelope with ID %s", env.GetTraceId())
 
-	// Usa il broker per pubblicare la telemetria
+	// Use the broker to publish the telemetry
 	return w.broker.PublishTelemetry(telemetry, env.GetTraceId())
 }
 
-// GetTelemetryFromEnvelope estrae il datagramma di telemetria da un envelope AXCP
+// GetTelemetryFromEnvelope extracts the telemetry datagram from an AXCP envelope
 func GetTelemetryFromEnvelope(env *axcp.Envelope) *pb.TelemetryDatagram {
 	if env == nil {
 		return nil

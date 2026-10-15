@@ -16,15 +16,15 @@ import (
 
 // OpenTelemetryMetrics implements the Metrics interface using OpenTelemetry
 type OpenTelemetryMetrics struct {
-	meter           metric.Meter
-	envelopesIn     metric.Int64Counter
-	envelopesOut    metric.Int64Counter
-	retryQueueSize  metric.Int64ObservableGauge
-	retryAttempts   metric.Int64Counter
-	retrySuccess    metric.Int64Counter
-	retryDropped    metric.Int64Counter
-	meterProvider   *sdkmetric.MeterProvider
-	queueSize       int64 // Current queue size for the observable gauge
+	meter          metric.Meter
+	envelopesIn    metric.Int64Counter
+	envelopesOut   metric.Int64Counter
+	retryQueueSize metric.Int64ObservableGauge
+	retryAttempts  metric.Int64Counter
+	retrySuccess   metric.Int64Counter
+	retryDropped   metric.Int64Counter
+	meterProvider  *sdkmetric.MeterProvider
+	queueSize      int64 // Current queue size for the observable gauge
 }
 
 // OpenTelemetryConfig holds the configuration for OpenTelemetry metrics

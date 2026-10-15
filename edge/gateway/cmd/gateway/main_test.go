@@ -22,7 +22,7 @@ func TestTrustedDIDFlagBuildsResolver(t *testing.T) {
 		t.Fatalf("GenerateKey failed: %v", err)
 	}
 
-	const did = "did:key:test-client"
+	const did = "did:example:test-client"
 	var trusted trustedDIDFlag
 	if err := trusted.Set(did + "=" + base64.RawURLEncoding.EncodeToString(pub)); err != nil {
 		t.Fatalf("Set failed: %v", err)
@@ -42,7 +42,7 @@ func TestTrustedDIDFlagBuildsResolver(t *testing.T) {
 
 func TestTrustedDIDFlagRejectsInvalidPublicKeyLength(t *testing.T) {
 	var trusted trustedDIDFlag
-	err := trusted.Set("did:key:test-client=" + base64.StdEncoding.EncodeToString([]byte("short")))
+	err := trusted.Set("did:example:test-client=" + base64.StdEncoding.EncodeToString([]byte("short")))
 	if err == nil {
 		t.Fatal("expected invalid public key length error")
 	}

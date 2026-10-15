@@ -12,16 +12,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// resetTestState è una funzione helper per ripulire lo stato tra i test
+// resetTestState is a helper that clears state between tests
 func resetTestState() {
-	// Usa ShutdownOTEL per terminare in modo pulito il goroutine del batch processor
+	// Use ShutdownOTEL to cleanly stop the batch processor goroutine
 	ShutdownOTEL()
-	
-	// Cleanup extra per test precedenti
+
+	// Extra cleanup for previous tests
 	batchMutex.Lock()
 	defer batchMutex.Unlock()
-	
-	// Assicurati che lo stato sia completamente pulito
+
+	// Make sure the state is fully cleared
 	batchingEnabled = false
 	batchBuffer = nil
 }
@@ -30,38 +30,38 @@ func TestHistogramObserve(t *testing.T) {
 	// Reset test state
 	resetTestState()
 
-	// Trova una porta libera per il test
+	// Find a free port for the test
 	listener, err := net.Listen("tcp", ":0")
 	require.NoError(t, err)
 
 	port := listener.Addr().(*net.TCPAddr).Port
-	listener.Close() // Chiudi l'ascoltatore ma mantieni la porta per il test
+	listener.Close() // Close the listener but keep the port for the test
 
-	// Inizializza Prometheus con l'istogramma sulla porta casuale
+	// Initialize Prometheus with the histogram on the random port
 	endpoint := fmt.Sprintf(":%d", port)
 	err = InitPrometheus(endpoint, true)
 	require.NoError(t, err)
-	
-	// Verifica che l'istogramma sia stato creato
+
+	// Verify the histogram was created
 	require.NotNil(t, RPCLatency)
-	
-	// Osserva un valore di latenza
+
+	// Observe a latency value
 	RPCLatency.WithLabelValues("Sync", "200", "edge").Observe(0.12)
-	
-	// Aspetta un po' per assicurarci che il server sia avviato
+
+	// Wait briefly to make sure the server has started
 	time.Sleep(100 * time.Millisecond)
-	
-	// Esegui una richiesta HTTP per ottenere le metriche
+
+	// Make an HTTP request to fetch the metrics
 	url := fmt.Sprintf("http://localhost:%d/metrics", port)
 	res, err := http.Get(url)
 	require.NoError(t, err)
 	defer res.Body.Close()
-	
-	// Leggi il corpo della risposta
+
+	// Read the response body
 	body, err := io.ReadAll(res.Body)
 	require.NoError(t, err)
-	
-	// Verifica che l'istogramma sia presente nelle metriche
+
+	// Verify the histogram is present in the metrics
 	bodyStr := string(body)
 	assert.Contains(t, bodyStr, "rpc_duration_seconds_bucket")
 	assert.Contains(t, bodyStr, "method=\"Sync\"")
@@ -72,45 +72,45 @@ func TestHistogramObserve(t *testing.T) {
 func TestOTELBatching(t *testing.T) {
 	// Reset test state
 	resetTestState()
-	
-	// Inizializza OTEL con batching
+
+	// Initialize OTEL with batching
 	err := InitOTELExporter("localhost:4317", true, 100*time.Millisecond)
 	require.NoError(t, err)
-	
-	// Verifica che il batching sia abilitato
+
+	// Verify batching is enabled
 	assert.True(t, batchingEnabled)
-	
-	// Aggiungi un'osservazione al batch
+
+	// Add an observation to the batch
 	BatchObserve("Sync", 150*time.Millisecond)
-	
-	// Verifica che l'osservazione sia stata aggiunta al batch
+
+	// Verify the observation was added to the batch
 	assert.Equal(t, 1, BatchSize())
-	
-	// Attendi il flush del batch
+
+	// Wait for the batch flush
 	time.Sleep(200 * time.Millisecond)
-	
-	// Verifica che il batch sia stato svuotato
+
+	// Verify the batch was emptied
 	assert.Zero(t, BatchSize())
 }
 
 func TestBatchObserveWithDetails(t *testing.T) {
 	// Reset test state
 	resetTestState()
-	
-	// Inizializza OTEL con batching
+
+	// Initialize OTEL with batching
 	err := InitOTELExporter("localhost:4317", true, 500*time.Millisecond)
 	require.NoError(t, err)
-	
-	// Aggiungi osservazioni con dettagli diversi
+
+	// Add observations with different details
 	BatchObserveWithDetails("Async", 50*time.Millisecond, "core", "404")
 	BatchObserveWithDetails("Query", 75*time.Millisecond, "edge", "500")
-	
-	// Verifica che entrambe le osservazioni siano state aggiunte al batch
+
+	// Verify both observations were added to the batch
 	assert.Equal(t, 2, BatchSize())
-	
-	// Forza manualmente il flush per il test
+
+	// Manually force a flush for the test
 	flushBatch()
-	
-	// Verifica che il batch sia stato svuotato
+
+	// Verify the batch was emptied
 	assert.Zero(t, BatchSize())
 }

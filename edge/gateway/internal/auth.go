@@ -3,7 +3,9 @@ package internal
 
 import (
 	"context"
+	"crypto/ed25519"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/tradephantomllc/axcp-spec/sdk/go/auth"
@@ -77,6 +79,11 @@ type EnvelopeAuthenticator struct {
 //   - config: authentication configuration
 //   - clock: time source (if nil, uses system clock)
 func NewEnvelopeAuthenticator(resolver auth.DIDResolver, serverDID string, config AuthConfig, clock auth.Clock) (*EnvelopeAuthenticator, error) {
+	// Every Secure Baseline message is bound to its recipient, so the gateway
+	// must know its own DID.
+	if _, err := auth.ParseDID(serverDID); err != nil {
+		return nil, fmt.Errorf("auth: invalid gateway DID: %w", err)
+	}
 	if clock == nil {
 		clock = auth.RealClock{}
 	}
@@ -85,6 +92,8 @@ func NewEnvelopeAuthenticator(resolver auth.DIDResolver, serverDID string, confi
 	if err != nil {
 		return nil, err
 	}
+	// Replay state must outlive the timestamp acceptance window.
+	replay.EnsureMinTTL(config.MaxTimestampAge + config.MaxTimestampFuture)
 
 	return &EnvelopeAuthenticator{
 		resolver:  resolver,
@@ -122,6 +131,8 @@ type AuthResult struct {
 
 // Error code constants matching proto ErrorCode enum
 const (
+	ErrorCodeMalformedRequest     = 8
+	ErrorCodeTooManyRequests      = 9
 	ErrorCodeAuthSignatureInvalid = 10
 	ErrorCodeAuthReplayDetected   = 11
 	ErrorCodeAuthDIDInvalid       = 17
@@ -159,11 +170,17 @@ func (ea *EnvelopeAuthenticator) VerifyEnvelope(ctx context.Context, profile neg
 			ErrorCode: ErrorCodeAuthSignatureInvalid,
 		}
 	}
+	if len(envAuth.Signature) != ed25519.SignatureSize {
+		return AuthResult{Error: auth.ErrSignatureLength, ErrorCode: ErrorCodeAuthSignatureInvalid}
+	}
+	if envAuth.Sequence == 0 {
+		return AuthResult{Error: auth.ErrSequenceMissing, ErrorCode: ErrorCodeMalformedRequest}
+	}
 
-	if ea.serverDID != "" && envAuth.RecipientDID == "" {
+	if envAuth.RecipientDID == "" {
 		return AuthResult{Error: ErrMissingRecipientDID, ErrorCode: ErrorCodeAuthDIDInvalid}
 	}
-	if ea.serverDID != "" && envAuth.RecipientDID != ea.serverDID {
+	if envAuth.RecipientDID != ea.serverDID {
 		return AuthResult{
 			Error:     ErrRecipientDIDMismatch,
 			ErrorCode: ErrorCodeAuthDIDInvalid,
@@ -193,7 +210,7 @@ func (ea *EnvelopeAuthenticator) VerifyEnvelope(ctx context.Context, profile neg
 
 	if err := auth.VerifyDIDAuthSignature(ctx, ea.resolver, envAuth.SenderDID, transcript, envAuth.Signature); err != nil {
 		code := ErrorCodeAuthSignatureInvalid
-		if errors.Is(err, auth.ErrDIDNotFound) || errors.Is(err, auth.ErrInvalidDIDFormat) {
+		if !errors.Is(err, auth.ErrVerificationFailed) {
 			code = ErrorCodeAuthDIDInvalid
 		}
 		return AuthResult{
@@ -206,8 +223,8 @@ func (ea *EnvelopeAuthenticator) VerifyEnvelope(ctx context.Context, profile neg
 	// Otherwise, unauthenticated traffic could burn valid sequence numbers.
 	if err := ea.replay.CheckAndMark(envAuth.SenderDID, envAuth.Sequence); err != nil {
 		code := ErrorCodeAuthReplayDetected
-		if errors.Is(err, auth.ErrTooOld) {
-			code = ErrorCodeAuthTimestampExpired // Sequence too old is similar to timestamp expired
+		if errors.Is(err, auth.ErrReplayCapacity) {
+			code = ErrorCodeTooManyRequests
 		}
 		return AuthResult{
 			Error:     err,

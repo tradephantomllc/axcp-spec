@@ -46,7 +46,7 @@ func (b *Broker) Publish(env *pb.AxcpEnvelope) error {
 	if err != nil {
 		return err
 	}
-	// Uso un ID traccia generico poiché la struttura potrebbe essere cambiata
+	// Use a generic topic because the envelope structure may have changed
 	topic := "axcp/envelope"
 	return b.publish(topic, base64.StdEncoding.EncodeToString(raw))
 }
@@ -66,7 +66,7 @@ func (b *Broker) PublishTelemetry(td *pb.TelemetryDatagram, trace string) error 
 	return b.publish(topic, raw)
 }
 
-// PublishTelemetryData pubblica dati di telemetria generici in formato JSON
+// PublishTelemetryData publishes generic telemetry data as JSON
 func (b *Broker) PublishTelemetryData(data map[string]interface{}, trace string) error {
 	if data == nil {
 		return errors.New("cannot publish nil telemetry data")

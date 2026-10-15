@@ -19,10 +19,10 @@ type Config struct {
 
 	// OpenTelemetry configuration
 	OTEL struct {
-		Enabled     bool
-		Collector   string
-		ServiceName string
-		Timeout     time.Duration
+		Enabled       bool
+		Collector     string
+		ServiceName   string
+		Timeout       time.Duration
 		BatchInterval time.Duration
 	}
 }
@@ -31,8 +31,9 @@ type Config struct {
 func DefaultConfig() *Config {
 	cfg := &Config{}
 	cfg.Prometheus.Enabled = true
-	cfg.Prometheus.ListenAddr = ":9090"
-	cfg.OTEL.Enabled = true
+	// Bind to loopback by default: the endpoint has no authentication.
+	cfg.Prometheus.ListenAddr = "127.0.0.1:9090"
+	cfg.OTEL.Enabled = false
 	cfg.OTEL.Collector = "localhost:4317"
 	cfg.OTEL.ServiceName = "axcp-gateway"
 	cfg.OTEL.Timeout = 10 * time.Second
@@ -42,7 +43,6 @@ func DefaultConfig() *Config {
 
 // AddFlags adds the metrics flags to the flag set
 func (c *Config) AddFlags(fs *flag.FlagSet) {
-	// Rinomino i flag come richiesto
 	fs.BoolVar(&c.Prometheus.Enabled, "enable-prom", c.Prometheus.Enabled, "Enable Prometheus metrics")
 	fs.StringVar(&c.Prometheus.ListenAddr, "prom-addr", c.Prometheus.ListenAddr, "Prometheus metrics listen address")
 	fs.BoolVar(&c.OTEL.Enabled, "enable-otel", c.OTEL.Enabled, "Enable OpenTelemetry metrics")
@@ -58,45 +58,38 @@ func (c *Config) Setup(ctx context.Context) (Metrics, error) {
 	}
 
 	var metrics []Metrics
-	var cleanupFuncs []func()
 
 	// Setup Prometheus if enabled
 	if c.Prometheus.Enabled {
-		// Crea un nuovo registry personalizzato per Prometheus per evitare conflitti nei test
+		// Use a dedicated registry so repeated setups (and tests) do not conflict
 		registry := prometheus.NewRegistry()
-		
-		// Inizializza Prometheus con un registry personalizzato
+
+		// Start Prometheus with the dedicated registry
 		if err := InitPrometheusWithRegistry(c.Prometheus.ListenAddr, true, registry); err != nil {
 			return nil, err
 		}
-		
-		// Crea un'istanza di PrometheusMetrics usando il registry personalizzato
+
+		// Create PrometheusMetrics on the dedicated registry
 		promMetrics := NewPrometheusMetrics(registry)
 		metrics = append(metrics, promMetrics)
-		cleanupFuncs = append(cleanupFuncs, func() {
-			_ = promMetrics.Shutdown(ctx)
-		})
 	}
 
 	// Setup OpenTelemetry if enabled
 	if c.OTEL.Enabled {
-		// Inizializza l'esportatore OTEL con supporto per il batching
+		// Initialize the OTEL exporter with batching
 		if err := InitOTELExporter(c.OTEL.Collector, true, c.OTEL.BatchInterval); err != nil {
 			return nil, err
 		}
-		
+
 		otelMetrics, err := NewOpenTelemetryMetrics(ctx, OpenTelemetryConfig{
 			CollectorEndpoint: c.OTEL.Collector,
-			ServiceName:      c.OTEL.ServiceName,
-			Timeout:          c.OTEL.Timeout,
+			ServiceName:       c.OTEL.ServiceName,
+			Timeout:           c.OTEL.Timeout,
 		})
 		if err != nil {
 			return nil, err
 		}
 		metrics = append(metrics, otelMetrics)
-		cleanupFuncs = append(cleanupFuncs, func() {
-			_ = otelMetrics.Shutdown(ctx)
-		})
 	}
 
 	// If only one metrics provider is enabled, return it directly

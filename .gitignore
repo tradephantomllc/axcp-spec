@@ -52,6 +52,7 @@ release/
 # Binaries built by `go build` inside an example directory
 examples/go/simple_chat/simple_chat
 examples/go/authenticated_chat/authenticated_chat
+examples/go/authenticated_chat/authenticated_chat
 *.exe
 *.exe~
 *.dll

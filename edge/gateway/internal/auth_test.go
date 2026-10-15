@@ -64,7 +64,7 @@ func TestEnvelopeAuthenticator_TransportOnlyProfile(t *testing.T) {
 	clock := &mockClock{now: time.Now()}
 	config := DefaultAuthConfig()
 
-	ea, err := NewEnvelopeAuthenticator(nil, "did:key:server", config, clock)
+	ea, err := NewEnvelopeAuthenticator(nil, "did:example:server", config, clock)
 	if err != nil {
 		t.Fatalf("NewEnvelopeAuthenticator failed: %v", err)
 	}
@@ -81,7 +81,7 @@ func TestEnvelopeAuthenticator_SecureBaseline_MissingFields(t *testing.T) {
 	config := DefaultAuthConfig()
 	resolver := newMockResolver()
 
-	ea, err := NewEnvelopeAuthenticator(resolver, "did:key:server", config, clock)
+	ea, err := NewEnvelopeAuthenticator(resolver, "did:example:server", config, clock)
 	if err != nil {
 		t.Fatalf("NewEnvelopeAuthenticator failed: %v", err)
 	}
@@ -101,7 +101,7 @@ func TestEnvelopeAuthenticator_SecureBaseline_MissingFields(t *testing.T) {
 		{
 			name: "missing signature",
 			auth: EnvelopeAuth{
-				SenderDID: "did:key:sender123",
+				SenderDID: "did:example:sender123",
 			},
 			wantCode:  ErrorCodeAuthSignatureInvalid,
 			wantError: ErrMissingSignature,
@@ -130,7 +130,7 @@ func TestEnvelopeAuthenticator_TimestampValidation(t *testing.T) {
 	config := DefaultAuthConfig()
 	resolver := newMockResolver()
 
-	ea, err := NewEnvelopeAuthenticator(resolver, "did:key:server", config, clock)
+	ea, err := NewEnvelopeAuthenticator(resolver, "did:example:server", config, clock)
 	if err != nil {
 		t.Fatalf("NewEnvelopeAuthenticator failed: %v", err)
 	}
@@ -155,10 +155,11 @@ func TestEnvelopeAuthenticator_TimestampValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := ea.VerifyEnvelope(context.Background(), negotiate.ProfileSecureBaseline, EnvelopeAuth{
-				SenderDID:    "did:key:sender123",
-				RecipientDID: "did:key:server",
+				SenderDID:    "did:example:sender123",
+				RecipientDID: "did:example:server",
 				TimestampMs:  tt.timestampMs,
-				Signature:    []byte("fake-signature"),
+				Sequence:     1,
+				Signature:    make([]byte, 64),
 			})
 			if result.Authenticated {
 				t.Error("Expected authentication to fail")
@@ -185,8 +186,8 @@ func TestEnvelopeAuthenticator_ReplayProtection(t *testing.T) {
 	}
 
 	resolver := newMockResolver()
-	senderDID := "did:key:sender123"
-	serverDID := "did:key:server456"
+	senderDID := "did:example:sender123"
+	serverDID := "did:example:server456"
 	resolver.AddKey(senderDID, pub)
 
 	ea, err := NewEnvelopeAuthenticator(resolver, serverDID, config, clock)
@@ -246,9 +247,23 @@ func TestEnvelopeAuthenticator_FullAuthFlow(t *testing.T) {
 	}
 
 	resolver := newMockResolver()
-	senderDID := "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
-	serverDID := "did:key:z6MkiTBz1ymuepAQ4HEHYSF1H8quG5GLVVQR3djdX3mDooWp"
+	senderDID, err := auth.EncodeDIDKey(pub)
+	if err != nil {
+		t.Fatalf("EncodeDIDKey failed: %v", err)
+	}
+	serverDID, _, _, err := auth.GenerateIdentity()
+	if err != nil {
+		t.Fatalf("GenerateIdentity failed: %v", err)
+	}
 	resolver.AddKey(senderDID, pub)
+
+	// A resolver must not be able to bind a did:key to a different key.
+	impostor, _, _ := ed25519.GenerateKey(nil)
+	bad := newMockResolver()
+	bad.AddKey(senderDID, impostor)
+	if _, err := auth.ResolveEd25519PublicKey(context.Background(), bad, senderDID); err == nil {
+		t.Fatal("did:key bound to a foreign key was accepted")
+	}
 
 	ea, err := NewEnvelopeAuthenticator(resolver, serverDID, config, clock)
 	if err != nil {
@@ -290,10 +305,10 @@ func TestEnvelopeAuthenticator_InvalidSignature(t *testing.T) {
 	}
 
 	resolver := newMockResolver()
-	senderDID := "did:key:sender123"
+	senderDID := "did:example:sender123"
 	resolver.AddKey(senderDID, pub)
 
-	ea, err := NewEnvelopeAuthenticator(resolver, "did:key:server", config, clock)
+	ea, err := NewEnvelopeAuthenticator(resolver, "did:example:server", config, clock)
 	if err != nil {
 		t.Fatalf("NewEnvelopeAuthenticator failed: %v", err)
 	}
@@ -301,7 +316,7 @@ func TestEnvelopeAuthenticator_InvalidSignature(t *testing.T) {
 	// Use invalid signature
 	result := ea.VerifyEnvelope(context.Background(), negotiate.ProfileSecureBaseline, EnvelopeAuth{
 		SenderDID:    senderDID,
-		RecipientDID: "did:key:server",
+		RecipientDID: "did:example:server",
 		TimestampMs:  uint64(now.UnixMilli()),
 		Sequence:     1,
 		Signature:    make([]byte, 64), // Wrong signature
@@ -327,8 +342,8 @@ func TestEnvelopeAuthenticator_InvalidSignatureDoesNotConsumeReplaySequence(t *t
 	}
 
 	resolver := newMockResolver()
-	senderDID := "did:key:sender123"
-	serverDID := "did:key:server"
+	senderDID := "did:example:sender123"
+	serverDID := "did:example:server"
 	resolver.AddKey(senderDID, pub)
 
 	ea, err := NewEnvelopeAuthenticator(resolver, serverDID, config, clock)
@@ -379,9 +394,9 @@ func TestEnvelopeAuthenticator_RecipientDIDMismatch(t *testing.T) {
 	}
 
 	resolver := newMockResolver()
-	senderDID := "did:key:sender123"
-	serverDID := "did:key:server"
-	otherDID := "did:key:other"
+	senderDID := "did:example:sender123"
+	serverDID := "did:example:server"
+	otherDID := "did:example:other"
 	payload := []byte("payload")
 	resolver.AddKey(senderDID, pub)
 
@@ -419,14 +434,14 @@ func TestEnvelopeAuthenticator_DIDNotFound(t *testing.T) {
 	config := DefaultAuthConfig()
 	resolver := newMockResolver() // Empty resolver
 
-	ea, err := NewEnvelopeAuthenticator(resolver, "did:key:server", config, clock)
+	ea, err := NewEnvelopeAuthenticator(resolver, "did:example:server", config, clock)
 	if err != nil {
 		t.Fatalf("NewEnvelopeAuthenticator failed: %v", err)
 	}
 
 	result := ea.VerifyEnvelope(context.Background(), negotiate.ProfileSecureBaseline, EnvelopeAuth{
-		SenderDID:    "did:key:unknown",
-		RecipientDID: "did:key:server",
+		SenderDID:    "did:example:unknown",
+		RecipientDID: "did:example:server",
 		TimestampMs:  uint64(now.UnixMilli()),
 		Sequence:     1,
 		Signature:    make([]byte, 64),

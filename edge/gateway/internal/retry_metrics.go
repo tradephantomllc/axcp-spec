@@ -7,7 +7,7 @@ import (
 	"go.opentelemetry.io/otel/metric"
 )
 
-// RetryMetrics contiene tutti i contatori e le metriche per il retry buffer
+// RetryMetrics holds all counters and metrics for the retry buffer
 type RetryMetrics struct {
 	retryCounter    metric.Int64Counter
 	dropCounter     metric.Int64Counter
@@ -17,34 +17,34 @@ type RetryMetrics struct {
 	retryDelayGauge metric.Float64Histogram
 }
 
-// NewRetryMetrics crea un nuovo gestore di metriche per il retry buffer
+// NewRetryMetrics creates a new metrics recorder for the retry buffer
 func NewRetryMetrics(meter metric.Meter) (*RetryMetrics, error) {
 	retryCounter, err := meter.Int64Counter("axcp.retry.attempts",
-		metric.WithDescription("Numero di tentativi di retry"))
+		metric.WithDescription("Number of retry attempts"))
 	if err != nil {
 		return nil, err
 	}
 
 	dropCounter, err := meter.Int64Counter("axcp.retry.dropped",
-		metric.WithDescription("Numero di messaggi persi (non aggiunti al buffer di retry)"))
+		metric.WithDescription("Number of messages dropped by the retry buffer"))
 	if err != nil {
 		return nil, err
 	}
 
 	successCounter, err := meter.Int64Counter("axcp.retry.success",
-		metric.WithDescription("Numero di tentativi di retry riusciti"))
+		metric.WithDescription("Number of successful retry attempts"))
 	if err != nil {
 		return nil, err
 	}
 
 	queueSizeGauge, err := meter.Int64UpDownCounter("axcp.retry.queue_size",
-		metric.WithDescription("Dimensione attuale della coda di retry"))
+		metric.WithDescription("Current size of the retry queue"))
 	if err != nil {
 		return nil, err
 	}
 
 	retryDelayGauge, err := meter.Float64Histogram("axcp.retry.delay_seconds",
-		metric.WithDescription("Tempo di attesa prima del retry in secondi"))
+		metric.WithDescription("Wait time before a retry, in seconds"))
 	if err != nil {
 		return nil, err
 	}
@@ -58,33 +58,33 @@ func NewRetryMetrics(meter metric.Meter) (*RetryMetrics, error) {
 	}, nil
 }
 
-// RecordRetryAttempt incrementa il contatore dei tentativi di retry
+// RecordRetryAttempt increments the retry attempt counter
 func (r *RetryMetrics) RecordRetryAttempt(ctx context.Context) {
 	r.retryCounter.Add(ctx, 1)
 }
 
-// RecordRetryDropped incrementa il contatore dei messaggi persi
+// RecordRetryDropped increments the dropped message counter
 func (r *RetryMetrics) RecordRetryDropped(ctx context.Context) {
 	r.dropCounter.Add(ctx, 1)
 }
 
-// RecordRetrySuccess incrementa il contatore dei tentativi di retry riusciti
+// RecordRetrySuccess increments the successful retry counter
 func (r *RetryMetrics) RecordRetrySuccess(ctx context.Context) {
 	r.successCounter.Add(ctx, 1)
 }
 
-// RecordRetryDelay registra il tempo di attesa prima del retry
+// RecordRetryDelay records the wait time before a retry
 func (r *RetryMetrics) RecordRetryDelay(ctx context.Context, seconds float64) {
-	// Non usiamo attributi per ora, poiché attribute.KeyValue non implementa metric.RecordOption
+	// No attributes for now, since attribute.KeyValue does not implement metric.RecordOption
 	r.retryDelayGauge.Record(ctx, seconds)
 }
 
-// SetRetryQueueSize imposta la dimensione attuale della coda di retry
+// SetRetryQueueSize sets the current size of the retry queue
 func (r *RetryMetrics) SetRetryQueueSize(ctx context.Context, size int64) {
 	// Calculate delta to update the gauge
 	oldSize := r.queueSizeValue.Swap(size)
 	delta := size - oldSize
-	
+
 	if delta != 0 {
 		r.queueSizeGauge.Add(ctx, delta)
 	}

@@ -21,7 +21,6 @@ import (
 	pb "github.com/tradephantomllc/axcp-spec/sdk/go/axcp/pb"
 	"github.com/tradephantomllc/axcp-spec/sdk/go/negotiate"
 	"github.com/tradephantomllc/axcp-spec/sdk/go/netquic"
-	"google.golang.org/protobuf/proto"
 )
 
 var BuildVersion = "dev" // overridden at build time with -ldflags "-X main.BuildVersion=<ver>"
@@ -52,6 +51,18 @@ func (f *trustedDIDFlag) Set(value string) error {
 	}
 	if len(key) != ed25519.PublicKeySize {
 		return fmt.Errorf("invalid public key for %s: got %d bytes, want %d", did, len(key), ed25519.PublicKeySize)
+	}
+	if auth.IsSmallOrderPublicKey(key) {
+		return fmt.Errorf("invalid public key for %s: small-order key", did)
+	}
+	if auth.IsDIDKey(did) {
+		encoded, err := auth.DecodeDIDKey(did)
+		if err != nil {
+			return fmt.Errorf("invalid trusted did:key %q: %w", did, err)
+		}
+		if !encoded.Equal(ed25519.PublicKey(key)) {
+			return fmt.Errorf("trusted did:key %q does not encode the supplied public key", did)
+		}
 	}
 
 	if f.entries == nil {
@@ -116,6 +127,8 @@ func run() error {
 	var tlsCertFile string
 	var tlsKeyFile string
 	var allowInsecureDemoTLS bool
+	var maxConnections int
+	var maxStreams int64
 
 	flag.StringVar(&addr, "addr", ":7143", "Address to listen on")
 	flag.StringVar(&brokerURL, "mqtt-url", "tcp://127.0.0.1:1883", "MQTT broker URL")
@@ -130,6 +143,8 @@ func run() error {
 	flag.StringVar(&tlsCertFile, "tls-cert", "", "Server TLS certificate PEM file")
 	flag.StringVar(&tlsKeyFile, "tls-key", "", "Server TLS private key PEM file")
 	flag.BoolVar(&allowInsecureDemoTLS, "allow-insecure-demo-tls", false, "Allow ephemeral self-signed TLS for local demos only")
+	flag.IntVar(&maxConnections, "max-connections", internal.DefaultMaxConnections, "Maximum concurrent QUIC connections")
+	flag.Int64Var(&maxStreams, "max-streams", internal.DefaultMaxStreamsPerConnection, "Maximum concurrent streams per connection")
 
 	flag.Parse()
 
@@ -152,7 +167,13 @@ func run() error {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	config := internal.ServerConfig{Addr: addr, TLSConf: tlsConf, Context: ctx, Profile: negotiate.ProfileTransportOnly}
+	if maxConnections < 1 || maxStreams < 1 {
+		return fmt.Errorf("-max-connections and -max-streams must be positive")
+	}
+	config := internal.ServerConfig{
+		Addr: addr, TLSConf: tlsConf, Context: ctx, Profile: negotiate.ProfileTransportOnly,
+		MaxConnections: maxConnections, MaxStreamsPerConnection: maxStreams,
+	}
 	if secureBaseline {
 		config.Profile = negotiate.ProfileSecureBaseline
 		config.ServerDID = serverDID
@@ -233,7 +254,7 @@ func publishOrQueue(p gatewayPublisher, retries *internal.RetryBuffer, env *pb.A
 		if retries == nil {
 			return err
 		}
-		clone := &axcp.Envelope{AxcpEnvelope: *proto.Clone(env).(*pb.AxcpEnvelope)}
+		clone := axcp.CloneEnvelope(env)
 		if queueErr := retries.AddEnvelope(rand.Text(), clone); queueErr != nil {
 			return fmt.Errorf("publish: %v; enqueue: %w", err, queueErr)
 		}

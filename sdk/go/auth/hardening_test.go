@@ -34,7 +34,7 @@ func TestParseDID_StrictSyntax(t *testing.T) {
 		"trailing colon": "did:example:alice:",
 		"bad pct":        "did:example:a%2",
 		"bad pct hex":    "did:example:a%zz",
-		"zero width":     "did:example:alice​",
+		"zero width":     "did:example:alice\u200b",
 		"invalid utf8":   "did:example:\xff\xfe",
 		"newline":        "did:example:al\nice",
 		"space":          "did:example:al ice",
