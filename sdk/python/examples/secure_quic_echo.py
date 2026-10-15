@@ -55,7 +55,7 @@ async def run_server(args: argparse.Namespace) -> None:
 
 async def run_client(args: argparse.Namespace) -> None:
     client_agent = Agent(Identity.generate())
-    server_did = args.server_did or ""
+    server_did = args.server_did
     client = await QuicClient.connect(
         QuicClientConfig(
             host=args.host,
@@ -88,7 +88,7 @@ def main() -> None:
     client.add_argument("--host", default="127.0.0.1")
     client.add_argument("--port", type=int, default=61300)
     client.add_argument("--server-name", default="localhost")
-    client.add_argument("--server-did")
+    client.add_argument("--server-did", required=True, help="DID printed by the server (envelopes are recipient-bound)")
     client.add_argument("--ca-file")
     client.add_argument("--insecure-skip-verify", action="store_true")
 

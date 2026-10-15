@@ -63,6 +63,12 @@ class TimestampFutureError(TimestampError):
     reason_code = "timestamp_future"
 
 
+class TimestampInvalidError(TimestampError):
+    """Timestamp is not representable (for example above year 9999 or >= 2^63)."""
+
+    reason_code = "timestamp_invalid"
+
+
 class ReplayError(AXCPError):
     """Replay protection rejected an envelope."""
 
@@ -79,6 +85,12 @@ class SequenceTooOldError(ReplayError):
 
 class InvalidReplayConfigError(ReplayError):
     reason_code = "invalid_replay_config"
+
+
+class ReplayCapacityError(ReplayError):
+    """The replay protector tracks the maximum number of senders (fail closed)."""
+
+    reason_code = "replay_capacity_exceeded"
 
 
 class NegotiationError(AXCPError):
@@ -107,3 +119,33 @@ class InvalidEnvelopeError(AXCPError):
     """Envelope serialization or payload validation failed."""
 
     reason_code = "invalid_envelope"
+
+
+class TransportError(AXCPError):
+    """Base class for transport errors."""
+
+    reason_code = "transport_error"
+
+
+class TransportConfigError(TransportError):
+    """Transport configuration is invalid."""
+
+    reason_code = "transport_config_error"
+
+
+class TransportClosedError(TransportError):
+    """Connection or stream was closed before the operation completed."""
+
+    reason_code = "transport_closed"
+
+
+class TransportFrameError(TransportError):
+    """A length-prefixed frame is malformed or exceeds the configured bounds."""
+
+    reason_code = "transport_frame_error"
+
+
+class TransportTimeoutError(TransportError):
+    """A transport operation timed out."""
+
+    reason_code = "transport_timeout"
