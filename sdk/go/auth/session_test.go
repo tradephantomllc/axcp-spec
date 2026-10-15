@@ -3,9 +3,25 @@ package auth
 import (
 	"context"
 	"crypto/ed25519"
+	"strings"
 	"testing"
 	"time"
 )
+
+// fixedPayload returns a PayloadForSequence builder whose output covers the sequence.
+func fixedPayload(body string) func(uint64) ([]byte, error) {
+	return func(sequence uint64) ([]byte, error) {
+		return sequencePayload(body, sequence), nil
+	}
+}
+
+func sequencePayload(body string, sequence uint64) []byte {
+	out := []byte(body)
+	for i := 0; i < 8; i++ {
+		out = append(out, byte(sequence>>(8*i)))
+	}
+	return out
+}
 
 func TestSession_SignEnvelope(t *testing.T) {
 	// Generate test identity
@@ -19,27 +35,40 @@ func TestSession_SignEnvelope(t *testing.T) {
 		t.Error("Generated DID is empty")
 	}
 
+	if !strings.HasPrefix(did, "did:key:z6Mk") {
+		t.Errorf("GenerateTestIdentity must return a standard Ed25519 did:key, got %q", did)
+	}
+	if decoded, err := DecodeDIDKey(did); err != nil || !decoded.Equal(pubKey) {
+		t.Errorf("did:key does not encode the public key: %v", err)
+	}
+
 	// Create session
 	session := NewSession(SessionConfig{
-		LocalDID:   did,
-		PrivateKey: privKey,
+		LocalDID:      did,
+		PrivateKey:    privKey,
+		FirstSequence: 1,
 	})
 
 	// Should fail before negotiation
 	_, err = session.SignEnvelope(context.Background(), SignatureInput{
-		Payload: []byte("test payload"),
+		PayloadForSequence: fixedPayload("test payload"),
 	})
 	if err != ErrSessionNotNegotiated {
 		t.Errorf("Expected ErrSessionNotNegotiated, got %v", err)
 	}
 
 	// Complete negotiation
-	remoteDID := "did:key:remote-server"
+	remoteDID := "did:example:remote-server"
 	session.SetNegotiated("secure-baseline-v1", remoteDID)
+
+	// A prebuilt payload cannot cover the sequence and is rejected.
+	if _, err := session.SignEnvelope(context.Background(), SignatureInput{Payload: []byte("test payload")}); err != ErrSequenceNotBound {
+		t.Fatalf("legacy Payload: got %v, want ErrSequenceNotBound", err)
+	}
 
 	// Now signing should work
 	output, err := session.SignEnvelope(context.Background(), SignatureInput{
-		Payload: []byte("test payload"),
+		PayloadForSequence: fixedPayload("test payload"),
 	})
 	if err != nil {
 		t.Fatalf("SignEnvelope failed: %v", err)
@@ -63,7 +92,7 @@ func TestSession_SignEnvelope(t *testing.T) {
 	}
 
 	// Verify signature is valid
-	transcript := BuildDIDAuthTranscript(did, remoteDID, []byte("test payload"), time.UnixMilli(int64(output.TimestampMs)))
+	transcript := BuildDIDAuthTranscript(did, remoteDID, sequencePayload("test payload", output.Sequence), time.UnixMilli(int64(output.TimestampMs)))
 	if !VerifyEd25519(pubKey, transcript, output.Signature) {
 		t.Error("Signature verification failed")
 	}
@@ -72,15 +101,16 @@ func TestSession_SignEnvelope(t *testing.T) {
 func TestSession_SequenceCounter(t *testing.T) {
 	did, _, privKey, _ := GenerateTestIdentity()
 	session := NewSession(SessionConfig{
-		LocalDID:   did,
-		PrivateKey: privKey,
+		LocalDID:      did,
+		PrivateKey:    privKey,
+		FirstSequence: 1,
 	})
-	session.SetNegotiated("secure-baseline-v1", "did:key:remote")
+	session.SetNegotiated("secure-baseline-v1", "did:example:remote")
 
 	// Sign multiple envelopes and verify sequence increments
 	for i := uint64(1); i <= 5; i++ {
 		output, err := session.SignEnvelope(context.Background(), SignatureInput{
-			Payload: []byte("payload"),
+			PayloadForSequence: fixedPayload("payload"),
 		})
 		if err != nil {
 			t.Fatalf("SignEnvelope failed: %v", err)
@@ -97,10 +127,11 @@ func TestSession_SignEnvelopePayloadForSequence(t *testing.T) {
 		t.Fatalf("GenerateTestIdentity failed: %v", err)
 	}
 
-	remoteDID := "did:key:remote"
+	remoteDID := "did:example:remote"
 	session := NewSession(SessionConfig{
-		LocalDID:   did,
-		PrivateKey: privKey,
+		LocalDID:      did,
+		PrivateKey:    privKey,
+		FirstSequence: 1,
 	})
 	session.SetNegotiated("secure-baseline-v1", remoteDID)
 
@@ -136,13 +167,13 @@ func TestSession_RecipientOverride(t *testing.T) {
 		LocalDID:   did,
 		PrivateKey: privKey,
 	})
-	session.SetNegotiated("secure-baseline-v1", "did:key:default-remote")
+	session.SetNegotiated("secure-baseline-v1", "did:example:default-remote")
 
 	// Override recipient
-	overrideDID := "did:key:specific-recipient"
+	overrideDID := "did:example:specific-recipient"
 	output, err := session.SignEnvelope(context.Background(), SignatureInput{
-		Payload:      []byte("payload"),
-		RecipientDID: overrideDID,
+		PayloadForSequence: fixedPayload("payload"),
+		RecipientDID:       overrideDID,
 	})
 	if err != nil {
 		t.Fatalf("SignEnvelope failed: %v", err)
@@ -154,13 +185,13 @@ func TestSession_RecipientOverride(t *testing.T) {
 
 func TestSession_NoPrivateKey(t *testing.T) {
 	session := NewSession(SessionConfig{
-		LocalDID: "did:key:verify-only",
+		LocalDID: "did:example:verify-only",
 		// No private key
 	})
-	session.SetNegotiated("secure-baseline-v1", "did:key:remote")
+	session.SetNegotiated("secure-baseline-v1", "did:example:remote")
 
 	_, err := session.SignEnvelope(context.Background(), SignatureInput{
-		Payload: []byte("payload"),
+		PayloadForSequence: fixedPayload("payload"),
 	})
 	if err != ErrNoPrivateKey {
 		t.Errorf("Expected ErrNoPrivateKey, got %v", err)
@@ -173,7 +204,7 @@ func TestSession_Closed(t *testing.T) {
 		LocalDID:   did,
 		PrivateKey: privKey,
 	})
-	session.SetNegotiated("secure-baseline-v1", "did:key:remote")
+	session.SetNegotiated("secure-baseline-v1", "did:example:remote")
 
 	// Close session
 	session.Close()
@@ -183,7 +214,7 @@ func TestSession_Closed(t *testing.T) {
 	}
 
 	_, err := session.SignEnvelope(context.Background(), SignatureInput{
-		Payload: []byte("payload"),
+		PayloadForSequence: fixedPayload("payload"),
 	})
 	if err != ErrSessionClosed {
 		t.Errorf("Expected ErrSessionClosed, got %v", err)
@@ -193,7 +224,7 @@ func TestSession_Closed(t *testing.T) {
 func TestMemoryDIDResolver(t *testing.T) {
 	resolver := NewMemoryDIDResolver()
 
-	did := "did:key:test-abc123"
+	did := "did:example:test-abc123"
 	_, pubKey, _, _ := GenerateTestIdentity()
 
 	// Should not find before adding
@@ -251,8 +282,8 @@ func TestGenerateTestIdentity(t *testing.T) {
 }
 
 func TestSession_Getters(t *testing.T) {
-	localDID := "did:key:local"
-	remoteDID := "did:key:remote"
+	localDID := "did:example:local"
+	remoteDID := "did:example:remote"
 	profile := "secure-baseline-v1"
 
 	_, _, privKey, _ := GenerateTestIdentity()
@@ -286,5 +317,56 @@ func TestSession_Getters(t *testing.T) {
 	}
 	if session.Profile() != profile {
 		t.Errorf("Profile = %q, want %q", session.Profile(), profile)
+	}
+}
+
+func TestSession_TimeBasedFirstSequenceSurvivesRestart(t *testing.T) {
+	did, _, privKey, _ := GenerateIdentity()
+	clock := newFakeClock()
+
+	first := NewSession(SessionConfig{LocalDID: did, PrivateKey: privKey, Clock: clock})
+	first.SetNegotiated("secure-baseline-v1", "did:example:remote")
+	var last uint64
+	for i := 0; i < 3; i++ {
+		out, err := first.SignEnvelope(context.Background(), SignatureInput{PayloadForSequence: fixedPayload("p")})
+		if err != nil {
+			t.Fatal(err)
+		}
+		last = out.Sequence
+	}
+
+	// A restarted sender must continue above the previous sequences.
+	clock.Advance(time.Millisecond)
+	restarted := NewSession(SessionConfig{LocalDID: did, PrivateKey: privKey, Clock: clock})
+	restarted.SetNegotiated("secure-baseline-v1", "did:example:remote")
+	out, err := restarted.SignEnvelope(context.Background(), SignatureInput{PayloadForSequence: fixedPayload("p")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Sequence <= last {
+		t.Fatalf("restarted sequence %d must exceed previous %d", out.Sequence, last)
+	}
+	rp, _ := NewReplayProtector(time.Hour, 1000, clock)
+	if err := rp.CheckAndMark(did, last); err != nil {
+		t.Fatal(err)
+	}
+	if err := rp.CheckAndMark(did, out.Sequence); err != nil {
+		t.Fatalf("receiver rejected restarted sender: %v", err)
+	}
+}
+
+func TestSession_RequiresRecipientAndValidKey(t *testing.T) {
+	did, _, privKey, _ := GenerateIdentity()
+
+	noRecipient := NewSession(SessionConfig{LocalDID: did, PrivateKey: privKey})
+	noRecipient.SetNegotiated("secure-baseline-v1", "")
+	if _, err := noRecipient.SignEnvelope(context.Background(), SignatureInput{PayloadForSequence: fixedPayload("p")}); err != ErrRecipientMissing {
+		t.Fatalf("missing recipient: got %v", err)
+	}
+
+	badKey := NewSession(SessionConfig{LocalDID: did, PrivateKey: privKey[:31]})
+	badKey.SetNegotiated("secure-baseline-v1", "did:example:remote")
+	if _, err := badKey.SignEnvelope(context.Background(), SignatureInput{PayloadForSequence: fixedPayload("p")}); err != ErrInvalidPrivateKeySize {
+		t.Fatalf("short key: got %v", err)
 	}
 }

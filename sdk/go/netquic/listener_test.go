@@ -19,8 +19,14 @@ func TestDefaultListenerConfig(t *testing.T) {
 	if cfg.KeepAlivePeriod != 30*time.Second {
 		t.Errorf("expected KeepAlivePeriod 30s, got %v", cfg.KeepAlivePeriod)
 	}
-	if cfg.MaxConnections != 0 {
-		t.Errorf("expected MaxConnections 0 (unlimited), got %d", cfg.MaxConnections)
+	if cfg.MaxConnections != DefaultMaxConnections {
+		t.Errorf("expected bounded MaxConnections %d, got %d", DefaultMaxConnections, cfg.MaxConnections)
+	}
+	if cfg.MaxIncomingStreams != DefaultMaxIncomingStreams {
+		t.Errorf("expected MaxIncomingStreams %d, got %d", DefaultMaxIncomingStreams, cfg.MaxIncomingStreams)
+	}
+	if cfg.HandshakeIdleTimeout <= 0 {
+		t.Errorf("expected a handshake timeout, got %v", cfg.HandshakeIdleTimeout)
 	}
 	if cfg.AcceptTimeout != 10*time.Second {
 		t.Errorf("expected AcceptTimeout 10s, got %v", cfg.AcceptTimeout)
@@ -376,17 +382,17 @@ func TestServerConnection_SetAuthenticated(t *testing.T) {
 	}
 
 	// Set authenticated
-	serverConn.SetAuthenticated("did:key:local", "did:key:remote")
+	serverConn.SetAuthenticated("did:example:local", "did:example:remote")
 
 	// Verify state
 	if !serverConn.IsNegotiated() {
 		t.Error("expected negotiated after SetAuthenticated")
 	}
-	if serverConn.LocalDID() != "did:key:local" {
-		t.Errorf("expected local DID did:key:local, got %s", serverConn.LocalDID())
+	if serverConn.LocalDID() != "did:example:local" {
+		t.Errorf("expected local DID did:example:local, got %s", serverConn.LocalDID())
 	}
-	if serverConn.RemoteDID() != "did:key:remote" {
-		t.Errorf("expected remote DID did:key:remote, got %s", serverConn.RemoteDID())
+	if serverConn.RemoteDID() != "did:example:remote" {
+		t.Errorf("expected remote DID did:example:remote, got %s", serverConn.RemoteDID())
 	}
 }
 

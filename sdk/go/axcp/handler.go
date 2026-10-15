@@ -76,22 +76,21 @@ func (r *Router) SetDefaultFunc(f func(ctx context.Context, req *Envelope) (*Env
 // If no specific handler is found, it uses the default handler.
 // Returns ErrNoHandler if no handler is available.
 func (r *Router) Handle(ctx context.Context, env *Envelope) (*Envelope, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	// Try to find handler by message payload type
+	// Select the handler under the lock, but run it without holding the lock
+	// so handlers may register routes without deadlocking.
 	key := getRouteKey(env)
 
-	if handler, ok := r.handlers[key]; ok {
-		return handler.HandleEnvelope(ctx, env)
+	r.mu.RLock()
+	handler, ok := r.handlers[key]
+	if !ok {
+		handler = r.defaultHandler
 	}
+	r.mu.RUnlock()
 
-	// Fall back to default handler
-	if r.defaultHandler != nil {
-		return r.defaultHandler.HandleEnvelope(ctx, env)
+	if handler == nil {
+		return nil, ErrNoHandler
 	}
-
-	return nil, ErrNoHandler
+	return handler.HandleEnvelope(ctx, env)
 }
 
 // HandleEnvelope implements Handler interface, allowing Router to be composed.
@@ -132,11 +131,8 @@ func getRouteKey(env *Envelope) string {
 		return "telemetry"
 	}
 
-	// Default: use trace_id prefix if present for custom routing
-	if env.TraceId != "" && len(env.TraceId) >= 8 {
-		return env.TraceId[:8]
-	}
-
+	// Envelopes without a known payload go to the default handler. The trace
+	// ID is attacker-controlled and is never used as a routing key.
 	return "default"
 }
 

@@ -23,5 +23,9 @@ func VerifyEd25519(publicKey ed25519.PublicKey, payload []byte, signature []byte
 		return false
 	}
 
+	if IsSmallOrderPublicKey(publicKey) {
+		return false
+	}
+
 	return ed25519.Verify(publicKey, payload, signature)
 }

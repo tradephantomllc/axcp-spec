@@ -42,8 +42,16 @@ type ListenerConfig struct {
 	// Default: 30 seconds
 	KeepAlivePeriod time.Duration
 
-	// MaxConnections limits concurrent connections (0 = unlimited)
+	// MaxConnections limits concurrent connections.
+	// Default: 1024. Negative means unlimited (not recommended).
 	MaxConnections int
+
+	// MaxIncomingStreams limits concurrent bidirectional streams per connection.
+	// Default: 16.
+	MaxIncomingStreams int64
+
+	// HandshakeIdleTimeout bounds the TLS handshake. Default: 10 seconds.
+	HandshakeIdleTimeout time.Duration
 
 	// AcceptTimeout is the timeout for accepting a new connection
 	// Default: 10 seconds
@@ -53,12 +61,14 @@ type ListenerConfig struct {
 // DefaultListenerConfig returns a ListenerConfig with sensible defaults.
 func DefaultListenerConfig(address string, tlsConfig *tls.Config) ListenerConfig {
 	return ListenerConfig{
-		Address:         address,
-		TLSConfig:       tlsConfig,
-		MaxIdleTimeout:  5 * time.Minute,
-		KeepAlivePeriod: 30 * time.Second,
-		MaxConnections:  0, // unlimited
-		AcceptTimeout:   10 * time.Second,
+		Address:              address,
+		TLSConfig:            tlsConfig,
+		MaxIdleTimeout:       5 * time.Minute,
+		KeepAlivePeriod:      30 * time.Second,
+		MaxConnections:       DefaultMaxConnections,
+		MaxIncomingStreams:   DefaultMaxIncomingStreams,
+		HandshakeIdleTimeout: 10 * time.Second,
+		AcceptTimeout:        10 * time.Second,
 	}
 }
 
@@ -69,8 +79,13 @@ type Listener struct {
 	closed       atomic.Bool
 	connections  sync.Map // map[string]*ServerConnection
 	connCount    atomic.Int32
-	mu           sync.Mutex
 }
+
+// Listener defaults.
+const (
+	DefaultMaxConnections     = 1024
+	DefaultMaxIncomingStreams = 16
+)
 
 // Listen creates a new QUIC listener on the given configuration.
 func Listen(config ListenerConfig) (*Listener, error) {
@@ -97,12 +112,27 @@ func Listen(config ListenerConfig) (*Listener, error) {
 	if config.AcceptTimeout == 0 {
 		config.AcceptTimeout = 10 * time.Second
 	}
+	if config.MaxConnections == 0 {
+		config.MaxConnections = DefaultMaxConnections
+	}
+	if config.MaxIncomingStreams <= 0 {
+		config.MaxIncomingStreams = DefaultMaxIncomingStreams
+	}
+	if config.HandshakeIdleTimeout <= 0 {
+		config.HandshakeIdleTimeout = 10 * time.Second
+	}
+	if tlsConfig.MinVersion < tls.VersionTLS13 {
+		tlsConfig.MinVersion = tls.VersionTLS13
+	}
 
 	// Configure QUIC
 	quicConfig := &quic.Config{
-		MaxIdleTimeout:  config.MaxIdleTimeout,
-		KeepAlivePeriod: config.KeepAlivePeriod,
-		EnableDatagrams: true,
+		MaxIdleTimeout:        config.MaxIdleTimeout,
+		KeepAlivePeriod:       config.KeepAlivePeriod,
+		HandshakeIdleTimeout:  config.HandshakeIdleTimeout,
+		MaxIncomingStreams:    config.MaxIncomingStreams,
+		MaxIncomingUniStreams: -1,
+		EnableDatagrams:       true,
 	}
 
 	// Create QUIC listener

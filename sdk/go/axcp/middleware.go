@@ -94,14 +94,13 @@ func TimestampValidationMiddleware(validator *auth.TimestampValidator) Middlewar
 }
 
 // ReplayProtectionMiddleware checks for replay attacks.
+//
+// It must run after signature verification. A nil protector selects the
+// process-wide SharedReplayProtector, so chains built per connection still
+// share replay state.
 func ReplayProtectionMiddleware(protector *auth.ReplayProtector) Middleware {
 	if protector == nil {
-		// Use default protector if none provided
-		var err error
-		protector, err = auth.NewReplayProtector(5*time.Minute, 1000, nil)
-		if err != nil {
-			panic(fmt.Sprintf("failed to create default replay protector: %v", err))
-		}
+		protector = SharedReplayProtector()
 	}
 	return func(next Handler) Handler {
 		return HandlerFunc(func(ctx context.Context, req *Envelope) (*Envelope, error) {
@@ -186,15 +185,6 @@ func SignatureValidationMiddleware(resolver auth.DIDResolver) Middleware {
 	}
 }
 
-// buildEnvelopeTranscript builds the canonical auth transcript for an envelope.
-func buildEnvelopeTranscript(env *Envelope) []byte {
-	transcript, err := BuildAuthTranscript(env)
-	if err != nil {
-		return nil
-	}
-	return transcript
-}
-
 // TimeoutMiddleware adds a timeout to handler execution.
 func TimeoutMiddleware(timeout time.Duration) Middleware {
 	return func(next Handler) Handler {
@@ -217,14 +207,23 @@ func ContextValueMiddleware(key, value interface{}) Middleware {
 }
 
 // SecureBaselineMiddleware creates the standard middleware chain for secure-baseline-v1 profile.
-// This includes all security validations required by the profile.
+//
+// It recovers from handler panics and runs the full Validator pipeline in a
+// fixed order: envelope structure and profile, recipient, sender, timestamp,
+// signature and sequence presence, signature verification and, only after the
+// signature is verified, replay protection. A nil replayProtector selects the
+// process-wide SharedReplayProtector.
 func SecureBaselineMiddleware(localDID string, resolver auth.DIDResolver, replayProtector *auth.ReplayProtector) Middleware {
+	if replayProtector == nil {
+		replayProtector = SharedReplayProtector()
+	}
+	validator := NewValidator(ValidatorConfig{
+		LocalDID:        localDID,
+		Resolver:        resolver,
+		ReplayProtector: replayProtector,
+	})
 	return Chain(
 		RecoveryMiddleware(),
-		RecipientValidationMiddleware(localDID),
-		SenderValidationMiddleware(),
-		TimestampValidationMiddleware(nil),
-		SignatureValidationMiddleware(resolver),
-		ReplayProtectionMiddleware(replayProtector),
+		validator.Middleware(),
 	)
 }

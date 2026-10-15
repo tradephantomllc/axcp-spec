@@ -202,11 +202,10 @@ func TestCheckAndMark_WindowUpdatesWithHigherSeq(t *testing.T) {
 	// Advance highest to 110
 	rp.CheckAndMark("peer1", 110)
 
-	// Now minAcceptable = 110 - 5 + 1 = 106
-	// 96 would be too old now, but it's already seen (replay)
+	// Now minAcceptable = 110 - 5 + 1 = 106, so 96 is outside the window.
 	err = rp.CheckAndMark("peer1", 96)
-	if err != ErrReplay {
-		t.Errorf("seq 96 should be replay (still in seen map), got: %v", err)
+	if err != ErrTooOld {
+		t.Errorf("seq 96 should be too old, got: %v", err)
 	}
 
 	// 105 should be too old (not seen, but outside window)
@@ -288,33 +287,121 @@ func TestCheckAndMark_ExpiryAllowsReuse(t *testing.T) {
 	}
 }
 
-func TestCheckAndMark_PartialExpiry(t *testing.T) {
+func TestCheckAndMark_ActivePeerSequencesNeverExpire(t *testing.T) {
 	clock := newFakeClock()
 	ttl := time.Minute
 	rp, _ := NewReplayProtector(ttl, 100, clock)
 
-	// Mark seq 1 at t=0
-	rp.CheckAndMark("peer1", 1)
-
-	// Advance 30 seconds
-	clock.Advance(30 * time.Second)
-
-	// Mark seq 2 at t=30s
-	rp.CheckAndMark("peer1", 2)
-
-	// Advance 40 more seconds (total 70s from start)
-	clock.Advance(40 * time.Second)
-
-	// seq 1 should be expired (70s > 60s TTL), seq 2 should not (40s < 60s)
-	// Trigger cleanup by calling CheckAndMark
-	err := rp.CheckAndMark("peer1", 1) // Should be accepted (expired)
-	if err != nil {
-		t.Errorf("seq 1 should be accepted after expiry: %v", err)
+	if err := rp.CheckAndMark("peer1", 1); err != nil {
+		t.Fatalf("seq 1: %v", err)
 	}
 
-	err = rp.CheckAndMark("peer1", 2) // Should still be replay
-	if err != ErrReplay {
-		t.Errorf("seq 2 should still be replay (not expired): %v", err)
+	// Keep the peer active well beyond the TTL.
+	for seq := uint64(2); seq <= 10; seq++ {
+		clock.Advance(30 * time.Second)
+		if err := rp.CheckAndMark("peer1", seq); err != nil {
+			t.Fatalf("seq %d: %v", seq, err)
+		}
+	}
+
+	// seq 1 was accepted 4.5 minutes ago but is still inside the window:
+	// it must stay rejected while the peer is active.
+	if err := rp.CheckAndMark("peer1", 1); err != ErrReplay {
+		t.Fatalf("seq 1 should still be a replay, got: %v", err)
+	}
+}
+
+func TestCheckAndMark_IdlePeerStateExpires(t *testing.T) {
+	clock := newFakeClock()
+	ttl := time.Minute
+	rp, _ := NewReplayProtector(ttl, 100, clock)
+
+	if err := rp.CheckAndMark("peer1", 1); err != nil {
+		t.Fatalf("seq 1: %v", err)
+	}
+	clock.Advance(ttl + time.Second)
+
+	// After the peer was idle for longer than the TTL its state is discarded;
+	// timestamp validation (TTL >= max age + skew) rejects such old messages.
+	if err := rp.CheckAndMark("peer1", 1); err != nil {
+		t.Fatalf("seq 1 after idle expiry: %v", err)
+	}
+	if got := rp.GetStats().PeerCount; got != 1 {
+		t.Fatalf("PeerCount = %d, want 1", got)
+	}
+}
+
+func TestCheckAndMark_MaxPeersFailsClosed(t *testing.T) {
+	clock := newFakeClock()
+	rp, _ := NewReplayProtector(time.Minute, 10, clock)
+	rp.SetMaxPeers(2)
+
+	if err := rp.CheckAndMark("a", 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := rp.CheckAndMark("b", 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := rp.CheckAndMark("c", 1); err != ErrReplayCapacity {
+		t.Fatalf("third peer: got %v, want ErrReplayCapacity", err)
+	}
+	// Known peers keep working at capacity.
+	if err := rp.CheckAndMark("a", 2); err != nil {
+		t.Fatalf("known peer at capacity: %v", err)
+	}
+	// Once idle peers expire, new peers are accepted again.
+	clock.Advance(2 * time.Minute)
+	if err := rp.CheckAndMark("c", 1); err != nil {
+		t.Fatalf("new peer after expiry: %v", err)
+	}
+}
+
+func TestCheckAndMark_LargeWindowShifts(t *testing.T) {
+	clock := newFakeClock()
+	rp, _ := NewReplayProtector(time.Hour, 1000, clock)
+
+	accepted := map[uint64]bool{}
+	seqs := []uint64{500, 1, 63, 64, 65, 127, 128, 700, 900, 1499, 1500, 1501, 2600, 2599}
+	for _, seq := range seqs {
+		err := rp.CheckAndMark("p", seq)
+		if err == nil {
+			accepted[seq] = true
+		}
+	}
+	// Every accepted sequence inside the final window must now be a replay.
+	for seq := range accepted {
+		err := rp.CheckAndMark("p", seq)
+		if 2600-seq < 1000 && err != ErrReplay {
+			t.Fatalf("seq %d: got %v, want ErrReplay", seq, err)
+		}
+		if 2600-seq >= 1000 && err != ErrTooOld {
+			t.Fatalf("seq %d: got %v, want ErrTooOld", seq, err)
+		}
+	}
+	// A never-seen sequence inside the window is accepted exactly once.
+	if err := rp.CheckAndMark("p", 2000); err != nil {
+		t.Fatalf("seq 2000: %v", err)
+	}
+	if err := rp.CheckAndMark("p", 2000); err != ErrReplay {
+		t.Fatalf("seq 2000 again: %v", err)
+	}
+}
+
+func TestEnsureMinTTL(t *testing.T) {
+	rp, _ := NewReplayProtector(time.Minute, 10, nil)
+	rp.EnsureMinTTL(5*time.Minute + 30*time.Second)
+	if rp.TTL() != 5*time.Minute+30*time.Second {
+		t.Fatalf("TTL = %v", rp.TTL())
+	}
+	rp.EnsureMinTTL(time.Second)
+	if rp.TTL() != 5*time.Minute+30*time.Second {
+		t.Fatalf("TTL lowered to %v", rp.TTL())
+	}
+}
+
+func TestNewReplayProtector_RejectsHugeWindow(t *testing.T) {
+	if _, err := NewReplayProtector(time.Minute, 1<<21, nil); err != ErrInvalidReplayParams {
+		t.Fatalf("got %v, want ErrInvalidReplayParams", err)
 	}
 }
 

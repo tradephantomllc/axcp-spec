@@ -169,7 +169,7 @@ func TestNewProtocolError(t *testing.T) {
 
 func TestNewErrorEnvelope(t *testing.T) {
 	err := ErrUnauthorized.WithReason("access denied")
-	env := NewErrorEnvelope("trace-123", "did:key:sender", "did:key:recipient", err)
+	env := NewErrorEnvelope("trace-123", "did:example:sender", "did:example:recipient", err)
 
 	if env == nil {
 		t.Fatal("NewErrorEnvelope returned nil")
@@ -178,11 +178,11 @@ func TestNewErrorEnvelope(t *testing.T) {
 	if env.TraceId != "trace-123" {
 		t.Errorf("TraceId = %q, want %q", env.TraceId, "trace-123")
 	}
-	if env.SenderDid != "did:key:sender" {
-		t.Errorf("SenderDid = %q, want %q", env.SenderDid, "did:key:sender")
+	if env.SenderDid != "did:example:sender" {
+		t.Errorf("SenderDid = %q, want %q", env.SenderDid, "did:example:sender")
 	}
-	if env.RecipientDid != "did:key:recipient" {
-		t.Errorf("RecipientDid = %q, want %q", env.RecipientDid, "did:key:recipient")
+	if env.RecipientDid != "did:example:recipient" {
+		t.Errorf("RecipientDid = %q, want %q", env.RecipientDid, "did:example:recipient")
 	}
 
 	// Check error payload
@@ -201,7 +201,7 @@ func TestNewErrorEnvelope(t *testing.T) {
 func TestErrorFromEnvelope(t *testing.T) {
 	// Create an error envelope
 	origErr := ErrToolNotFound.WithReason("tool xyz not found").WithDiagnostics([]byte("debug info"))
-	env := NewErrorEnvelope("trace-456", "did:key:s", "did:key:r", origErr)
+	env := NewErrorEnvelope("trace-456", "did:example:s", "did:example:r", origErr)
 
 	// Extract error from envelope
 	extractedErr, ok := ErrorFromEnvelope(env)

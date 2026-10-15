@@ -14,8 +14,8 @@ func TestDefaultServerConfig(t *testing.T) {
 	if config.Profile != ProfileSecureBaseline {
 		t.Errorf("Profile = %q, want %q", config.Profile, ProfileSecureBaseline)
 	}
-	if config.Network.ListenAddr != ":61300" {
-		t.Errorf("Network.ListenAddr = %q, want %q", config.Network.ListenAddr, ":61300")
+	if config.Validation.ReplayWindowDuration < config.Validation.TimestampMaxAge+config.Validation.TimestampClockSkew {
+		t.Errorf("ReplayWindowDuration %v must cover max age + skew", config.Validation.ReplayWindowDuration)
 	}
 	if config.Validation.TimestampMaxAge != 5*time.Minute {
 		t.Errorf("Validation.TimestampMaxAge = %v, want %v", config.Validation.TimestampMaxAge, 5*time.Minute)
@@ -25,35 +25,10 @@ func TestDefaultServerConfig(t *testing.T) {
 	}
 }
 
-func TestDefaultClientConfig(t *testing.T) {
-	config := DefaultClientConfig()
-
-	if config.Profile != ProfileSecureBaseline {
-		t.Errorf("Profile = %q, want %q", config.Profile, ProfileSecureBaseline)
-	}
-	if config.Connection.DialTimeout != 10*time.Second {
-		t.Errorf("Connection.DialTimeout = %v, want %v", config.Connection.DialTimeout, 10*time.Second)
-	}
-	if config.Connection.MaxRetries != 3 {
-		t.Errorf("Connection.MaxRetries = %d, want %d", config.Connection.MaxRetries, 3)
-	}
-}
-
-func TestDefaultNetworkConfig(t *testing.T) {
-	config := DefaultNetworkConfig()
-
-	if config.ListenAddr != ":61300" {
-		t.Errorf("ListenAddr = %q, want %q", config.ListenAddr, ":61300")
-	}
-	if config.MaxMessageSize != 16*1024*1024 {
-		t.Errorf("MaxMessageSize = %d, want %d", config.MaxMessageSize, 16*1024*1024)
-	}
-}
-
 func TestServerConfig_Validate(t *testing.T) {
 	pub, priv, _ := ed25519.GenerateKey(nil)
 	resolver := auth.NewMemoryDIDResolver()
-	resolver.AddDID("did:key:test", pub)
+	resolver.AddDID("did:example:test", pub)
 
 	tests := []struct {
 		name    string
@@ -63,7 +38,7 @@ func TestServerConfig_Validate(t *testing.T) {
 		{
 			name: "valid config",
 			config: ServerConfig{
-				LocalDID:   "did:key:test",
+				LocalDID:   "did:example:test",
 				PrivateKey: priv,
 				Resolver:   resolver,
 			},
@@ -80,7 +55,7 @@ func TestServerConfig_Validate(t *testing.T) {
 		{
 			name: "missing PrivateKey",
 			config: ServerConfig{
-				LocalDID: "did:key:test",
+				LocalDID: "did:example:test",
 				Resolver: resolver,
 			},
 			wantErr: true,
@@ -88,7 +63,7 @@ func TestServerConfig_Validate(t *testing.T) {
 		{
 			name: "missing Resolver",
 			config: ServerConfig{
-				LocalDID:   "did:key:test",
+				LocalDID:   "did:example:test",
 				PrivateKey: priv,
 			},
 			wantErr: true,
@@ -105,66 +80,14 @@ func TestServerConfig_Validate(t *testing.T) {
 	}
 }
 
-func TestClientConfig_Validate(t *testing.T) {
-	_, priv, _ := ed25519.GenerateKey(nil)
-
-	tests := []struct {
-		name    string
-		config  ClientConfig
-		wantErr bool
-	}{
-		{
-			name: "valid config",
-			config: ClientConfig{
-				LocalDID:   "did:key:test",
-				PrivateKey: priv,
-				ServerAddr: "localhost:61300",
-			},
-			wantErr: false,
-		},
-		{
-			name: "missing LocalDID",
-			config: ClientConfig{
-				PrivateKey: priv,
-				ServerAddr: "localhost:61300",
-			},
-			wantErr: true,
-		},
-		{
-			name: "missing PrivateKey",
-			config: ClientConfig{
-				LocalDID:   "did:key:test",
-				ServerAddr: "localhost:61300",
-			},
-			wantErr: true,
-		},
-		{
-			name: "missing ServerAddr",
-			config: ClientConfig{
-				LocalDID:   "did:key:test",
-				PrivateKey: priv,
-			},
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := tt.config.Validate()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
 
 func TestServerConfig_BuildValidator(t *testing.T) {
 	pub, priv, _ := ed25519.GenerateKey(nil)
 	resolver := auth.NewMemoryDIDResolver()
-	resolver.AddDID("did:key:test", pub)
+	resolver.AddDID("did:example:test", pub)
 
 	config := ServerConfig{
-		LocalDID:   "did:key:test",
+		LocalDID:   "did:example:test",
 		PrivateKey: priv,
 		Resolver:   resolver,
 		Validation: ValidationSettings{
@@ -196,40 +119,21 @@ func TestServerConfig_BuildValidator_Invalid(t *testing.T) {
 func TestNewServerConfig(t *testing.T) {
 	pub, priv, _ := ed25519.GenerateKey(nil)
 	resolver := auth.NewMemoryDIDResolver()
-	resolver.AddDID("did:key:server", pub)
+	resolver.AddDID("did:example:server", pub)
 
 	config := NewServerConfig(
 		func(c *ServerConfig) {
-			c.LocalDID = "did:key:server"
+			c.LocalDID = "did:example:server"
 			c.PrivateKey = priv
 			c.Resolver = resolver
 		},
 	)
 
-	if config.LocalDID != "did:key:server" {
-		t.Errorf("LocalDID = %q, want %q", config.LocalDID, "did:key:server")
+	if config.LocalDID != "did:example:server" {
+		t.Errorf("LocalDID = %q, want %q", config.LocalDID, "did:example:server")
 	}
 	if config.Profile != ProfileSecureBaseline {
 		t.Errorf("Profile = %q, want %q (from defaults)", config.Profile, ProfileSecureBaseline)
-	}
-}
-
-func TestNewClientConfig(t *testing.T) {
-	_, priv, _ := ed25519.GenerateKey(nil)
-
-	config := NewClientConfig(
-		func(c *ClientConfig) {
-			c.LocalDID = "did:key:client"
-			c.PrivateKey = priv
-			c.ServerAddr = "localhost:61300"
-		},
-	)
-
-	if config.LocalDID != "did:key:client" {
-		t.Errorf("LocalDID = %q, want %q", config.LocalDID, "did:key:client")
-	}
-	if config.ServerAddr != "localhost:61300" {
-		t.Errorf("ServerAddr = %q, want %q", config.ServerAddr, "localhost:61300")
 	}
 }
 
@@ -243,19 +147,20 @@ func TestProfileConstants(t *testing.T) {
 	}
 }
 
-func TestServerConfig_BuildValidator_NoReplay(t *testing.T) {
+func TestServerConfig_BuildValidator_ZeroReplayDurationKeepsProtection(t *testing.T) {
 	pub, priv, _ := ed25519.GenerateKey(nil)
 	resolver := auth.NewMemoryDIDResolver()
-	resolver.AddDID("did:key:test", pub)
+	resolver.AddDID("did:example:test", pub)
 
-	// Config with replay protection disabled
+	// A zero replay duration selects the default; it never disables protection.
 	config := ServerConfig{
-		LocalDID:   "did:key:test",
+		LocalDID:   "did:example:test",
 		PrivateKey: priv,
 		Resolver:   resolver,
 		Validation: ValidationSettings{
 			TimestampMaxAge:      5 * time.Minute,
-			ReplayWindowDuration: 0, // Disabled
+			TimestampClockSkew:   30 * time.Second,
+			ReplayWindowDuration: 0,
 		},
 	}
 
@@ -263,18 +168,70 @@ func TestServerConfig_BuildValidator_NoReplay(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BuildValidator() error: %v", err)
 	}
-	if validator == nil {
-		t.Fatal("BuildValidator() returned nil validator")
+	rp := validator.ReplayProtector()
+	if rp == nil {
+		t.Fatal("replay protection must stay enabled")
+	}
+	if rp.TTL() < 5*time.Minute+30*time.Second {
+		t.Fatalf("replay TTL %v must cover max age + skew", rp.TTL())
+	}
+}
+
+func TestServerConfig_BuildValidator_RaisesShortReplayTTL(t *testing.T) {
+	pub, priv, _ := ed25519.GenerateKey(nil)
+	resolver := auth.NewMemoryDIDResolver()
+	resolver.AddDID("did:example:test", pub)
+
+	config := ServerConfig{
+		LocalDID:   "did:example:test",
+		PrivateKey: priv,
+		Resolver:   resolver,
+		Validation: ValidationSettings{
+			TimestampMaxAge:      5 * time.Minute,
+			TimestampClockSkew:   30 * time.Second,
+			ReplayWindowDuration: time.Minute,
+		},
+	}
+	validator, err := config.BuildValidator()
+	if err != nil {
+		t.Fatalf("BuildValidator() error: %v", err)
+	}
+	if got := validator.ReplayProtector().TTL(); got != 5*time.Minute+30*time.Second {
+		t.Fatalf("replay TTL = %v, want max age + skew", got)
+	}
+}
+
+func TestServerConfig_ValidateRejectsUnsafeValues(t *testing.T) {
+	pub, priv, _ := ed25519.GenerateKey(nil)
+	resolver := auth.NewMemoryDIDResolver()
+	resolver.AddDID("did:example:test", pub)
+	base := ServerConfig{LocalDID: "did:example:test", PrivateKey: priv, Resolver: resolver}
+
+	cases := map[string]func(*ServerConfig){
+		"negative window":   func(c *ServerConfig) { c.Validation.ReplayWindowSize = -1 },
+		"negative duration": func(c *ServerConfig) { c.Validation.ReplayWindowDuration = -time.Second },
+		"invalid local DID": func(c *ServerConfig) { c.LocalDID = "not a did" },
+		"invalid allowlist": func(c *ServerConfig) { c.Security.AllowedDIDs = []string{"did:example:ok", "bad"} },
+		"short private key": func(c *ServerConfig) { c.PrivateKey = priv[:10] },
+	}
+	for name, mutate := range cases {
+		t.Run(name, func(t *testing.T) {
+			cfg := base
+			mutate(&cfg)
+			if err := cfg.Validate(); err == nil {
+				t.Fatal("Validate() should fail")
+			}
+		})
 	}
 }
 
 func TestServerConfig_BuildValidator_SkipSignature(t *testing.T) {
 	pub, priv, _ := ed25519.GenerateKey(nil)
 	resolver := auth.NewMemoryDIDResolver()
-	resolver.AddDID("did:key:test", pub)
+	resolver.AddDID("did:example:test", pub)
 
 	config := ServerConfig{
-		LocalDID:   "did:key:test",
+		LocalDID:   "did:example:test",
 		PrivateKey: priv,
 		Resolver:   resolver,
 		Validation: ValidationSettings{

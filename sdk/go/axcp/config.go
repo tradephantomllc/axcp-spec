@@ -7,7 +7,7 @@ import (
 	"github.com/tradephantomllc/axcp-spec/sdk/go/auth"
 )
 
-// ServerConfig holds all configuration for an AXCP server.
+// ServerConfig holds the configuration needed to validate incoming AXCP messages.
 type ServerConfig struct {
 	// LocalDID is this server's DID
 	LocalDID string
@@ -17,9 +17,6 @@ type ServerConfig struct {
 
 	// Resolver resolves DIDs to public keys
 	Resolver auth.DIDResolver
-
-	// Network configuration
-	Network NetworkConfig
 
 	// Validation configuration
 	Validation ValidationSettings
@@ -31,24 +28,6 @@ type ServerConfig struct {
 	Profile string
 }
 
-// NetworkConfig holds network-related configuration.
-type NetworkConfig struct {
-	// ListenAddr is the address to listen on (default: ":61300")
-	ListenAddr string
-
-	// MaxConnections is the maximum number of concurrent connections (0 = unlimited)
-	MaxConnections int
-
-	// ConnectionTimeout is the timeout for accepting connections
-	ConnectionTimeout time.Duration
-
-	// IdleTimeout is the timeout for idle connections
-	IdleTimeout time.Duration
-
-	// MaxMessageSize is the maximum message size in bytes (default: 16MB)
-	MaxMessageSize int
-}
-
 // ValidationSettings holds validation-related configuration.
 type ValidationSettings struct {
 	// TimestampMaxAge is the maximum age of a message timestamp
@@ -57,104 +36,36 @@ type ValidationSettings struct {
 	// TimestampClockSkew is the allowed clock skew for future timestamps
 	TimestampClockSkew time.Duration
 
-	// ReplayWindowDuration is the duration of the replay protection window
+	// ReplayWindowDuration is how long idle peer replay state is kept. It is
+	// raised automatically to at least TimestampMaxAge + TimestampClockSkew.
+	// Zero selects auth.DefaultReplayPeerTTL.
 	ReplayWindowDuration time.Duration
 
-	// ReplayWindowSize is the maximum number of sequence numbers to track per peer
+	// ReplayWindowSize is the sliding window size in sequence numbers per peer.
+	// Zero selects auth.DefaultReplayWindow; negative values are rejected.
 	ReplayWindowSize int
 
-	// SkipSignatureVerification skips signature verification (testing only)
+	// SkipSignatureVerification skips signature verification and replay
+	// protection. Testing only: never enable it in a deployment.
 	SkipSignatureVerification bool
 }
 
 // SecuritySettings holds security-related configuration.
 type SecuritySettings struct {
-	// RequireClientCert requires client TLS certificates
-	RequireClientCert bool
-
-	// AllowedDIDs is a whitelist of allowed sender DIDs (empty = allow all)
+	// AllowedDIDs restricts accepted senders to this list (empty = any sender
+	// whose DID resolves through the configured resolver).
 	AllowedDIDs []string
-
-	// RateLimitPerPeer is the maximum requests per second per peer (0 = unlimited)
-	RateLimitPerPeer int
 }
 
 // DefaultServerConfig returns a ServerConfig with sensible defaults.
 func DefaultServerConfig() ServerConfig {
 	return ServerConfig{
 		Profile: ProfileSecureBaseline,
-		Network: DefaultNetworkConfig(),
 		Validation: ValidationSettings{
-			TimestampMaxAge:      5 * time.Minute,
-			TimestampClockSkew:   30 * time.Second,
-			ReplayWindowDuration: 5 * time.Minute,
-			ReplayWindowSize:     1000,
-		},
-	}
-}
-
-// DefaultNetworkConfig returns a NetworkConfig with sensible defaults.
-func DefaultNetworkConfig() NetworkConfig {
-	return NetworkConfig{
-		ListenAddr:        ":61300",
-		MaxConnections:    0, // unlimited
-		ConnectionTimeout: 30 * time.Second,
-		IdleTimeout:       5 * time.Minute,
-		MaxMessageSize:    16 * 1024 * 1024, // 16MB
-	}
-}
-
-// ClientConfig holds all configuration for an AXCP client.
-type ClientConfig struct {
-	// LocalDID is this client's DID
-	LocalDID string
-
-	// PrivateKey is the client's Ed25519 private key for signing
-	PrivateKey ed25519.PrivateKey
-
-	// Resolver resolves DIDs to public keys
-	Resolver auth.DIDResolver
-
-	// ServerDID is the expected server DID (for mutual authentication)
-	ServerDID string
-
-	// ServerAddr is the server address to connect to
-	ServerAddr string
-
-	// Connection configuration
-	Connection ConnectionSettings
-
-	// Profile is the security profile to use (default: secure-baseline-v1)
-	Profile string
-
-	// Capabilities to advertise during handshake
-	Capabilities []string
-}
-
-// ConnectionSettings holds connection-related configuration.
-type ConnectionSettings struct {
-	// DialTimeout is the timeout for establishing a connection
-	DialTimeout time.Duration
-
-	// KeepAliveInterval is the interval for keep-alive messages
-	KeepAliveInterval time.Duration
-
-	// MaxRetries is the maximum number of connection retries
-	MaxRetries int
-
-	// RetryDelay is the delay between retries
-	RetryDelay time.Duration
-}
-
-// DefaultClientConfig returns a ClientConfig with sensible defaults.
-func DefaultClientConfig() ClientConfig {
-	return ClientConfig{
-		Profile: ProfileSecureBaseline,
-		Connection: ConnectionSettings{
-			DialTimeout:       10 * time.Second,
-			KeepAliveInterval: 30 * time.Second,
-			MaxRetries:        3,
-			RetryDelay:        1 * time.Second,
+			TimestampMaxAge:      auth.DefaultMaxTimestampAge,
+			TimestampClockSkew:   auth.DefaultClockSkew,
+			ReplayWindowDuration: auth.DefaultReplayPeerTTL,
+			ReplayWindowSize:     auth.DefaultReplayWindow,
 		},
 	}
 }
@@ -174,12 +85,9 @@ const (
 type ConfigOption[T any] func(*T)
 
 // WithDID sets the local DID.
-func WithDID[T ServerConfig | ClientConfig](did string) ConfigOption[T] {
+func WithDID[T ServerConfig](did string) ConfigOption[T] {
 	return func(c *T) {
-		switch cfg := any(c).(type) {
-		case *ServerConfig:
-			cfg.LocalDID = did
-		case *ClientConfig:
+		if cfg, ok := any(c).(*ServerConfig); ok {
 			cfg.LocalDID = did
 		}
 	}
@@ -194,70 +102,70 @@ func NewServerConfig(opts ...ConfigOption[ServerConfig]) ServerConfig {
 	return config
 }
 
-// NewClientConfig creates a ClientConfig with the given options.
-func NewClientConfig(opts ...ConfigOption[ClientConfig]) ClientConfig {
-	config := DefaultClientConfig()
-	for _, opt := range opts {
-		opt(&config)
-	}
-	return config
-}
-
 // Validate checks that the ServerConfig is valid.
 func (c *ServerConfig) Validate() error {
 	if c.LocalDID == "" {
 		return ErrInvalidContext.WithReason("LocalDID is required")
 	}
+	if _, err := auth.ParseDID(c.LocalDID); err != nil {
+		return ErrInvalidContext.WithReason("LocalDID is not a valid DID")
+	}
 	if len(c.PrivateKey) == 0 {
 		return ErrInvalidContext.WithReason("PrivateKey is required")
+	}
+	if len(c.PrivateKey) != ed25519.PrivateKeySize {
+		return ErrInvalidContext.WithReason("PrivateKey must be an Ed25519 private key")
 	}
 	if c.Resolver == nil {
 		return ErrInvalidContext.WithReason("Resolver is required")
 	}
-	return nil
-}
-
-// Validate checks that the ClientConfig is valid.
-func (c *ClientConfig) Validate() error {
-	if c.LocalDID == "" {
-		return ErrInvalidContext.WithReason("LocalDID is required")
+	if c.Validation.ReplayWindowSize < 0 {
+		return ErrInvalidContext.WithReason("ReplayWindowSize must not be negative")
 	}
-	if len(c.PrivateKey) == 0 {
-		return ErrInvalidContext.WithReason("PrivateKey is required")
+	if c.Validation.ReplayWindowDuration < 0 {
+		return ErrInvalidContext.WithReason("ReplayWindowDuration must not be negative")
 	}
-	if c.ServerAddr == "" {
-		return ErrInvalidContext.WithReason("ServerAddr is required")
+	if c.Validation.TimestampMaxAge < 0 || c.Validation.TimestampClockSkew < 0 {
+		return ErrInvalidContext.WithReason("timestamp limits must not be negative")
+	}
+	for _, did := range c.Security.AllowedDIDs {
+		if _, err := auth.ParseDID(did); err != nil {
+			return ErrInvalidContext.WithReason("AllowedDIDs contains an invalid DID")
+		}
 	}
 	return nil
 }
 
 // BuildValidator creates a Validator from the server config.
+//
+// Timestamp validation and replay protection are always enabled (unless
+// SkipSignatureVerification is set for tests); zero values select defaults.
 func (c *ServerConfig) BuildValidator() (*Validator, error) {
 	if err := c.Validate(); err != nil {
 		return nil, err
 	}
 
-	// Create timestamp validator
-	var tsValidator *auth.TimestampValidator
-	if c.Validation.TimestampMaxAge > 0 {
-		tsValidator = auth.NewTimestampValidator(
-			c.Validation.TimestampMaxAge,
-			c.Validation.TimestampClockSkew,
-		)
+	maxAge := c.Validation.TimestampMaxAge
+	if maxAge == 0 {
+		maxAge = auth.DefaultMaxTimestampAge
 	}
+	skew := c.Validation.TimestampClockSkew
+	if skew == 0 && c.Validation.TimestampMaxAge == 0 {
+		skew = auth.DefaultClockSkew
+	}
+	tsValidator := auth.NewTimestampValidator(maxAge, skew)
 
-	// Create replay protector
-	var replayProtector *auth.ReplayProtector
-	if c.Validation.ReplayWindowDuration > 0 {
-		var err error
-		replayProtector, err = auth.NewReplayProtector(
-			c.Validation.ReplayWindowDuration,
-			uint64(c.Validation.ReplayWindowSize),
-			nil,
-		)
-		if err != nil {
-			return nil, ErrInvalidContext.WithReason("failed to create replay protector: " + err.Error())
-		}
+	ttl := c.Validation.ReplayWindowDuration
+	if ttl == 0 {
+		ttl = auth.DefaultReplayPeerTTL
+	}
+	window := uint64(c.Validation.ReplayWindowSize)
+	if window == 0 {
+		window = auth.DefaultReplayWindow
+	}
+	replayProtector, err := auth.NewReplayProtector(ttl, window, nil)
+	if err != nil {
+		return nil, ErrInvalidContext.WithReason("failed to create replay protector: " + err.Error())
 	}
 
 	return NewValidator(ValidatorConfig{
@@ -265,6 +173,7 @@ func (c *ServerConfig) BuildValidator() (*Validator, error) {
 		Resolver:                  c.Resolver,
 		TimestampValidator:        tsValidator,
 		ReplayProtector:           replayProtector,
+		AllowedDIDs:               c.Security.AllowedDIDs,
 		SkipSignatureVerification: c.Validation.SkipSignatureVerification,
 	}), nil
 }

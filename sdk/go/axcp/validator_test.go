@@ -13,7 +13,7 @@ import (
 func TestNewValidator(t *testing.T) {
 	resolver := auth.NewMemoryDIDResolver()
 	config := ValidatorConfig{
-		LocalDID: "did:key:local",
+		LocalDID: "did:example:local",
 		Resolver: resolver,
 	}
 
@@ -26,7 +26,7 @@ func TestNewValidator(t *testing.T) {
 func TestValidator_QuickValidate(t *testing.T) {
 	resolver := auth.NewMemoryDIDResolver()
 	v := NewValidator(ValidatorConfig{
-		LocalDID: "did:key:local",
+		LocalDID: "did:example:local",
 		Resolver: resolver,
 	})
 
@@ -43,8 +43,8 @@ func TestValidator_QuickValidate(t *testing.T) {
 		{
 			name: "missing recipient",
 			env: func() *Envelope {
-				e := NewEnvelope("trace", 1)
-				e.SenderDid = "did:key:sender"
+				e := newTestEnvelope("trace")
+				e.SenderDid = "did:example:sender"
 				e.TimestampMs = auth.NowMs()
 				e.Signature = make([]byte, 64)
 				return e
@@ -54,9 +54,9 @@ func TestValidator_QuickValidate(t *testing.T) {
 		{
 			name: "wrong recipient",
 			env: func() *Envelope {
-				e := NewEnvelope("trace", 1)
-				e.SenderDid = "did:key:sender"
-				e.RecipientDid = "did:key:other"
+				e := newTestEnvelope("trace")
+				e.SenderDid = "did:example:sender"
+				e.RecipientDid = "did:example:other"
 				e.TimestampMs = auth.NowMs()
 				e.Signature = make([]byte, 64)
 				return e
@@ -66,8 +66,8 @@ func TestValidator_QuickValidate(t *testing.T) {
 		{
 			name: "missing sender",
 			env: func() *Envelope {
-				e := NewEnvelope("trace", 1)
-				e.RecipientDid = "did:key:local"
+				e := newTestEnvelope("trace")
+				e.RecipientDid = "did:example:local"
 				e.TimestampMs = auth.NowMs()
 				e.Signature = make([]byte, 64)
 				return e
@@ -77,9 +77,9 @@ func TestValidator_QuickValidate(t *testing.T) {
 		{
 			name: "missing timestamp",
 			env: func() *Envelope {
-				e := NewEnvelope("trace", 1)
-				e.SenderDid = "did:key:sender"
-				e.RecipientDid = "did:key:local"
+				e := newTestEnvelope("trace")
+				e.SenderDid = "did:example:sender"
+				e.RecipientDid = "did:example:local"
 				e.Signature = make([]byte, 64)
 				return e
 			}(),
@@ -88,9 +88,9 @@ func TestValidator_QuickValidate(t *testing.T) {
 		{
 			name: "missing signature",
 			env: func() *Envelope {
-				e := NewEnvelope("trace", 1)
-				e.SenderDid = "did:key:sender"
-				e.RecipientDid = "did:key:local"
+				e := newTestEnvelope("trace")
+				e.SenderDid = "did:example:sender"
+				e.RecipientDid = "did:example:local"
 				e.TimestampMs = auth.NowMs()
 				return e
 			}(),
@@ -99,9 +99,9 @@ func TestValidator_QuickValidate(t *testing.T) {
 		{
 			name: "valid envelope",
 			env: func() *Envelope {
-				e := NewEnvelope("trace", 1)
-				e.SenderDid = "did:key:sender"
-				e.RecipientDid = "did:key:local"
+				e := newTestEnvelope("trace")
+				e.SenderDid = "did:example:sender"
+				e.RecipientDid = "did:example:local"
 				e.TimestampMs = auth.NowMs()
 				e.Signature = make([]byte, 64)
 				return e
@@ -122,8 +122,8 @@ func TestValidator_QuickValidate(t *testing.T) {
 
 func TestValidator_ValidateAndVerify(t *testing.T) {
 	pub, priv, _ := ed25519.GenerateKey(nil)
-	senderDID := "did:key:sender"
-	localDID := "did:key:local"
+	senderDID := "did:example:sender"
+	localDID := "did:example:local"
 
 	resolver := auth.NewMemoryDIDResolver()
 	resolver.AddDID(senderDID, pub)
@@ -134,7 +134,7 @@ func TestValidator_ValidateAndVerify(t *testing.T) {
 	})
 
 	// Create valid signed envelope
-	env := NewEnvelope("trace-123", 1)
+	env := newTestEnvelope("trace-123")
 	env.SenderDid = senderDID
 	env.RecipientDid = localDID
 	env.TimestampMs = auth.NowMs()
@@ -152,8 +152,8 @@ func TestValidator_ValidateAndVerify(t *testing.T) {
 
 func TestValidator_ValidateAndVerifyRejectsSequenceTampering(t *testing.T) {
 	pub, priv, _ := ed25519.GenerateKey(nil)
-	senderDID := "did:key:sender"
-	localDID := "did:key:local"
+	senderDID := "did:example:sender"
+	localDID := "did:example:local"
 
 	resolver := auth.NewMemoryDIDResolver()
 	resolver.AddDID(senderDID, pub)
@@ -163,7 +163,7 @@ func TestValidator_ValidateAndVerifyRejectsSequenceTampering(t *testing.T) {
 		Resolver: resolver,
 	})
 
-	env := NewEnvelope("trace-123", 1)
+	env := newTestEnvelope("trace-123")
 	env.SenderDid = senderDID
 	env.RecipientDid = localDID
 	env.TimestampMs = auth.NowMs()
@@ -180,8 +180,8 @@ func TestValidator_ValidateAndVerifyRejectsSequenceTampering(t *testing.T) {
 
 func TestValidator_ValidateAndVerify_InvalidSignature(t *testing.T) {
 	pub, _, _ := ed25519.GenerateKey(nil)
-	senderDID := "did:key:sender"
-	localDID := "did:key:local"
+	senderDID := "did:example:sender"
+	localDID := "did:example:local"
 
 	resolver := auth.NewMemoryDIDResolver()
 	resolver.AddDID(senderDID, pub)
@@ -192,7 +192,7 @@ func TestValidator_ValidateAndVerify_InvalidSignature(t *testing.T) {
 	})
 
 	// Create envelope with invalid signature
-	env := NewEnvelope("trace-123", 1)
+	env := newTestEnvelope("trace-123")
 	env.SenderDid = senderDID
 	env.RecipientDid = localDID
 	env.TimestampMs = auth.NowMs()
@@ -208,7 +208,7 @@ func TestValidator_ValidateAndVerify_InvalidSignature(t *testing.T) {
 }
 
 func TestValidator_ValidateAndVerify_UnknownDID(t *testing.T) {
-	localDID := "did:key:local"
+	localDID := "did:example:local"
 
 	// Empty resolver - no DIDs registered
 	resolver := auth.NewMemoryDIDResolver()
@@ -218,8 +218,8 @@ func TestValidator_ValidateAndVerify_UnknownDID(t *testing.T) {
 		Resolver: resolver,
 	})
 
-	env := NewEnvelope("trace-123", 1)
-	env.SenderDid = "did:key:unknown"
+	env := newTestEnvelope("trace-123")
+	env.SenderDid = "did:example:unknown"
 	env.RecipientDid = localDID
 	env.TimestampMs = auth.NowMs()
 	env.Signature = make([]byte, 64)
@@ -234,7 +234,7 @@ func TestValidator_ValidateAndVerify_UnknownDID(t *testing.T) {
 }
 
 func TestValidator_SkipSignatureVerification(t *testing.T) {
-	localDID := "did:key:local"
+	localDID := "did:example:local"
 	resolver := auth.NewMemoryDIDResolver()
 
 	v := NewValidator(ValidatorConfig{
@@ -244,8 +244,8 @@ func TestValidator_SkipSignatureVerification(t *testing.T) {
 	})
 
 	// Create envelope with invalid signature - should still pass
-	env := NewEnvelope("trace-123", 1)
-	env.SenderDid = "did:key:sender"
+	env := newTestEnvelope("trace-123")
+	env.SenderDid = "did:example:sender"
 	env.RecipientDid = localDID
 	env.TimestampMs = auth.NowMs()
 	env.Signature = make([]byte, 64) // Invalid signature
@@ -258,8 +258,8 @@ func TestValidator_SkipSignatureVerification(t *testing.T) {
 
 func TestValidator_WithReplayProtection(t *testing.T) {
 	pub, priv, _ := ed25519.GenerateKey(nil)
-	senderDID := "did:key:sender"
-	localDID := "did:key:local"
+	senderDID := "did:example:sender"
+	localDID := "did:example:local"
 
 	resolver := auth.NewMemoryDIDResolver()
 	resolver.AddDID(senderDID, pub)
@@ -273,7 +273,7 @@ func TestValidator_WithReplayProtection(t *testing.T) {
 	})
 
 	// Create valid signed envelope
-	env := NewEnvelope("trace-123", 1)
+	env := newTestEnvelope("trace-123")
 	env.SenderDid = senderDID
 	env.RecipientDid = localDID
 	env.TimestampMs = auth.NowMs()
@@ -300,8 +300,8 @@ func TestValidator_WithReplayProtection(t *testing.T) {
 
 func TestValidator_ValidateEnvelopeDoesNotConsumeReplaySequence(t *testing.T) {
 	pub, priv, _ := ed25519.GenerateKey(nil)
-	senderDID := "did:key:sender"
-	localDID := "did:key:local"
+	senderDID := "did:example:sender"
+	localDID := "did:example:local"
 
 	resolver := auth.NewMemoryDIDResolver()
 	resolver.AddDID(senderDID, pub)
@@ -314,7 +314,7 @@ func TestValidator_ValidateEnvelopeDoesNotConsumeReplaySequence(t *testing.T) {
 		ReplayProtector: rp,
 	})
 
-	env := NewEnvelope("trace-123", 1)
+	env := newTestEnvelope("trace-123")
 	env.SenderDid = senderDID
 	env.RecipientDid = localDID
 	env.TimestampMs = auth.NowMs()
@@ -341,8 +341,8 @@ func TestValidator_ValidateEnvelopeDoesNotConsumeReplaySequence(t *testing.T) {
 
 func TestValidatorMiddleware(t *testing.T) {
 	pub, priv, _ := ed25519.GenerateKey(nil)
-	senderDID := "did:key:sender"
-	localDID := "did:key:local"
+	senderDID := "did:example:sender"
+	localDID := "did:example:local"
 
 	resolver := auth.NewMemoryDIDResolver()
 	resolver.AddDID(senderDID, pub)
@@ -361,7 +361,7 @@ func TestValidatorMiddleware(t *testing.T) {
 	wrapped := v.Middleware()(handler)
 
 	// Create valid signed envelope
-	env := NewEnvelope("trace-123", 1)
+	env := newTestEnvelope("trace-123")
 	env.SenderDid = senderDID
 	env.RecipientDid = localDID
 	env.TimestampMs = auth.NowMs()
@@ -380,7 +380,7 @@ func TestValidatorMiddleware(t *testing.T) {
 }
 
 func TestValidatorMiddleware_RejectsInvalid(t *testing.T) {
-	localDID := "did:key:local"
+	localDID := "did:example:local"
 	resolver := auth.NewMemoryDIDResolver()
 
 	v := NewValidator(ValidatorConfig{
@@ -397,8 +397,8 @@ func TestValidatorMiddleware_RejectsInvalid(t *testing.T) {
 	wrapped := v.Middleware()(handler)
 
 	// Invalid envelope (no signature)
-	env := NewEnvelope("trace-123", 1)
-	env.SenderDid = "did:key:sender"
+	env := newTestEnvelope("trace-123")
+	env.SenderDid = "did:example:sender"
 	env.RecipientDid = localDID
 	env.TimestampMs = auth.NowMs()
 
@@ -412,7 +412,7 @@ func TestValidatorMiddleware_RejectsInvalid(t *testing.T) {
 }
 
 func TestQuickRejectMiddleware(t *testing.T) {
-	localDID := "did:key:local"
+	localDID := "did:example:local"
 	resolver := auth.NewMemoryDIDResolver()
 
 	v := NewValidator(ValidatorConfig{
@@ -429,7 +429,7 @@ func TestQuickRejectMiddleware(t *testing.T) {
 	wrapped := v.QuickRejectMiddleware()(handler)
 
 	// Invalid envelope (missing sender)
-	env := NewEnvelope("trace-123", 1)
+	env := newTestEnvelope("trace-123")
 	env.RecipientDid = localDID
 	env.TimestampMs = auth.NowMs()
 	env.Signature = make([]byte, 64)
@@ -445,8 +445,8 @@ func TestQuickRejectMiddleware(t *testing.T) {
 
 func TestValidateWithResult(t *testing.T) {
 	pub, priv, _ := ed25519.GenerateKey(nil)
-	senderDID := "did:key:sender"
-	localDID := "did:key:local"
+	senderDID := "did:example:sender"
+	localDID := "did:example:local"
 
 	resolver := auth.NewMemoryDIDResolver()
 	resolver.AddDID(senderDID, pub)
@@ -457,7 +457,7 @@ func TestValidateWithResult(t *testing.T) {
 	})
 
 	// Create valid signed envelope
-	env := NewEnvelope("trace-123", 1)
+	env := newTestEnvelope("trace-123")
 	env.SenderDid = senderDID
 	env.RecipientDid = localDID
 	env.TimestampMs = auth.NowMs()
@@ -476,7 +476,7 @@ func TestValidateWithResult(t *testing.T) {
 }
 
 func TestValidateWithResult_Invalid(t *testing.T) {
-	localDID := "did:key:local"
+	localDID := "did:example:local"
 	resolver := auth.NewMemoryDIDResolver()
 
 	v := NewValidator(ValidatorConfig{
@@ -494,7 +494,7 @@ func TestValidateWithResult_Invalid(t *testing.T) {
 }
 
 func TestErrorResponseMiddleware(t *testing.T) {
-	localDID := "did:key:local"
+	localDID := "did:example:local"
 
 	testErr := errors.New("test error")
 	handler := HandlerFunc(func(ctx context.Context, req *Envelope) (*Envelope, error) {
@@ -503,8 +503,8 @@ func TestErrorResponseMiddleware(t *testing.T) {
 
 	wrapped := ErrorResponseMiddleware(localDID)(handler)
 
-	env := NewEnvelope("trace-123", 1)
-	env.SenderDid = "did:key:sender"
+	env := newTestEnvelope("trace-123")
+	env.SenderDid = "did:example:sender"
 	env.RecipientDid = localDID
 
 	resp, err := wrapped.HandleEnvelope(context.Background(), env)
@@ -532,8 +532,8 @@ func TestErrorResponseMiddleware(t *testing.T) {
 
 func TestSecureValidatorMiddleware(t *testing.T) {
 	pub, priv, _ := ed25519.GenerateKey(nil)
-	senderDID := "did:key:sender"
-	localDID := "did:key:local"
+	senderDID := "did:example:sender"
+	localDID := "did:example:local"
 
 	resolver := auth.NewMemoryDIDResolver()
 	resolver.AddDID(senderDID, pub)
@@ -552,7 +552,7 @@ func TestSecureValidatorMiddleware(t *testing.T) {
 	wrapped := SecureValidatorMiddleware(config)(handler)
 
 	// Create valid signed envelope
-	env := NewEnvelope("trace-123", 1)
+	env := newTestEnvelope("trace-123")
 	env.SenderDid = senderDID
 	env.RecipientDid = localDID
 	env.TimestampMs = auth.NowMs()
@@ -572,8 +572,8 @@ func TestSecureValidatorMiddleware(t *testing.T) {
 
 func TestNewValidatorWithOptions(t *testing.T) {
 	pub, _, _ := ed25519.GenerateKey(nil)
-	senderDID := "did:key:sender"
-	localDID := "did:key:local"
+	senderDID := "did:example:sender"
+	localDID := "did:example:local"
 
 	resolver := auth.NewMemoryDIDResolver()
 	resolver.AddDID(senderDID, pub)
@@ -605,14 +605,14 @@ func TestNewValidatorWithOptions(t *testing.T) {
 
 func TestValidateRequest(t *testing.T) {
 	pub, priv, _ := ed25519.GenerateKey(nil)
-	senderDID := "did:key:sender"
-	localDID := "did:key:local"
+	senderDID := "did:example:sender"
+	localDID := "did:example:local"
 
 	resolver := auth.NewMemoryDIDResolver()
 	resolver.AddDID(senderDID, pub)
 
 	// Create valid signed envelope
-	env := NewEnvelope("trace-123", 1)
+	env := newTestEnvelope("trace-123")
 	env.SenderDid = senderDID
 	env.RecipientDid = localDID
 	env.TimestampMs = auth.NowMs()
