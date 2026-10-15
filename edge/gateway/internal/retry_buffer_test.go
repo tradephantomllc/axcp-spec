@@ -252,24 +252,25 @@ func TestRetryBufferBackoff(t *testing.T) {
 
 	// Start the buffer
 	rb.Start()
+	t.Cleanup(rb.Stop)
 
-	// Wait for all attempts to complete
-	// (20ms + 40ms + 80ms = 140ms minimum)
-	time.Sleep(300 * time.Millisecond)
+	// Wait until the item is dropped after MaxAttempts (20ms + 40ms + 80ms of
+	// backoff at minimum); allow generous time for loaded CI runners.
+	require.Eventually(t, func() bool { return rb.Size() == 0 }, 5*time.Second, 5*time.Millisecond,
+		"Buffer should be empty after max attempts")
 
-	// Verify the buffer is empty after max attempts
-	assert.Equal(t, 0, rb.Size(), "Buffer should be empty after max attempts")
-
-	// Verify there were at least 3 calls
 	callTimesMutex.Lock()
 	defer callTimesMutex.Unlock()
 	require.GreaterOrEqual(t, len(callTimes), 3, "Should have at least 3 retry attempts")
 
-	// Verify the intervals increase (backoff)
-	if len(callTimes) >= 3 {
-		interval1 := callTimes[1].Sub(callTimes[0])
-		interval2 := callTimes[2].Sub(callTimes[1])
-		t.Logf("Interval 1: %v, Interval 2: %v", interval1, interval2)
-		assert.GreaterOrEqual(t, interval2, interval1, "Second interval should be greater than or equal to first interval")
+	// Each retry must wait at least the exponential backoff interval. Only the
+	// lower bound is deterministic: scheduling delays can lengthen any interval.
+	const slack = 2 * time.Millisecond
+	expected := config.MinRetryInterval
+	for i := 1; i < len(callTimes); i++ {
+		gap := callTimes[i].Sub(callTimes[i-1])
+		t.Logf("Interval %d: %v (backoff %v)", i, gap, expected)
+		assert.GreaterOrEqual(t, gap, expected-slack, "retry %d came %v after the previous attempt, before its %v backoff", i+1, gap, expected)
+		expected = time.Duration(float64(expected) * config.BackoffFactor)
 	}
 }
