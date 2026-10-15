@@ -4,6 +4,8 @@ This example demonstrates how to use the AXCP telemetry functionality to send an
 
 This local example uses legacy `0xA0` telemetry and development TLS. It does not demonstrate Secure Baseline. For authenticated `0xA1` datagrams see the [gateway contract](../../../../docs/gateway-setup.md).
 
+AXCP endpoints such as the gateway use ALPN `axcp/1` ([specification §8.4](../../../../spec/axcp-v1.0.md#84-reference-transport-and-telemetry-encoding)). This example is a self-contained client/server pair: at the time of writing its `main.go` configures `axcp/1.0` on both sides, so it is not a client for `axcp/1` endpoints.
+
 ## Prerequisites
 
 - Go 1.26.9 or later

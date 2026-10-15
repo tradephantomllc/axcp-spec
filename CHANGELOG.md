@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Security hardening of Core SDKs and documentation alignment (see PRs)
+- Specification v1.0 (2026-10-15 revision): byte-exact canonical signing payload, strict envelope parsing, DID syntax and length limits, `did:key` derivation and resolver precedence, small-order key rejection, replay window and peer-state lifetime rules, expanded required rejections and error-code mapping; nonce mode withdrawn and profile negotiation wire format declared informative. See the specification's [Revision History](spec/axcp-v1.0.md#revision-history).
+- **Breaking (2026-07-05, recorded here):** the Secure Baseline transcript was revised to bind sender DID, recipient DID, the canonical signing payload (including `sequence`) and the timestamp at second precision. The label `AXCP-DID-AUTH-v1` is unchanged; peers implementing the original `v1.0.0` transcript cannot interoperate with current peers.
+
 ## Unreleased — Core readiness corrections (2026-10-13)
 
 - Handle Python QUIC STOP_SENDING and RESET_STREAM directionally, preserve readable error replies, always release the client connection, and normalize timeouts on Python 3.10+.

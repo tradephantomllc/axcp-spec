@@ -19,18 +19,10 @@ _Work in progress – structure auto-generated._
 
 ## Table of Contents
 
-- [1. Preface](#1-preface)
-- [2. Overview](#2-overview)
-- [3. Protocol Basics](#3-protocol-basics)
-- [4. Message Types](#4-message-types)
+This draft only records the transport-layer additions of v0.3 relative to [v0.2](./axcp-v0.2.md); its other sections were never written.
+
 - [5. Transport Layer](#5-transport-layer)
-- [6. Differential Privacy (Enterprise)](#6-differential-privacy-enterprise)
-- [7. Security Considerations](#7-security-considerations)
-- [8. Error Handling](#8-error-handling)
-- [9. Extensibility](#9-extensibility)
-- [Appendix A – Example Flows](#appendix-a-example-flows)
-- [Appendix B – Interop Profiles](#appendix-b-interop-profiles)
-- [Appendix C – Telemetry Datagram Format](#appendix-c-telemetry-datagram-format)
+  - [5.8 QUIC DATAGRAM Extension](#58-quic-datagram-extension)
 
 ## 5. Transport Layer
 

@@ -12,11 +12,22 @@ _Work in progress – structure auto-generated._
 > This document defines the initial AXCP protocol specification.
 > Version: **v0.1 Draft**
 > Status: **SUPERSEDED by v1.0**
-> Last updated: {{INSERT_DATE}}
+> Last updated: 2025-05-22
 
 ---
 
 ## Table of Contents
+
+- [1. Preface](#1-preface)
+- [2. Scope & Non-Goals](#2-scope--non-goals)
+- [3. Terminology](#3-terminology)
+- [6. Context-Sync Layer](#6-context-sync-layer)
+- [7. Capability-Negotiation Layer](#7-capability-negotiation-layer)
+- [9. Privacy & Confidential Execution](#9-privacy--confidential-execution)
+- [Glossary](#glossary)
+- [Appendix](#appendix)
+
+Sections 4, 5, 8 and 10–14 were never written in this draft.
 
 ## 1. Preface
 
@@ -258,6 +269,7 @@ sequenceDiagram
     Note over Edge,Cloud: encrypted 1-RTT traffic
     Edge->>Cloud: AxcpEnvelope(profile=2,…)
     Cloud->>Edge: AxcpEnvelope(profile=1,…)
+```
 
 ## 6. Context-Sync Layer
 
@@ -280,6 +292,7 @@ Each operation follows this schema:
 
 ```json
 { "op": "replace", "path": "/user/intent", "value": "translate" }
+```
 
 Supported operations:
 
@@ -395,7 +408,7 @@ AXCP nodes MAY log tool executions, errors, and envelope flow. Logs MAY include:
 - Tool invoked and outcome (e.g., `ok`, `timeout`, `fail`)
 - Error codes if applicable
 
-Logs MUST be append-only and verifiable (Merkle tree or hash chain).  
+Logs MUST be append-only and verifiable (e.g., a hash chain).
 Nodes MAY expose a `LogProof` query to third parties for audit purposes.
 
 
@@ -434,35 +447,3 @@ _(To be compiled after first pass)_
 ---
 
 © 2025 TradePhantom LLC – All Rights Reserved
-
-
----
-
-## 7. Capability-Negotiation Layer
-
-### 7.1 DIDComm v2 Handshake
-(TODO: Specify fields used in initial capability handshake, including auth, encryption, and mutual features)
-
-### 7.2 Capability Descriptor
-(TODO: Define schema used to declare exposed functionality, parameters, and types)
-
-### 7.3 Policy & Access Control
-(TODO: Describe WASM policies applied at gateways to accept/reject invocation requests)
-
-### 7.4 Error Handling
-(TODO: Provide error codes and handling procedures for invalid offers, failed negotiation, or policy rejection)
-
----
-
-## 9. Privacy & Confidential-Execution
-
-### 9.1 SGX / Confidential-VM Envelope
-(TODO: Define envelope fields for attestation reports, measurement hashes, and enclave identity)
-
-### 9.2 Differential-Privacy Filter
-(See Enterprise Edition for DP capabilities)
-
-### 9.3 Audit & Logging
-(TODO: Describe tamper-resistant audit trails for envelope usage, including log formats and retention)
-
----

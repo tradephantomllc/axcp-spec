@@ -1,23 +1,31 @@
-# Simple Chat (loop-back)
+# Simple Chat (QUIC loop-back)
 
-A minimal example demonstrating the Adaptive eXchange Context Protocol (AXCP) over QUIC.
+A minimal QUIC echo between a local client and server, built with [quic-go](https://github.com/quic-go/quic-go). It belongs to the repository root module `github.com/tradephantomllc/axcp-spec`.
 
-## About AXCP
+## What it is (and is not)
 
-AXCP (Adaptive eXchange Context Protocol) is a protocol designed for efficient, secure communication between distributed AI agents with adaptive behavior based on context and requirements.
+- The client sends the plain-text string `Hello, QUIC server!` over one QUIC stream; the server logs it and replies `Hello from server!`.
+- It does **not** send AXCP envelopes, sign messages or use Secure Baseline. For an authenticated AXCP exchange see [`../authenticated_chat`](../authenticated_chat/README.md); for the gateway see [gateway setup](../../../docs/gateway-setup.md).
+- It uses a throwaway self-signed certificate, skips certificate verification and uses its own ALPN `simple-chat` (AXCP endpoints use `axcp/1`). Use it only on localhost.
 
-## Example Overview
+## Requirements
 
-This minimal program demonstrates:
+- Go 1.26.9 or newer
 
-1. spins up an **AXCP echo server** on QUIC/localhost  
-2. dials the server with the Go SDK  
-3. sends an `AxcpEnvelope` with a `CapabilityRequest`  
-4. prints the echoed `trace_id`
+## Run
 
-Run:
+The server and the client are the same program; the `-server` flag selects the role. Both use `localhost:61300`.
+
+Terminal 1, from the repository root:
 
 ```bash
-cd examples/go/simple_chat
-go run .
+go run ./examples/go/simple_chat -server
 ```
+
+Terminal 2, from the repository root:
+
+```bash
+go run ./examples/go/simple_chat
+```
+
+The client prints the server's reply and exits. The server handles one connection and then keeps running; stop it with Ctrl+C.

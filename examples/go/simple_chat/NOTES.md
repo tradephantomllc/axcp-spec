@@ -1,35 +1,26 @@
 # Simple Chat Example Notes
 
-This example demonstrates a basic AXCP (Adaptive eXchange Context Protocol) echo client-server implementation using QUIC for transport.
+This example is a plain QUIC echo client and server in one program (`main.go`). It demonstrates QUIC transport setup only; it does not use AXCP envelopes or the AXCP SDK.
 
 ## Key Components
 
-1. **Server**
-   - Listens on localhost using QUIC
-   - Implements a simple echo handler that responds to AXCP messages
-   - Runs on port 4242 by default
+1. **Server** (`-server` flag)
+   - Listens with QUIC on `localhost:61300`
+   - Accepts one connection and one stream, logs the received text and replies `Hello from server!`
 
-2. **Client**
-   - Connects to the local server
-   - Sends a CapabilityRequest message
-   - Prints the trace ID from the server's response
+2. **Client** (default)
+   - Connects to `localhost:61300`
+   - Sends `Hello, QUIC server!` and prints the reply
 
-## Purpose
-
-This example serves as a minimal working example (MWE) for:
-- Setting up an AXCP server with QUIC transport
-- Creating an AXCP client
-- Basic message exchange using the Adaptive eXchange Context Protocol
+Both sides use a self-signed certificate generated at startup, `InsecureSkipVerify` and the example ALPN `simple-chat`. This is for local testing only.
 
 ## Dependencies
 
-- Go 1.23.4 or later
-- github.com/quic-go/quic-go for QUIC transport
-- github.com/tradephantom/axcp-spec/sdk/go/axcp for AXCP protocol implementation
+- Go 1.26.9 or later
+- `github.com/quic-go/quic-go`
+- Module: `github.com/tradephantomllc/axcp-spec` (repository root `go.mod`)
 
 ## Next Steps
 
-- Modify the message handler to implement custom logic
-- Add more complex message types
-- Implement proper error handling and timeouts
-- Add logging for better debugging
+- See `examples/go/authenticated_chat` for signed AXCP envelopes with Secure Baseline.
+- See `docs/gateway-setup.md` for the reference gateway, which uses ALPN `axcp/1`.

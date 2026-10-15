@@ -5,6 +5,19 @@
 
 ---
 
+## Errata (2026-10-15)
+
+A review on 2026-10-15 found that this pack claims more than its committed evidence shows. Read the results below with these corrections:
+
+1. **Cached Go results.** Every line in `go_targeted_tests.log` and `go_core_packages.log` reports `(cached)`: Go reused earlier results instead of running the tests during this proof run. `go_root_module.log` lists only packages without test files, so no tests ran there.
+2. **Gateway not in the loop.** The authenticated-chat client connects directly to the example's own server (example ALPN `axcp-auth-chat`). No envelope passed through the reference gateway. The conclusion items about the edge gateway rest on unit tests whose results were cached (item 1), not on the end-to-end run.
+3. **Replay demonstration.** The `-replay` run checks sequences against a local map inside the example program. It does not exercise the SDK replay protector or the gateway, and in that program the replay check runs before signature verification.
+4. **Python count.** The 42 Python tests include script tests that exercise helper functions defined inside the tests rather than SDK code.
+5. **Provenance.** The tested commit was produced on a proof-generation branch and is not guaranteed to be retrievable from the current `main` branch. To reproduce, rerun the commands on a current checkout.
+6. **Scope.** This pack predates the 2026-10-15 specification revision (strict envelope parsing, DID and `did:key` rules, replay window and peer-state lifetime rules). It is historical evidence and no longer the current protocol evidence baseline.
+
+---
+
 ## 1. Commit SHA Tested
 
 ```text

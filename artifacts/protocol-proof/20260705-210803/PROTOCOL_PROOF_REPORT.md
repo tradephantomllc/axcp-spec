@@ -4,6 +4,13 @@
 **Commit**: `8275a501b3b627f7c9273ebd4bbfbf65c811eece`
 **Generated**: `2026-07-05T21:08:13Z`
 
+## Errata (2026-10-15)
+
+- `go_targeted_tests.log` and `go_core_packages.log` report cached results; `go_root_module.log` ran no tests.
+- The authenticated-chat run did not pass through the reference gateway, and the replay run uses a map inside the example program, not the SDK replay protector.
+- The commit identifier is recorded for provenance only and is not guaranteed to be retrievable from the current `main` branch.
+- See the [M8 proof pack errata](../../../docs/protocol-proof/M8_PROOF_PACK.md#errata-2026-10-15).
+
 This artifact directory contains the raw command logs used by
 `docs/protocol-proof/M8_PROOF_PACK.md`.
 

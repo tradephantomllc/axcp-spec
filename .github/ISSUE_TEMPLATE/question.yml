@@ -1,7 +1,11 @@
 name: "Question"
-labels: question
+description: Ask a question about using AXCP Core.
+labels: ["question"]
 body:
-  - type: input
+  - type: textarea
+    id: question
     attributes:
-      id: question
       label: Ask anything about AXCP
+      description: Please check the README and the docs folder first.
+    validations:
+      required: true

@@ -11,6 +11,17 @@
 
 ---
 
+## Errata (2026-10-15)
+
+- None of the logs listed under "Artifacts Included" were committed; this directory contains only this report and the checklist. The quoted excerpts cannot be checked against committed files.
+- The QUIC session is between the authenticated-chat example's own client and server. The reference gateway was not in the loop; "Gateway Enforcement" rests on unit tests only.
+- The end-to-end run configured Secure Baseline on both peers; it did not negotiate a profile.
+- This run predates the 2026-07-05 transcript revision of the specification.
+- The commit identifier is recorded for provenance only and is not guaranteed to be retrievable from the current `main` branch.
+- See the [M7 proof pack errata](../../../docs/protocol-proof/M7_PROOF_PACK.md#errata-2026-10-15).
+
+---
+
 ## 1. QUIC Transport Proof
 
 **Evidence**: `authenticated_chat_server.log`
