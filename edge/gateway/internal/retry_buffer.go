@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/tradephantomllc/axcp-spec/sdk/go/axcp"
+	"google.golang.org/protobuf/proto"
 )
 
 var errRetryPublisherNotConfigured = errors.New("retry buffer publisher is not configured")
@@ -18,6 +19,9 @@ var errRetryPublisherNotConfigured = errors.New("retry buffer publisher is not c
 type RetryBufferConfig struct {
 	// Maximum in-memory buffer capacity
 	MaxCapacity int
+	// Maximum total encoded size of buffered envelopes, in bytes
+	// (0 = DefaultRetryMaxBytes)
+	MaxBytes int64
 	// Minimum interval between retransmission attempts
 	MinRetryInterval time.Duration
 	// Maximum interval between retransmission attempts
@@ -42,6 +46,8 @@ type RetryItem struct {
 	LastAttempt time.Time
 	// Number of attempts made
 	Attempts int
+	// Encoded size of Envelope, charged to the buffer's byte budget
+	size int64
 	// Next retry interval
 	NextRetryInterval time.Duration
 }
@@ -98,6 +104,7 @@ type RetryBuffer struct {
 	config      RetryBufferConfig
 	items       map[string]*RetryItem
 	queue       []string
+	bytes       int64
 	mutex       sync.RWMutex
 	logger      Logger
 	metrics     *RetryMetrics
@@ -110,10 +117,14 @@ type RetryBuffer struct {
 	wg          sync.WaitGroup
 }
 
+// DefaultRetryMaxBytes bounds the memory held by buffered envelopes.
+const DefaultRetryMaxBytes = 64 * 1024 * 1024
+
 // DefaultRetryBufferConfig returns the default retry buffer configuration
 func DefaultRetryBufferConfig() RetryBufferConfig {
 	return RetryBufferConfig{
 		MaxCapacity:      1000,
+		MaxBytes:         DefaultRetryMaxBytes,
 		MinRetryInterval: 1 * time.Second,
 		MaxRetryInterval: 5 * time.Minute,
 		BackoffFactor:    2.0,
@@ -138,8 +149,12 @@ func NewRetryBuffer(config *RetryBufferConfig, logger Logger, publishFn func(*ax
 
 	ctx, cancel := context.WithCancel(context.Background())
 
+	effective := *config
+	if effective.MaxBytes == 0 {
+		effective.MaxBytes = DefaultRetryMaxBytes
+	}
 	rb := &RetryBuffer{
-		config:      *config,
+		config:      effective,
 		items:       make(map[string]*RetryItem),
 		queue:       make([]string, 0),
 		configError: config.Validate(),
@@ -177,9 +192,23 @@ func (rb *RetryBuffer) AddEnvelope(id string, env *axcp.Envelope) error {
 		return fmt.Errorf("retry buffer is stopped")
 	}
 
-	clone := axcp.CloneEnvelope(&env.AxcpEnvelope)
-	if item, exists := rb.items[id]; exists {
-		item.Envelope = clone
+	// Check the byte budget before copying the envelope.
+	size := int64(proto.Size(&env.AxcpEnvelope))
+	held := rb.bytes
+	item, exists := rb.items[id]
+	if exists {
+		held -= item.size
+	}
+	if held+size > rb.config.MaxBytes {
+		if rb.metrics != nil {
+			rb.metrics.RecordRetryDropped(rb.ctx)
+		}
+		return fmt.Errorf("retry buffer is full (byte budget: %d)", rb.config.MaxBytes)
+	}
+	if exists {
+		item.Envelope = axcp.CloneEnvelope(&env.AxcpEnvelope)
+		rb.bytes = held + size
+		item.size = size
 		item.generation++
 		item.Attempts = 0
 		item.NextRetryInterval = rb.config.MinRetryInterval
@@ -191,19 +220,22 @@ func (rb *RetryBuffer) AddEnvelope(id string, env *axcp.Envelope) error {
 		}
 		return fmt.Errorf("retry buffer is full (capacity: %d)", rb.config.MaxCapacity)
 	}
+	clone := axcp.CloneEnvelope(&env.AxcpEnvelope)
 
 	// Create a new entry
-	item := &RetryItem{
+	item = &RetryItem{
 		ID:                id,
 		Envelope:          clone,
 		CreatedAt:         time.Now(),
 		LastAttempt:       time.Time{}, // Zero time
 		Attempts:          0,
 		NextRetryInterval: rb.config.MinRetryInterval,
+		size:              size,
 	}
 
 	// Add the entry to the buffer and the queue
 	rb.items[id] = item
+	rb.bytes += size
 	rb.queue = append(rb.queue, id)
 
 	if rb.metrics != nil {
@@ -392,6 +424,9 @@ func (rb *RetryBuffer) processRetryItem(item *RetryItem) {
 // removeItemLocked removes an entry from the buffer (the caller must hold the mutex)
 func (rb *RetryBuffer) removeItemLocked(id string) {
 	// Remove the entry from the map
+	if item, ok := rb.items[id]; ok {
+		rb.bytes -= item.size
+	}
 	delete(rb.items, id)
 
 	// Remove the entry from the queue
@@ -415,6 +450,9 @@ func (rb *RetryBuffer) Close() error {
 func (c RetryBufferConfig) Validate() error {
 	if c.MaxCapacity <= 0 {
 		return errors.New("retry capacity must be greater than zero")
+	}
+	if c.MaxBytes < 0 {
+		return errors.New("retry byte budget must not be negative")
 	}
 	if c.MaxAttempts <= 0 {
 		return errors.New("retry attempts must be greater than zero")

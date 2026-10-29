@@ -118,6 +118,7 @@ func run() error {
 	var brokerURL string
 	var enableRetryBuffer bool
 	var maxRetryCapacity int
+	var maxRetryBytes int64
 	var maxRetryAttempts int
 	var minRetryInterval time.Duration
 	var maxRetryInterval time.Duration
@@ -134,6 +135,7 @@ func run() error {
 	flag.StringVar(&brokerURL, "mqtt-url", "tcp://127.0.0.1:1883", "MQTT broker URL")
 	flag.BoolVar(&enableRetryBuffer, "retry", true, "Enable retry buffer for failed messages")
 	flag.IntVar(&maxRetryCapacity, "retry-capacity", 1000, "Maximum capacity of retry buffer")
+	flag.Int64Var(&maxRetryBytes, "retry-max-bytes", internal.DefaultRetryMaxBytes, "Maximum total size of buffered retry envelopes in bytes")
 	flag.IntVar(&maxRetryAttempts, "retry-attempts", 5, "Maximum retry attempts per message")
 	flag.DurationVar(&minRetryInterval, "retry-min-interval", 1*time.Second, "Minimum retry interval")
 	flag.DurationVar(&maxRetryInterval, "retry-max-interval", 5*time.Minute, "Maximum retry interval")
@@ -153,7 +155,7 @@ func run() error {
 		return err
 	}
 	retryConfig := internal.RetryBufferConfig{
-		MaxCapacity: maxRetryCapacity, MaxAttempts: maxRetryAttempts,
+		MaxCapacity: maxRetryCapacity, MaxBytes: maxRetryBytes, MaxAttempts: maxRetryAttempts,
 		MinRetryInterval: minRetryInterval, MaxRetryInterval: maxRetryInterval, BackoffFactor: 2,
 	}
 	if enableRetryBuffer {
