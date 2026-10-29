@@ -451,3 +451,148 @@ def test_read_frame_timeout_contract(has_header: bool) -> None:
             await _read_frame(reader, endian="big", max_frame_size=32, timeout=0.01)
 
     asyncio.run(check())
+
+
+async def _open_partial_streams(client: QuicClient, count: int) -> list:
+    # Use the client's own stream once so the transport knows it before closing.
+    await client.send_message(b"ping")
+    writers = []
+    for _ in range(count):
+        _, writer = await client._protocol.create_stream()
+        writer.write(b"\x01")  # a partial frame header, never completed
+        writers.append(writer)
+    return writers
+
+
+def test_quic_server_bounds_stream_handlers_per_connection(tmp_path: Path) -> None:
+    asyncio.run(_bounds_stream_handlers_per_connection(tmp_path))
+
+
+async def _bounds_stream_handlers_per_connection(tmp_path: Path) -> None:
+    cert_file, key_file = _write_self_signed_cert(tmp_path)
+
+    async def handler(conn: QuicConnection) -> None:
+        try:
+            await conn.receive_message(timeout=30)
+        except AXCPError:
+            pass
+
+    config = QuicServerConfig(
+        host="127.0.0.1", port=0, cert_file=cert_file, key_file=key_file, max_streams_per_connection=4
+    )
+    server = await QuicServer.listen(config, handler)
+    host, port = server.address
+    client = await QuicClient.connect(
+        QuicClientConfig(host=host, port=port, server_name="localhost", ca_file=cert_file)
+    )
+    try:
+        await _open_partial_streams(client, 10)
+        await asyncio.sleep(0.5)
+        assert len(server._tasks) <= 4
+        assert server.refused_streams >= 6
+    finally:
+        await client.close()
+        await server.close()
+
+
+def test_quic_server_bounds_stream_handlers_in_total(tmp_path: Path) -> None:
+    asyncio.run(_bounds_stream_handlers_in_total(tmp_path))
+
+
+async def _bounds_stream_handlers_in_total(tmp_path: Path) -> None:
+    cert_file, key_file = _write_self_signed_cert(tmp_path)
+
+    async def handler(conn: QuicConnection) -> None:
+        try:
+            await conn.receive_message(timeout=30)
+        except AXCPError:
+            pass
+
+    config = QuicServerConfig(
+        host="127.0.0.1", port=0, cert_file=cert_file, key_file=key_file, max_stream_handlers=3
+    )
+    server = await QuicServer.listen(config, handler)
+    host, port = server.address
+    clients = [
+        await QuicClient.connect(QuicClientConfig(host=host, port=port, server_name="localhost", ca_file=cert_file))
+        for _ in range(2)
+    ]
+    try:
+        for client in clients:
+            await _open_partial_streams(client, 2)
+        await asyncio.sleep(0.5)
+        assert len(server._tasks) <= 3
+        assert server.refused_streams >= 1
+    finally:
+        for client in clients:
+            await client.close()
+        await server.close()
+
+
+def test_quic_server_resets_stream_without_first_frame(tmp_path: Path) -> None:
+    asyncio.run(_resets_stream_without_first_frame(tmp_path))
+
+
+async def _resets_stream_without_first_frame(tmp_path: Path) -> None:
+    cert_file, key_file = _write_self_signed_cert(tmp_path)
+    outcome: asyncio.Future = asyncio.get_running_loop().create_future()
+
+    async def handler(conn: QuicConnection) -> None:
+        try:
+            await conn.receive_message(timeout=30)
+        except AXCPError as exc:
+            outcome.set_result(exc)
+
+    config = QuicServerConfig(
+        host="127.0.0.1", port=0, cert_file=cert_file, key_file=key_file, first_frame_timeout=0.2
+    )
+    server = await QuicServer.listen(config, handler)
+    host, port = server.address
+    client = await QuicClient.connect(
+        QuicClientConfig(host=host, port=port, server_name="localhost", ca_file=cert_file)
+    )
+    try:
+        await _open_partial_streams(client, 1)
+        error = await asyncio.wait_for(outcome, timeout=3)
+        assert isinstance(error, (TransportTimeoutError, TransportClosedError))
+        await asyncio.sleep(0.1)
+        assert not server._tasks
+    finally:
+        await client.close()
+        await server.close()
+
+
+def test_stream_half_close_state_is_bounded() -> None:
+    from aioquic.quic.events import StopSendingReceived, StreamReset
+
+    from axcp.transport.quic import MAX_TRACKED_STREAM_EVENTS
+
+    protocol = object.__new__(_AXCPQuicProtocol)
+    protocol._reset_streams = {}
+    protocol._stopped_sending = {}
+    protocol._stream_readers = {}
+    protocol._terminated = False
+    closed: list[int] = []
+    protocol.close = lambda error_code=0, reason_phrase="": closed.append(error_code)
+
+    # A reset for a stream whose reader exists is delivered, not stored.
+    class _Reader:
+        error = None
+
+        def set_exception(self, exc: BaseException) -> None:
+            self.error = exc
+
+    reader = _Reader()
+    protocol._stream_readers[0] = reader
+    protocol.quic_event_received(StreamReset(stream_id=0, error_code=7))
+    assert 0 not in protocol._reset_streams
+    assert isinstance(reader.error, TransportClosedError)
+
+    for n in range(1, MAX_TRACKED_STREAM_EVENTS + 10):
+        protocol.quic_event_received(StreamReset(stream_id=4 * n, error_code=0))
+        protocol.quic_event_received(StopSendingReceived(stream_id=4 * n + 1, error_code=0))
+    assert len(protocol._reset_streams) + len(protocol._stopped_sending) <= MAX_TRACKED_STREAM_EVENTS
+    assert closed, "connection was not closed after too many half-close events"
+
+    protocol.forget_stream(4)
+    assert 4 not in protocol._reset_streams

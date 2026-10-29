@@ -40,9 +40,15 @@ MAX_FRAME_SIZE = 10 * 1024 * 1024
 MAX_DATAGRAM_SIZE = 1200
 DEFAULT_MAX_DATAGRAM_QUEUE = 1024
 DEFAULT_READ_TIMEOUT = 300.0
+DEFAULT_MAX_STREAM_HANDLERS = 1024
+DEFAULT_MAX_STREAMS_PER_CONNECTION = 16
+DEFAULT_FIRST_FRAME_TIMEOUT = 10.0
+MAX_TRACKED_STREAM_EVENTS = 1024
 MAX_RETAINED_HANDLER_ERRORS = 100
 FRAME_HEADER_SIZE = 4
 _APPLICATION_ERROR_BUFFER_LIMIT = 0x1
+_APPLICATION_ERROR_STREAM_REFUSED = 0x2
+_APPLICATION_ERROR_STREAM_EVENTS = 0x3
 
 FrameEndian = Literal["big", "little"]
 StreamHandler = Callable[["QuicConnection"], Awaitable[None] | None]
@@ -52,7 +58,10 @@ logger = logging.getLogger("axcp.transport.quic")
 
 __all__ = [
     "DEFAULT_ALPN",
+    "DEFAULT_FIRST_FRAME_TIMEOUT",
     "DEFAULT_MAX_DATAGRAM_QUEUE",
+    "DEFAULT_MAX_STREAM_HANDLERS",
+    "DEFAULT_MAX_STREAMS_PER_CONNECTION",
     "DEFAULT_READ_TIMEOUT",
     "MAX_DATAGRAM_SIZE",
     "MAX_FRAME_SIZE",
@@ -151,6 +160,7 @@ class _AXCPQuicProtocol(QuicConnectionProtocol):
         self._handler_errors = handler_errors if handler_errors is not None else HandlerErrors()
         self._stopped_sending: dict[int, int] = {}
         self._reset_streams: dict[int, int] = {}
+        self.active_stream_handlers = 0
         self._terminated = False
         self.dropped_datagrams = 0
         self.stream_buffer_overflows = 0
@@ -164,9 +174,38 @@ class _AXCPQuicProtocol(QuicConnectionProtocol):
         protocol = asyncio.StreamReaderProtocol(reader)
         writer = asyncio.StreamWriter(adapter, protocol, reader, self._loop)
         self._stream_readers[stream_id] = reader
-        if stream_id in self._reset_streams:
-            reader.set_exception(self._reset_error(stream_id, self._reset_streams[stream_id]))
+        error_code = self._reset_streams.pop(stream_id, None)
+        if error_code is not None:
+            reader.set_exception(self._reset_error(stream_id, error_code))
         return reader, writer
+
+    def _track_stream_event(self, table: dict[int, int], stream_id: int, error_code: int) -> None:
+        """Remember a peer half-close, closing the connection if a peer floods them."""
+
+        if stream_id not in table and len(self._stopped_sending) + len(self._reset_streams) >= MAX_TRACKED_STREAM_EVENTS:
+            self.close(error_code=_APPLICATION_ERROR_STREAM_EVENTS, reason_phrase="too many stream resets")
+            return
+        table[stream_id] = error_code
+
+    def forget_stream(self, stream_id: int) -> None:
+        """Drop half-close state for a stream whose handler has finished."""
+
+        self._stopped_sending.pop(stream_id, None)
+        self._reset_streams.pop(stream_id, None)
+
+    def refuse_stream(self, stream_id: int) -> None:
+        """Reset both directions of a stream the server will not handle."""
+
+        try:
+            self._quic.reset_stream(stream_id, _APPLICATION_ERROR_STREAM_REFUSED)
+        except Exception:  # send side may already be finished
+            pass
+        try:
+            self._quic.stop_stream(stream_id, _APPLICATION_ERROR_STREAM_REFUSED)
+        except Exception:  # receive side may already be finished
+            pass
+        self.forget_stream(stream_id)
+        self.transmit()
 
     @staticmethod
     def _reset_error(stream_id: int, error_code: int) -> TransportClosedError:
@@ -216,12 +255,14 @@ class _AXCPQuicProtocol(QuicConnectionProtocol):
         if isinstance(event, StreamDataReceived) and self._stream_buffer_exceeded(event):
             return
         if isinstance(event, StopSendingReceived):
-            self._stopped_sending[event.stream_id] = event.error_code
+            self._track_stream_event(self._stopped_sending, event.stream_id, event.error_code)
         elif isinstance(event, StreamReset):
-            self._reset_streams[event.stream_id] = event.error_code
             reader = self._stream_readers.get(event.stream_id)
             if reader is not None:
                 reader.set_exception(self._reset_error(event.stream_id, event.error_code))
+            else:
+                # Kept only until the stream's reader is created.
+                self._track_stream_event(self._reset_streams, event.stream_id, event.error_code)
         elif isinstance(event, ConnectionTerminated):
             self._terminated = True
         super().quic_event_received(event)
@@ -304,12 +345,21 @@ class QuicServerConfig:
     max_datagram_size: int = MAX_DATAGRAM_SIZE
     max_datagram_queue: int = DEFAULT_MAX_DATAGRAM_QUEUE
     read_timeout: float = DEFAULT_READ_TIMEOUT
+    max_stream_handlers: int = DEFAULT_MAX_STREAM_HANDLERS
+    max_streams_per_connection: int = DEFAULT_MAX_STREAMS_PER_CONNECTION
+    first_frame_timeout: float = DEFAULT_FIRST_FRAME_TIMEOUT
 
     def validate(self) -> None:
         if not self.host:
             raise TransportConfigError("host is required")
         if not (0 <= self.port <= 65535):
             raise TransportConfigError("port must be between 0 and 65535")
+        if self.max_stream_handlers <= 0:
+            raise TransportConfigError("max_stream_handlers must be positive")
+        if self.max_streams_per_connection <= 0:
+            raise TransportConfigError("max_streams_per_connection must be positive")
+        if self.first_frame_timeout <= 0:
+            raise TransportConfigError("first_frame_timeout must be positive")
         if not self.cert_file:
             raise TransportConfigError("cert_file is required")
         if not self.key_file:
@@ -415,6 +465,7 @@ class QuicConnection:
         self._send_lock = asyncio.Lock()
         self._recv_lock = asyncio.Lock()
         self._closed = False
+        self.frames_received = 0
 
     async def send_message(self, data: bytes) -> None:
         """Send raw bytes using Go `SendMessage` big-endian framing."""
@@ -428,12 +479,14 @@ class QuicConnection:
 
         async with self._recv_lock:
             self._ensure_open()
-            return await _read_frame(
+            data = await _read_frame(
                 self._reader,
                 endian="big",
                 max_frame_size=self._max_frame_size,
                 timeout=self._read_timeout if timeout is None else timeout,
             )
+            self.frames_received += 1
+            return data
 
     async def send_envelope(self, envelope: axcp_pb2.AxcpEnvelope) -> None:
         """Send an envelope using Go `SendEnvelope` little-endian framing."""
@@ -463,6 +516,7 @@ class QuicConnection:
                 max_frame_size=self._max_frame_size,
                 timeout=self._read_timeout if timeout is None else timeout,
             )
+            self.frames_received += 1
             return decode_envelope(data, strict=strict)
 
     async def close(self) -> None:
@@ -555,6 +609,11 @@ class QuicServer:
 
     Stream and datagram handler tasks are tracked; their exceptions are logged, exposed
     through :attr:`handler_errors` and the first one is re-raised by :meth:`close`.
+
+    Stream handlers are bounded in total (``max_stream_handlers``) and per connection
+    (``max_streams_per_connection``); further streams are reset and counted in
+    :attr:`refused_streams`. A stream that delivers no complete frame within
+    ``first_frame_timeout`` is reset and its handler's pending receive fails.
     """
 
     def __init__(
@@ -569,6 +628,7 @@ class QuicServer:
         self._tasks = tasks
         self._errors = errors
         self._closed = False
+        self.refused_streams = 0
 
     @classmethod
     async def listen(
@@ -581,12 +641,45 @@ class QuicServer:
         config.validate()
         tasks: set[asyncio.Task] = set()
         errors = HandlerErrors()
+        server_ref: list[QuicServer] = []
 
         def stream_handler(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+            adapter = writer.transport
+            protocol: _AXCPQuicProtocol = adapter.protocol
+            stream_id: int = adapter.stream_id
+            if (
+                len(tasks) >= config.max_stream_handlers
+                or protocol.active_stream_handlers >= config.max_streams_per_connection
+            ):
+                if server_ref:
+                    server_ref[0].refused_streams += 1
+                reader.set_exception(TransportClosedError(f"stream {stream_id} refused: handler limit reached"))
+                adapter._closing = True
+                protocol.refuse_stream(stream_id)
+                return
             connection = QuicConnection(
                 reader, writer, max_frame_size=config.max_frame_size, read_timeout=config.read_timeout
             )
-            errors.track(tasks, asyncio.ensure_future(_run_stream_handler(handler, connection)))
+            protocol.active_stream_handlers += 1
+            task = asyncio.ensure_future(_run_stream_handler(handler, connection))
+
+            def expire_if_idle() -> None:
+                if connection.frames_received == 0 and not task.done():
+                    reader.set_exception(
+                        TransportTimeoutError(f"no frame on stream {stream_id} within first_frame_timeout")
+                    )
+                    adapter._closing = True
+                    protocol.refuse_stream(stream_id)
+
+            watchdog = asyncio.get_running_loop().call_later(config.first_frame_timeout, expire_if_idle)
+
+            def finished(_: asyncio.Task) -> None:
+                watchdog.cancel()
+                protocol.active_stream_handlers -= 1
+                protocol.forget_stream(stream_id)
+
+            task.add_done_callback(finished)
+            errors.track(tasks, task)
 
         def create_protocol(*args, **kwargs):
             return _AXCPQuicProtocol(
@@ -605,7 +698,9 @@ class QuicServer:
             create_protocol=create_protocol,
             stream_handler=stream_handler,
         )
-        return cls(config, server, tasks, errors)
+        instance = cls(config, server, tasks, errors)
+        server_ref.append(instance)
+        return instance
 
     @property
     def address(self) -> tuple[str, int]:
