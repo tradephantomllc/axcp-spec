@@ -4,14 +4,14 @@ This guide helps you set up and run AXCP Core with Secure Baseline authenticatio
 
 ## Prerequisites
 
-- **Go 1.26.9+** (CI uses Go 1.26.9)
+- **Go 1.26.10+** (CI uses Go 1.26.10)
 - Git
 
 Verify your Go installation:
 
 ```bash
 go version
-# Expected: go version go1.26.9 or later
+# Expected: go version go1.26.10 or later
 ```
 
 ## Installation
@@ -31,7 +31,7 @@ Run tests to verify everything is working:
 go test ./sdk/go/...
 ```
 
-All tests should pass. If you see import errors, ensure you're using Go 1.26.9+.
+All tests should pass. If you see import errors, ensure you're using Go 1.26.10+.
 
 ## Python SDK Core
 
@@ -176,9 +176,9 @@ The deterministic example keys and self-signed TLS are for local testing only. T
 
 Install Go from https://go.dev/dl/ and ensure it's in your PATH.
 
-### "go version" shows < 1.26.9
+### "go version" shows < 1.26.10
 
-Update Go to version 1.26.9 or later. AXCP Core requires Go 1.26.9+.
+Update Go to version 1.26.10 or later. AXCP Core requires Go 1.26.10+.
 
 ### Import errors when running tests
 

@@ -1,6 +1,6 @@
 # AXCP Core quickstart
 
-Prerequisites: Git and Go 1.26.9 or newer on a supported Go release. Commands start at the repository root.
+Prerequisites: Git and Go 1.26.10 or newer on a supported Go release. Commands start at the repository root.
 
 ```sh
 git clone https://github.com/tradephantomllc/axcp-spec.git

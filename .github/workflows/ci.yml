@@ -21,7 +21,7 @@ permissions:
   contents: read
 
 env:
-  GO_VERSION:  '1.26.9'
+  GO_VERSION:  '1.26.10'
   PYTHON_VERSION: '3.11'
   NODE_VERSION: '22'
   PROTOC_VERSION: '33.2'

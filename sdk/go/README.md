@@ -2,7 +2,7 @@
 
 The reference SDK provides Protobuf envelopes, DID resolver interfaces, Ed25519 authentication primitives, `did:key` support, sequence-based replay protection, profile negotiation helpers and QUIC transport. Applications explicitly configure and connect these building blocks.
 
-Requires Go 1.26.9 or newer on a supported Go release. From the repository root:
+Requires Go 1.26.10 or newer on a supported Go release. From the repository root:
 
 ```sh
 go test -race ./sdk/go/...
