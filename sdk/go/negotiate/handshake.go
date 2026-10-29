@@ -6,6 +6,7 @@ import (
 	"crypto/ed25519"
 	"errors"
 	"fmt"
+	"io"
 	"slices"
 	"time"
 
@@ -35,6 +36,10 @@ var (
 )
 
 // StreamIO defines the interface for reading/writing handshake messages.
+//
+// If a handshake times out and the stream implements io.Closer, the stream is
+// closed so that the pending SendMessage or ReceiveMessage returns; otherwise the
+// caller must close the underlying transport to release it.
 type StreamIO interface {
 	// SendMessage sends raw bytes with length prefix
 	SendMessage(data []byte) error
@@ -173,6 +178,7 @@ func (h *Handshaker) ClientHandshake(ctx context.Context, stream StreamIO) (*Han
 
 	select {
 	case <-ctx.Done():
+		abortStream(stream)
 		return nil, ErrHandshakeTimeout
 	case err := <-sendDone:
 		if err != nil {
@@ -196,6 +202,7 @@ func (h *Handshaker) ClientHandshake(ctx context.Context, stream StreamIO) (*Han
 	var serverHelloData []byte
 	select {
 	case <-ctx.Done():
+		abortStream(stream)
 		return nil, ErrHandshakeTimeout
 	case result := <-recvDone:
 		if result.err != nil {
@@ -266,6 +273,7 @@ func (h *Handshaker) ServerHandshake(ctx context.Context, stream StreamIO) (*Han
 	var clientHelloData []byte
 	select {
 	case <-ctx.Done():
+		abortStream(stream)
 		return nil, ErrHandshakeTimeout
 	case result := <-recvDone:
 		if result.err != nil {
@@ -335,6 +343,7 @@ func (h *Handshaker) ServerHandshake(ctx context.Context, stream StreamIO) (*Han
 
 	select {
 	case <-ctx.Done():
+		abortStream(stream)
 		return nil, ErrHandshakeTimeout
 	case err := <-sendDone:
 		if err != nil {
@@ -382,4 +391,11 @@ func validateServerHello(offer *WireClientHello, response *WireServerHello, opts
 		return ErrNoAlgoOverlap
 	}
 	return nil
+}
+
+// abortStream unblocks a send or receive left running by a timed-out handshake.
+func abortStream(stream StreamIO) {
+	if c, ok := stream.(io.Closer); ok {
+		_ = c.Close()
+	}
 }
