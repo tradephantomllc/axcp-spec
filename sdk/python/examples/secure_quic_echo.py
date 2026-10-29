@@ -69,6 +69,10 @@ async def run_client(args: argparse.Namespace) -> None:
         await client.send_envelope(build_envelope(client_agent, server_did, "python-quic-echo"))
         reply = await client.receive_envelope()
         client_agent.verify(reply)
+        # verify() checks the signature and that the reply is addressed to us; the
+        # sender must also be the server we contacted.
+        if reply.sender_did != server_did:
+            raise SystemExit(f"reply signed by {reply.sender_did}, expected {server_did}")
         print(f"verified reply from {reply.sender_did}: {reply.context_patch.context_id}")
     finally:
         await client.close()
