@@ -20,6 +20,8 @@ export {
   type FrameOptions,
 } from "./framing.js";
 export {
+  DEFAULT_FIRST_FRAME_TIMEOUT_MS,
+  DEFAULT_MAX_CONNECTIONS,
   HandlerErrorSink,
   MAX_RETAINED_HANDLER_ERRORS,
   TcpClient,
@@ -29,6 +31,7 @@ export {
   type TcpServerConfig,
 } from "./tcp.js";
 export {
+  DEFAULT_HANDSHAKE_TIMEOUT_MS,
   DEFAULT_TLS_MIN_VERSION,
   TlsClient,
   TlsServer,

@@ -311,3 +311,146 @@ describe("TLS defaults (D11)", () => {
     }
   });
 });
+
+describe("pre-auth resource bounds", () => {
+  it("consumes a frame delivered as many one-byte chunks in linear time", async () => {
+    const stream = new PassThrough();
+    const connection = new NodeStreamConnection(stream, { maxFrameSize: 1024 * 1024 });
+    const payload = Buffer.alloc(200_000, 0x61);
+    const wire = frame("big", payload);
+    const started = performance.now();
+    for (const byte of wire) {
+      stream.write(Buffer.of(byte));
+    }
+    const received = await connection.receiveMessage({ timeoutMs: 10_000 });
+    const elapsed = performance.now() - started;
+    assert.equal(received.length, payload.length);
+    assert.equal(connection.bufferedByteCount, 0);
+    // A quadratic queue needs tens of seconds for 200k chunks.
+    assert.ok(elapsed < 3_000, `took ${elapsed.toFixed(0)} ms`);
+    await connection.close();
+  });
+
+  it("closes a TLS connection that delivers no complete frame in time", async () => {
+    const certificate = generateTestCertificate();
+    let handlerError: unknown;
+    const server = await TlsServer.listen(
+      {
+        host: "127.0.0.1",
+        port: 0,
+        cert: certificate.cert,
+        key: certificate.key,
+        firstFrameTimeoutMs: 200,
+        onConnectionError: () => undefined,
+      },
+      async (connection) => {
+        try {
+          await connection.receiveMessage({ timeoutMs: 30_000 });
+        } catch (error) {
+          handlerError = error;
+        }
+      },
+    );
+    try {
+      const socket = tls.connect({
+        host: "127.0.0.1",
+        port: server.address.port,
+        ca: certificate.cert,
+        servername: "localhost",
+        ALPNProtocols: ["axcp/1"],
+      });
+      await new Promise<void>((resolve, reject) => {
+        socket.once("secureConnect", () => {
+          socket.write(Buffer.of(0x00)); // a partial header, never completed
+          resolve();
+        });
+        socket.once("error", reject);
+      });
+      await new Promise<void>((resolve) => socket.once("close", () => resolve()));
+      assert.ok(handlerError instanceof TransportClosedError, `handler saw ${String(handlerError)}`);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("closes a TCP connection that delivers no complete frame in time", async () => {
+    let handlerError: unknown;
+    const server = await TcpServer.listen(
+      { host: "127.0.0.1", port: 0, firstFrameTimeoutMs: 200, onConnectionError: () => undefined },
+      async (connection) => {
+        try {
+          await connection.receiveMessage({ timeoutMs: 30_000 });
+        } catch (error) {
+          handlerError = error;
+        }
+      },
+    );
+    try {
+      const socket = net.connect({ host: "127.0.0.1", port: server.address.port });
+      await new Promise<void>((resolve, reject) => {
+        socket.once("connect", () => {
+          socket.write(Buffer.of(0x00));
+          resolve();
+        });
+        socket.once("error", reject);
+      });
+      await new Promise<void>((resolve) => socket.once("close", () => resolve()));
+      assert.ok(handlerError instanceof TransportClosedError, `handler saw ${String(handlerError)}`);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("drops sockets beyond maxConnections", async () => {
+    const certificate = generateTestCertificate();
+    const server = await TlsServer.listen(
+      {
+        host: "127.0.0.1",
+        port: 0,
+        cert: certificate.cert,
+        key: certificate.key,
+        maxConnections: 2,
+        onConnectionError: () => undefined,
+      },
+      async (connection) => {
+        await connection.receiveMessage({ timeoutMs: 5_000 }).catch(() => undefined);
+      },
+    );
+    const sockets: tls.TLSSocket[] = [];
+    try {
+      for (let index = 0; index < 2; index += 1) {
+        const socket = tls.connect({
+          host: "127.0.0.1",
+          port: server.address.port,
+          ca: certificate.cert,
+          servername: "localhost",
+          ALPNProtocols: ["axcp/1"],
+        });
+        sockets.push(socket);
+        await new Promise<void>((resolve, reject) => {
+          socket.once("secureConnect", () => resolve());
+          socket.once("error", reject);
+        });
+      }
+      const extra = tls.connect({
+        host: "127.0.0.1",
+        port: server.address.port,
+        ca: certificate.cert,
+        servername: "localhost",
+        ALPNProtocols: ["axcp/1"],
+      });
+      sockets.push(extra);
+      await new Promise<void>((resolve, reject) => {
+        extra.once("secureConnect", () => reject(new Error("connection beyond maxConnections was accepted")));
+        extra.once("error", () => resolve());
+        extra.once("close", () => resolve());
+      });
+      assert.equal(server.droppedConnections, 1);
+    } finally {
+      for (const socket of sockets) {
+        socket.destroy();
+      }
+      await server.close();
+    }
+  });
+});
