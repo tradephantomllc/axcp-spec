@@ -7,12 +7,21 @@ import {
   DEFAULT_MAX_FRAME_SIZE,
   validateMaxFrameSize,
 } from "./framing.js";
-import { HandlerErrorSink, type StreamHandler } from "./tcp.js";
+import {
+  DEFAULT_FIRST_FRAME_TIMEOUT_MS,
+  DEFAULT_MAX_CONNECTIONS,
+  HandlerErrorSink,
+  type StreamHandler,
+  validatePositiveInteger,
+  watchFirstFrame,
+} from "./tcp.js";
 
 type SecureMaterial = string | Buffer | Array<string | Buffer>;
 
 /** Default minimum TLS version for clients and servers (D11). */
 export const DEFAULT_TLS_MIN_VERSION: tls.SecureVersion = "TLSv1.3";
+/** Default TLS handshake timeout for server connections. */
+export const DEFAULT_HANDSHAKE_TIMEOUT_MS = 10_000;
 
 export interface TlsClientConfig {
   readonly host: string;
@@ -44,6 +53,12 @@ export interface TlsServerConfig {
   readonly readTimeoutMs?: number;
   /** Minimum TLS version (default "TLSv1.3"). */
   readonly minVersion?: tls.SecureVersion;
+  /** Concurrent connections; further sockets are dropped (default 512). */
+  readonly maxConnections?: number;
+  /** A connection that delivers no complete frame in time is closed (default 10 s). */
+  readonly firstFrameTimeoutMs?: number;
+  /** TLS handshake timeout (default 10 s). */
+  readonly handshakeTimeoutMs?: number;
   /** Receives stream-handler errors; when omitted they are retained and re-thrown by `close()`. */
   readonly onConnectionError?: (error: Error) => void;
 }
@@ -73,6 +88,7 @@ export class TlsClient extends NodeStreamConnection {
 export class TlsServer {
   private readonly server: tls.Server;
   private readonly connections = new Set<NodeStreamConnection>();
+  private droppedConnectionCount = 0;
   private readonly errorSink: HandlerErrorSink;
   private closed = false;
 
@@ -82,6 +98,11 @@ export class TlsServer {
   ) {
     this.server = server;
     this.errorSink = new HandlerErrorSink(config.onConnectionError);
+  }
+
+  /** Sockets dropped because `maxConnections` was reached. */
+  get droppedConnections(): number {
+    return this.droppedConnectionCount;
   }
 
   /** Handler errors retained because no `onConnectionError` callback was configured. */
@@ -101,6 +122,7 @@ export class TlsServer {
           rejectUnauthorized: normalized.rejectUnauthorized,
           ALPNProtocols: [...normalized.alpnProtocols],
           minVersion: normalized.minVersion,
+          handshakeTimeout: normalized.handshakeTimeoutMs,
         },
         (socket) => {
           const connection = new NodeStreamConnection(socket, {
@@ -108,6 +130,7 @@ export class TlsServer {
             readTimeoutMs: normalized.readTimeoutMs,
           });
           serverWrapper.connections.add(connection);
+          watchFirstFrame(connection, socket, normalized.firstFrameTimeoutMs);
           socket.once("close", () => serverWrapper.connections.delete(connection));
           Promise.resolve()
             .then(() => handler(connection))
@@ -121,6 +144,10 @@ export class TlsServer {
       ),
       normalized,
     );
+    serverWrapper.server.maxConnections = normalized.maxConnections;
+    serverWrapper.server.on("drop", () => {
+      serverWrapper.droppedConnectionCount += 1;
+    });
 
     await new Promise<void>((resolve, reject) => {
       const onError = (error: Error): void => {
@@ -215,6 +242,15 @@ function validateTlsServerConfig(config: TlsServerConfig): NormalizedTlsServerCo
     maxFrameSize: validateMaxFrameSize(config.maxFrameSize ?? DEFAULT_MAX_FRAME_SIZE),
     readTimeoutMs: config.readTimeoutMs ?? DEFAULT_READ_TIMEOUT_MS,
     minVersion: config.minVersion ?? DEFAULT_TLS_MIN_VERSION,
+    maxConnections: validatePositiveInteger("maxConnections", config.maxConnections ?? DEFAULT_MAX_CONNECTIONS),
+    firstFrameTimeoutMs: validatePositiveInteger(
+      "firstFrameTimeoutMs",
+      config.firstFrameTimeoutMs ?? DEFAULT_FIRST_FRAME_TIMEOUT_MS,
+    ),
+    handshakeTimeoutMs: validatePositiveInteger(
+      "handshakeTimeoutMs",
+      config.handshakeTimeoutMs ?? DEFAULT_HANDSHAKE_TIMEOUT_MS,
+    ),
     onConnectionError: config.onConnectionError,
   };
 }

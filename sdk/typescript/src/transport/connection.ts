@@ -39,10 +39,90 @@ interface PendingRead {
   readonly reject: (error: Error) => void;
 }
 
+/** Chunks at least this large are queued as they are; smaller ones are coalesced. */
+const COALESCE_BELOW = 4 * 1024;
+/** Capacity of each buffer that small chunks are copied into. */
+const COALESCE_CAPACITY = 64 * 1024;
+
+/**
+ * FIFO of received bytes with amortized constant-time appends and reads. Small chunks
+ * are copied into shared buffers, so many tiny chunks cost neither one queue entry each
+ * nor repeated array shifts.
+ */
+class ByteQueue {
+  private chunks: Buffer[] = [];
+  /** Index of the first unread chunk and bytes already read from it. */
+  private head = 0;
+  private headOffset = 0;
+  /** Coalescing buffer backing the last chunk, while it still has room. */
+  private tail: Buffer | undefined;
+  private tailLength = 0;
+  length = 0;
+
+  push(data: Buffer): void {
+    if (data.length >= COALESCE_BELOW) {
+      this.tail = undefined;
+      this.chunks.push(data);
+    } else {
+      if (this.tail === undefined || this.tailLength + data.length > this.tail.length) {
+        this.tail = Buffer.allocUnsafe(COALESCE_CAPACITY);
+        this.tailLength = 0;
+        this.chunks.push(this.tail.subarray(0, 0));
+      }
+      data.copy(this.tail, this.tailLength);
+      this.tailLength += data.length;
+      this.chunks[this.chunks.length - 1] = this.tail.subarray(0, this.tailLength);
+    }
+    this.length += data.length;
+  }
+
+  /** Copy `length` bytes from the front; remove them when `consume` is set. */
+  read(length: number, consume: boolean): Buffer {
+    const out = Buffer.allocUnsafe(length);
+    let offset = 0;
+    let index = this.head;
+    let start = this.headOffset;
+    while (offset < length) {
+      const chunk = this.chunks[index]!;
+      const take = Math.min(chunk.length - start, length - offset);
+      chunk.copy(out, offset, start, start + take);
+      offset += take;
+      if (start + take === chunk.length) {
+        index += 1;
+        start = 0;
+      } else {
+        start += take;
+      }
+    }
+    if (consume) {
+      this.head = index;
+      this.headOffset = start;
+      this.length -= length;
+      if (this.length === 0) {
+        this.clear();
+      } else if (this.head >= 1024 && this.head * 2 >= this.chunks.length) {
+        this.chunks = this.chunks.slice(this.head);
+        this.head = 0;
+      }
+    }
+    return out;
+  }
+
+  clear(): void {
+    this.chunks = [];
+    this.head = 0;
+    this.headOffset = 0;
+    this.tail = undefined;
+    this.tailLength = 0;
+    this.length = 0;
+  }
+}
+
 /**
  * Length-prefixed frame connection over a Node.js duplex stream.
  *
- * Incoming chunks are kept in a list (no quadratic concatenation). Unread buffered bytes
+ * Incoming bytes are kept in a queue with amortized constant-time appends and reads
+ * (no quadratic concatenation or shifting). Unread buffered bytes
  * never exceed `maxFrameSize + 4`; a peer that sends more is disconnected. A frame header
  * announcing more than `maxFrameSize` fails the connection as soon as it is read, and no
  * buffer is pre-allocated for the announced size.
@@ -52,8 +132,8 @@ export class NodeStreamConnection {
   private readonly maxFrameSize: number;
   private readonly maxBufferedBytes: number;
   private readonly readTimeoutMs: number;
-  private chunks: Buffer[] = [];
-  private bufferedBytes = 0;
+  private readonly queue = new ByteQueue();
+  private framesReceivedCount = 0;
   private pendingRead: PendingRead | undefined;
   private readChain: Promise<void> = Promise.resolve();
   private writeChain: Promise<void> = Promise.resolve();
@@ -75,9 +155,14 @@ export class NodeStreamConnection {
     return this.closedInternal || this.stream.destroyed;
   }
 
+  /** Complete frames delivered to readers so far. */
+  get framesReceived(): number {
+    return this.framesReceivedCount;
+  }
+
   /** Number of received bytes not yet consumed by a read. */
   get bufferedByteCount(): number {
-    return this.bufferedBytes;
+    return this.queue.length;
   }
 
   async sendMessage(data: Uint8Array): Promise<void> {
@@ -193,14 +278,13 @@ export class NodeStreamConnection {
       return;
     }
     const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk.buffer, chunk.byteOffset, chunk.length);
-    if (this.bufferedBytes + buffer.length > this.maxBufferedBytes) {
+    if (this.queue.length + buffer.length > this.maxBufferedBytes) {
       this.fail(
         new TransportFrameError(`buffered stream data exceeds maxFrameSize + 4 (${this.maxBufferedBytes} bytes)`),
       );
       return;
     }
-    this.chunks.push(buffer);
-    this.bufferedBytes += buffer.length;
+    this.queue.push(buffer);
     this.tryResolvePendingRead();
   }
 
@@ -222,54 +306,21 @@ export class NodeStreamConnection {
     }
   }
 
-  /** Copy `length` bytes from the front of the chunk list without consuming them. */
-  private peek(length: number): Buffer {
-    const out = Buffer.allocUnsafe(length);
-    let offset = 0;
-    for (const chunk of this.chunks) {
-      const take = Math.min(chunk.length, length - offset);
-      chunk.copy(out, offset, 0, take);
-      offset += take;
-      if (offset === length) {
-        break;
-      }
-    }
-    return out;
-  }
-
-  /** Remove and return `length` bytes from the front of the chunk list. */
-  private consume(length: number): Buffer {
-    const out = Buffer.allocUnsafe(length);
-    let offset = 0;
-    while (offset < length) {
-      const chunk = this.chunks[0]!;
-      const take = Math.min(chunk.length, length - offset);
-      chunk.copy(out, offset, 0, take);
-      offset += take;
-      if (take === chunk.length) {
-        this.chunks.shift();
-      } else {
-        this.chunks[0] = chunk.subarray(take);
-      }
-    }
-    this.bufferedBytes -= length;
-    return out;
-  }
-
   private tryReadBufferedFrame(endian: FrameEndian): Uint8Array | undefined {
-    if (this.bufferedBytes < FRAME_HEADER_SIZE) {
+    if (this.queue.length < FRAME_HEADER_SIZE) {
       return undefined;
     }
-    const header = this.peek(FRAME_HEADER_SIZE);
+    const header = this.queue.read(FRAME_HEADER_SIZE, false);
     const frameLength = endian === "big" ? header.readUInt32BE(0) : header.readUInt32LE(0);
     if (frameLength > this.maxFrameSize) {
       throw new TransportFrameError(`frame length ${frameLength} exceeds maxFrameSize ${this.maxFrameSize}`);
     }
-    if (this.bufferedBytes < FRAME_HEADER_SIZE + frameLength) {
+    if (this.queue.length < FRAME_HEADER_SIZE + frameLength) {
       return undefined;
     }
-    this.consume(FRAME_HEADER_SIZE);
-    return new Uint8Array(this.consume(frameLength));
+    this.queue.read(FRAME_HEADER_SIZE, true);
+    this.framesReceivedCount += 1;
+    return new Uint8Array(this.queue.read(frameLength, true));
   }
 
   private ensureOpen(): void {
@@ -285,8 +336,7 @@ export class NodeStreamConnection {
     if (this.failure === undefined) {
       this.failure = error;
     }
-    this.chunks = [];
-    this.bufferedBytes = 0;
+    this.queue.clear();
     this.markClosed(error);
     if (!this.stream.destroyed) {
       this.stream.destroy();

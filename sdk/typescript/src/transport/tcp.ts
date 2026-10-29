@@ -64,6 +64,11 @@ export interface TcpClientConfig {
 }
 
 /** Development-only PLAINTEXT TCP server; see {@link TcpClientConfig}. */
+/** Default limit on concurrent server connections, authenticated or not. */
+export const DEFAULT_MAX_CONNECTIONS = 512;
+/** Default time a server connection may take to deliver its first complete frame. */
+export const DEFAULT_FIRST_FRAME_TIMEOUT_MS = 10_000;
+
 export interface TcpServerConfig {
   readonly host?: string;
   readonly port: number;
@@ -71,6 +76,10 @@ export interface TcpServerConfig {
   readonly readTimeoutMs?: number;
   readonly noDelay?: boolean;
   readonly keepAlive?: boolean;
+  /** Concurrent connections; further sockets are dropped (default 512). */
+  readonly maxConnections?: number;
+  /** A connection that delivers no complete frame in time is closed (default 10 s). */
+  readonly firstFrameTimeoutMs?: number;
   readonly onConnectionError?: (error: Error) => void;
 }
 
@@ -93,6 +102,7 @@ export class TcpServer {
   private readonly server: net.Server;
   private readonly connections = new Set<NodeStreamConnection>();
   private readonly errorSink: HandlerErrorSink;
+  private droppedConnectionCount = 0;
   private closed = false;
 
   private constructor(
@@ -103,6 +113,11 @@ export class TcpServer {
     this.errorSink = new HandlerErrorSink(config.onConnectionError);
   }
 
+  /** Sockets dropped because `maxConnections` was reached. */
+  get droppedConnections(): number {
+    return this.droppedConnectionCount;
+  }
+
   /** Handler errors retained because no `onConnectionError` callback was configured. */
   get handlerErrors(): readonly Error[] {
     return this.errorSink.errors;
@@ -111,6 +126,10 @@ export class TcpServer {
   static async listen(config: TcpServerConfig, handler: StreamHandler): Promise<TcpServer> {
     const normalized = validateTcpServerConfig(config);
     const serverWrapper = new TcpServer(net.createServer(), normalized);
+    serverWrapper.server.maxConnections = normalized.maxConnections;
+    serverWrapper.server.on("drop", () => {
+      serverWrapper.droppedConnectionCount += 1;
+    });
 
     serverWrapper.server.on("connection", (socket) => {
       socket.setNoDelay(normalized.noDelay);
@@ -120,6 +139,7 @@ export class TcpServer {
         readTimeoutMs: normalized.readTimeoutMs,
       });
       serverWrapper.connections.add(connection);
+      watchFirstFrame(connection, socket, normalized.firstFrameTimeoutMs);
       socket.once("close", () => serverWrapper.connections.delete(connection));
       Promise.resolve()
         .then(() => handler(connection))
@@ -199,8 +219,32 @@ function validateTcpServerConfig(config: TcpServerConfig): NormalizedTcpServerCo
     readTimeoutMs: config.readTimeoutMs ?? DEFAULT_READ_TIMEOUT_MS,
     noDelay: config.noDelay ?? true,
     keepAlive: config.keepAlive ?? true,
+    maxConnections: validatePositiveInteger("maxConnections", config.maxConnections ?? DEFAULT_MAX_CONNECTIONS),
+    firstFrameTimeoutMs: validatePositiveInteger(
+      "firstFrameTimeoutMs",
+      config.firstFrameTimeoutMs ?? DEFAULT_FIRST_FRAME_TIMEOUT_MS,
+    ),
     onConnectionError: config.onConnectionError,
   };
+}
+
+/** Validate a positive integer option that may also be used as a timer delay. */
+export function validatePositiveInteger(name: string, value: number): number {
+  if (!Number.isSafeInteger(value) || value <= 0 || value > 2_147_483_647) {
+    throw new TransportConfigError(`${name} must be a positive integer`);
+  }
+  return value;
+}
+
+/** Close a server connection that delivers no complete frame within `timeoutMs`. */
+export function watchFirstFrame(connection: NodeStreamConnection, socket: net.Socket, timeoutMs: number): void {
+  const watchdog = setTimeout(() => {
+    if (connection.framesReceived === 0) {
+      void connection.close();
+    }
+  }, timeoutMs);
+  watchdog.unref();
+  socket.once("close", () => clearTimeout(watchdog));
 }
 
 function connectSocket(config: Required<TcpClientConfig>): Promise<net.Socket> {
