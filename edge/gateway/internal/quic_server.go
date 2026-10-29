@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"sync/atomic"
 	"time"
 
 	"github.com/quic-go/quic-go"
@@ -30,11 +29,23 @@ const (
 	DefaultMaxConnections = 512
 	// DefaultMaxStreamsPerConnection bounds concurrent streams per connection.
 	DefaultMaxStreamsPerConnection = 16
-	// frameBodyTimeout bounds how long a peer may take to send a frame body.
-	frameBodyTimeout = 30 * time.Second
-	// initialFrameBuffer is the largest buffer allocated before bytes arrive.
-	initialFrameBuffer = 64 * 1024
+	// DefaultMaxPreAuthConnections bounds connections that have not yet
+	// delivered an authenticated envelope.
+	DefaultMaxPreAuthConnections = 64
+	// DefaultMaxPreAuthConnectionsPerIP bounds such connections per remote IP.
+	DefaultMaxPreAuthConnectionsPerIP = 8
+	// DefaultPreAuthTimeout is how long a connection may stay unauthenticated.
+	DefaultPreAuthTimeout = 10 * time.Second
+	// DefaultMaxPreAuthBufferedBytes bounds frame bytes buffered, across all
+	// unauthenticated connections, before their envelopes are verified.
+	DefaultMaxPreAuthBufferedBytes = 64 * 1024 * 1024
+	// frameReadChunk is the most memory committed ahead of received bytes.
+	frameReadChunk = 4 * 1024
 )
+
+// frameBodyTimeout bounds how long a peer may take to send the rest of a frame
+// once its first byte has arrived. It is a variable only so tests can shorten it.
+var frameBodyTimeout = 30 * time.Second
 
 var (
 	errEnvelopeFrameEmpty    = errors.New("empty AXCP envelope frame")
@@ -78,6 +89,23 @@ type ServerConfig struct {
 	// MaxStreamsPerConnection bounds concurrent streams per connection
 	// (0 = DefaultMaxStreamsPerConnection).
 	MaxStreamsPerConnection int64
+
+	// MaxPreAuthConnections bounds connections that have not yet delivered an
+	// authenticated envelope (0 = DefaultMaxPreAuthConnections, capped at
+	// MaxConnections).
+	MaxPreAuthConnections int
+
+	// MaxPreAuthConnectionsPerIP bounds unauthenticated connections per remote
+	// IP address (0 = DefaultMaxPreAuthConnectionsPerIP).
+	MaxPreAuthConnectionsPerIP int
+
+	// PreAuthTimeout closes a connection that has not delivered an
+	// authenticated envelope in time (0 = DefaultPreAuthTimeout).
+	PreAuthTimeout time.Duration
+
+	// MaxPreAuthBufferedBytes bounds frame bytes buffered across all
+	// unauthenticated connections (0 = DefaultMaxPreAuthBufferedBytes).
+	MaxPreAuthBufferedBytes int64
 }
 
 // quicConfig returns the QUIC limits applied to every listener.
@@ -100,6 +128,35 @@ func (c ServerConfig) maxConnections() int64 {
 		return DefaultMaxConnections
 	}
 	return int64(c.MaxConnections)
+}
+
+func (c ServerConfig) maxPreAuthConnections() int64 {
+	n := int64(c.MaxPreAuthConnections)
+	if n <= 0 {
+		n = DefaultMaxPreAuthConnections
+	}
+	return min(n, c.maxConnections())
+}
+
+func (c ServerConfig) maxPreAuthConnectionsPerIP() int {
+	if c.MaxPreAuthConnectionsPerIP <= 0 {
+		return DefaultMaxPreAuthConnectionsPerIP
+	}
+	return c.MaxPreAuthConnectionsPerIP
+}
+
+func (c ServerConfig) preAuthTimeout() time.Duration {
+	if c.PreAuthTimeout <= 0 {
+		return DefaultPreAuthTimeout
+	}
+	return c.PreAuthTimeout
+}
+
+func (c ServerConfig) maxPreAuthBufferedBytes() int64 {
+	if c.MaxPreAuthBufferedBytes <= 0 {
+		return DefaultMaxPreAuthBufferedBytes
+	}
+	return c.MaxPreAuthBufferedBytes
 }
 
 // RunQuicServer is the explicit transport-only compatibility entry point.
@@ -149,8 +206,11 @@ func serveQUIC(ctx context.Context, listener *quic.Listener, config ServerConfig
 	if err := validateServerConfig(config); err != nil {
 		return err
 	}
-	var active atomic.Int64
-	maxConns := config.maxConnections()
+	limits := newAdmission(config)
+	return serveAdmitted(ctx, listener, config, limits, h, dgram)
+}
+
+func serveAdmitted(ctx context.Context, listener *quic.Listener, config ServerConfig, limits *admission, h AuthenticatedEnvelopeHandler, dgram TelemetryHandler) error {
 	for {
 		conn, err := listener.Accept(ctx)
 		if err != nil {
@@ -159,35 +219,48 @@ func serveQUIC(ctx context.Context, listener *quic.Listener, config ServerConfig
 			}
 			return err
 		}
-		if active.Add(1) > maxConns {
-			active.Add(-1)
+		ip := remoteIP(conn.RemoteAddr())
+		if !limits.admit(ip) {
 			_ = conn.CloseWithError(0x2, "server busy")
 			continue
 		}
-		go func(c *quic.Conn) {
-			defer active.Add(-1)
-			stop := context.AfterFunc(ctx, func() { _ = c.CloseWithError(0, "gateway shutdown") })
-			defer stop()
-			defer c.CloseWithError(0, "connection finished")
-			go func() {
-				for {
-					data, err := c.ReceiveDatagram(c.Context())
-					if err != nil {
-						return
-					}
-					if err := handleDatagram(data, config, h, dgram); err != nil {
-						log.Printf("[quic] rejected datagram: %v", err)
-					}
-				}
-			}()
-			for {
-				stream, err := c.AcceptStream(ctx)
-				if err != nil {
-					return
-				}
-				go handleAuthenticatedStream(stream, config, h)
+		go serveConnection(ctx, conn, &connState{a: limits, ip: ip}, config, h, dgram)
+	}
+}
+
+// serveConnection handles one admitted connection. It is closed if it does not
+// deliver an authenticated envelope within the pre-auth timeout, which frees
+// its slots for other peers.
+func serveConnection(ctx context.Context, c *quic.Conn, state *connState, config ServerConfig, h AuthenticatedEnvelopeHandler, dgram TelemetryHandler) {
+	defer state.release()
+	stop := context.AfterFunc(ctx, func() { _ = c.CloseWithError(0, "gateway shutdown") })
+	defer stop()
+	defer c.CloseWithError(0, "connection finished")
+	timer := time.AfterFunc(config.preAuthTimeout(), func() {
+		if !state.isAuthenticated() {
+			_ = c.CloseWithError(0x3, "authentication timeout")
+		}
+	})
+	defer timer.Stop()
+	go func() {
+		for {
+			data, err := c.ReceiveDatagram(c.Context())
+			if err != nil {
+				return
 			}
-		}(conn)
+			if err := handleDatagram(data, config, h, dgram); err != nil {
+				log.Printf("[quic] rejected datagram: %v", err)
+				continue
+			}
+			state.markAuthenticated()
+		}
+	}()
+	for {
+		stream, err := c.AcceptStream(ctx)
+		if err != nil {
+			return
+		}
+		go handleAuthenticatedStream(stream, config, h, state)
 	}
 }
 
@@ -273,12 +346,19 @@ func handleDatagram(data []byte, config ServerConfig, h AuthenticatedEnvelopeHan
 	}
 }
 
-func handleAuthenticatedStream(s *quic.Stream, config ServerConfig, h AuthenticatedEnvelopeHandler) {
+func handleAuthenticatedStream(s *quic.Stream, config ServerConfig, h AuthenticatedEnvelopeHandler, state *connState) {
 	defer s.Close()
 	defer s.CancelRead(0)
 	for {
-		env, err := readFramedEnvelope(s)
+		// Frames of a connection that has not authenticated yet are charged to
+		// the shared pre-auth budget until their envelope is verified.
+		var budget *byteBudget
+		if !state.isAuthenticated() {
+			budget = state.a.budget
+		}
+		env, charged, err := readFramedEnvelopeBudgeted(s, budget)
 		if err != nil {
+			budget.release(charged)
 			if !errors.Is(err, io.EOF) {
 				log.Printf("[quic] rejected stream frame: %v", err)
 				sendErrorResponse(s, uint32(pb.ErrorCode_MALFORMED_REQUEST))
@@ -286,11 +366,13 @@ func handleAuthenticatedStream(s *quic.Stream, config ServerConfig, h Authentica
 			return
 		}
 		result := authenticateEnvelope(env, config)
+		budget.release(charged)
 		if !result.Authenticated {
 			log.Printf("[quic] rejected envelope: %v", result.Error)
 			sendErrorResponse(s, result.ErrorCode)
 			return
 		}
+		state.markAuthenticated()
 		if h != nil {
 			h(env, &result)
 		}
@@ -320,39 +402,72 @@ func sendErrorResponse(w io.Writer, code uint32) {
 }
 
 func readFramedEnvelope(r io.Reader) (*pb.AxcpEnvelope, error) {
+	env, _, err := readFramedEnvelopeBudgeted(r, nil)
+	return env, err
+}
+
+// readFramedEnvelopeBudgeted reads one frame. Waiting for the first byte has no
+// deadline (an idle stream between frames is normal); the rest of the header
+// and the body must arrive within frameBodyTimeout. Memory grows with received
+// bytes, and a non-nil budget is charged with them; the caller releases the
+// returned charge.
+func readFramedEnvelopeBudgeted(r io.Reader, budget *byteBudget) (*pb.AxcpEnvelope, int64, error) {
 	var lenBuf [4]byte
-	if _, err := io.ReadFull(r, lenBuf[:]); err != nil {
-		return nil, err
+	if _, err := io.ReadFull(r, lenBuf[:1]); err != nil {
+		return nil, 0, err
 	}
-
-	frameLen := binary.LittleEndian.Uint32(lenBuf[:])
-	if frameLen == 0 {
-		return nil, errEnvelopeFrameEmpty
-	}
-	if frameLen > maxEnvelopeBytes {
-		return nil, fmt.Errorf("%w: %d > %d", errEnvelopeFrameTooLarge, frameLen, maxEnvelopeBytes)
-	}
-
 	if d, ok := r.(interface{ SetReadDeadline(time.Time) error }); ok {
 		_ = d.SetReadDeadline(time.Now().Add(frameBodyTimeout))
 		defer func() { _ = d.SetReadDeadline(time.Time{}) }()
 	}
-	// Grow the buffer as bytes arrive instead of trusting the announced size.
-	var buf bytes.Buffer
-	buf.Grow(int(min(frameLen, initialFrameBuffer)))
-	if copied, err := io.CopyN(&buf, r, int64(frameLen)); err != nil {
-		if errors.Is(err, io.EOF) && copied < int64(frameLen) {
-			return nil, io.ErrUnexpectedEOF
+	if _, err := io.ReadFull(r, lenBuf[1:]); err != nil {
+		if errors.Is(err, io.EOF) {
+			err = io.ErrUnexpectedEOF
 		}
-		return nil, err
+		return nil, 0, err
+	}
+
+	frameLen := binary.LittleEndian.Uint32(lenBuf[:])
+	if frameLen == 0 {
+		return nil, 0, errEnvelopeFrameEmpty
+	}
+	if frameLen > maxEnvelopeBytes {
+		return nil, 0, fmt.Errorf("%w: %d > %d", errEnvelopeFrameTooLarge, frameLen, maxEnvelopeBytes)
+	}
+
+	var buf bytes.Buffer
+	var charged int64
+	for remaining := int(frameLen); remaining > 0; {
+		buf.Grow(min(remaining, frameReadChunk))
+		chunk := buf.AvailableBuffer()[:min(remaining, frameReadChunk)]
+		n, err := r.Read(chunk)
+		if n > 0 {
+			if budget != nil {
+				if !budget.tryAcquire(int64(n)) {
+					return nil, charged, errPreAuthBudgetExceeded
+				}
+				charged += int64(n)
+			}
+			buf.Write(chunk[:n])
+			remaining -= n
+		}
+		if err != nil {
+			if remaining == 0 && errors.Is(err, io.EOF) {
+				break
+			}
+			if errors.Is(err, io.EOF) {
+				err = io.ErrUnexpectedEOF
+			}
+			return nil, charged, err
+		}
 	}
 
 	env, err := axcp.FromBytesStrict(buf.Bytes())
 	if err != nil {
-		return nil, fmt.Errorf("invalid envelope format: %w", err)
+		return nil, charged, fmt.Errorf("invalid envelope format: %w", err)
 	}
 
-	return &env.AxcpEnvelope, nil
+	return &env.AxcpEnvelope, charged, nil
 }
 
 func writeFramedEnvelope(w io.Writer, env *pb.AxcpEnvelope) error {
