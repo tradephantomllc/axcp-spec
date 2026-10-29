@@ -4,7 +4,7 @@ The reference gateway receives AXCP envelopes over QUIC/TLS and publishes them t
 
 ## Build and configure
 
-From the repository root, with Go 1.26.9 or newer:
+From the repository root, with Go 1.26.10 or newer:
 
 ```sh
 go build -o /tmp/axcp-gateway ./edge/gateway/cmd/gateway

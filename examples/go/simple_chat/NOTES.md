@@ -16,7 +16,7 @@ Both sides use a self-signed certificate generated at startup, `InsecureSkipVeri
 
 ## Dependencies
 
-- Go 1.26.9 or later
+- Go 1.26.10 or later
 - `github.com/quic-go/quic-go`
 - Module: `github.com/tradephantomllc/axcp-spec` (repository root `go.mod`)
 

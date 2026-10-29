@@ -8,7 +8,7 @@ AXCP endpoints such as the gateway use ALPN `axcp/1` ([specification §8.4](../.
 
 ## Prerequisites
 
-- Go 1.26.9 or later
+- Go 1.26.10 or later
 - Git
 
 ## Building the Example

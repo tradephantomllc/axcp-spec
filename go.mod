@@ -1,6 +1,6 @@
 module github.com/tradephantomllc/axcp-spec
 
-go 1.26.9
+go 1.26.10
 
 require (
 	github.com/quic-go/quic-go v0.63.0

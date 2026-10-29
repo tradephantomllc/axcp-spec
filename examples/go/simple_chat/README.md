@@ -10,7 +10,7 @@ A minimal QUIC echo between a local client and server, built with [quic-go](http
 
 ## Requirements
 
-- Go 1.26.9 or newer
+- Go 1.26.10 or newer
 
 ## Run
 
