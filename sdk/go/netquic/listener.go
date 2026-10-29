@@ -53,38 +53,54 @@ type ListenerConfig struct {
 	// HandshakeIdleTimeout bounds the TLS handshake. Default: 10 seconds.
 	HandshakeIdleTimeout time.Duration
 
-	// AcceptTimeout is the timeout for accepting a new connection
+	// AcceptTimeout bounds how long Accept waits for a ready connection, and how
+	// long a new connection may take to open its control stream.
 	// Default: 10 seconds
 	AcceptTimeout time.Duration
+
+	// MaxPendingConnections limits connections that are still opening their
+	// control stream or waiting to be returned by Accept; further connections
+	// are refused until one is ready or gives up. Default: 64.
+	MaxPendingConnections int
 }
 
 // DefaultListenerConfig returns a ListenerConfig with sensible defaults.
 func DefaultListenerConfig(address string, tlsConfig *tls.Config) ListenerConfig {
 	return ListenerConfig{
-		Address:              address,
-		TLSConfig:            tlsConfig,
-		MaxIdleTimeout:       5 * time.Minute,
-		KeepAlivePeriod:      30 * time.Second,
-		MaxConnections:       DefaultMaxConnections,
-		MaxIncomingStreams:   DefaultMaxIncomingStreams,
-		HandshakeIdleTimeout: 10 * time.Second,
-		AcceptTimeout:        10 * time.Second,
+		Address:               address,
+		TLSConfig:             tlsConfig,
+		MaxIdleTimeout:        5 * time.Minute,
+		KeepAlivePeriod:       30 * time.Second,
+		MaxConnections:        DefaultMaxConnections,
+		MaxIncomingStreams:    DefaultMaxIncomingStreams,
+		HandshakeIdleTimeout:  10 * time.Second,
+		AcceptTimeout:         10 * time.Second,
+		MaxPendingConnections: DefaultMaxPendingConnections,
 	}
 }
 
 // Listener accepts incoming QUIC connections for AXCP.
+// Listener accepts QUIC connections in the background, so a peer that never
+// opens its control stream delays nobody else; Accept returns connections in
+// the order they become ready.
 type Listener struct {
 	quicListener *quic.Listener
 	config       ListenerConfig
 	closed       atomic.Bool
+	closing      chan struct{}
 	connections  sync.Map // map[string]*ServerConnection
 	connCount    atomic.Int32
+	pending      atomic.Int32
+	ready        chan *ServerConnection
+	loopDone     chan struct{}
+	loopErr      error // set before loopDone is closed
 }
 
 // Listener defaults.
 const (
-	DefaultMaxConnections     = 1024
-	DefaultMaxIncomingStreams = 16
+	DefaultMaxConnections        = 1024
+	DefaultMaxIncomingStreams    = 16
+	DefaultMaxPendingConnections = 64
 )
 
 // Listen creates a new QUIC listener on the given configuration.
@@ -121,6 +137,9 @@ func Listen(config ListenerConfig) (*Listener, error) {
 	if config.HandshakeIdleTimeout <= 0 {
 		config.HandshakeIdleTimeout = 10 * time.Second
 	}
+	if config.MaxPendingConnections <= 0 {
+		config.MaxPendingConnections = DefaultMaxPendingConnections
+	}
 	if tlsConfig.MinVersion < tls.VersionTLS13 {
 		tlsConfig.MinVersion = tls.VersionTLS13
 	}
@@ -141,14 +160,77 @@ func Listen(config ListenerConfig) (*Listener, error) {
 		return nil, fmt.Errorf("netquic: failed to listen: %w", err)
 	}
 
-	return &Listener{
+	l := &Listener{
 		quicListener: ql,
 		config:       config,
-	}, nil
+		closing:      make(chan struct{}),
+		ready:        make(chan *ServerConnection),
+		loopDone:     make(chan struct{}),
+	}
+	go l.acceptLoop()
+	return l, nil
 }
 
-// Accept waits for and returns the next incoming connection.
-// The connection must be authenticated by the caller before use.
+// acceptLoop admits QUIC connections until the listener closes.
+func (l *Listener) acceptLoop() {
+	defer close(l.loopDone)
+	for {
+		conn, err := l.quicListener.Accept(context.Background())
+		if err != nil {
+			l.loopErr = err
+			return
+		}
+		if !l.admitPending() {
+			_ = conn.CloseWithError(quic.ApplicationErrorCode(2), "server busy")
+			continue
+		}
+		go l.awaitControlStream(conn)
+	}
+}
+
+// admitPending reserves a pending slot within the pending and total limits.
+func (l *Listener) admitPending() bool {
+	for {
+		pending := l.pending.Load()
+		if int(pending) >= l.config.MaxPendingConnections {
+			return false
+		}
+		if l.config.MaxConnections > 0 && int(pending)+int(l.connCount.Load()) >= l.config.MaxConnections {
+			return false
+		}
+		if l.pending.CompareAndSwap(pending, pending+1) {
+			return true
+		}
+	}
+}
+
+// awaitControlStream waits for the connection's first bidirectional stream,
+// then hands it to Accept. The pending slot is released by Accept or here.
+func (l *Listener) awaitControlStream(conn *quic.Conn) {
+	ctx, cancel := context.WithTimeout(context.Background(), l.config.AcceptTimeout)
+	stream, err := conn.AcceptStream(ctx)
+	cancel()
+	if err != nil {
+		l.pending.Add(-1)
+		_ = conn.CloseWithError(quic.ApplicationErrorCode(1), "failed to accept stream")
+		return
+	}
+	sc := &ServerConnection{
+		quicConn: conn,
+		stream:   stream,
+	}
+	select {
+	case l.ready <- sc:
+	case <-conn.Context().Done():
+		l.pending.Add(-1)
+	case <-l.closing:
+		l.pending.Add(-1)
+		_ = conn.CloseWithError(0, "listener closed")
+	}
+}
+
+// Accept waits for and returns the next incoming connection whose control
+// stream is open. The connection must be authenticated by the caller before use.
 func (l *Listener) Accept(ctx context.Context) (*ServerConnection, error) {
 	if l.closed.Load() {
 		return nil, ErrListenerClosed
@@ -167,45 +249,42 @@ func (l *Listener) Accept(ctx context.Context) (*ServerConnection, error) {
 		defer cancel()
 	}
 
-	// Accept QUIC connection
-	conn, err := l.quicListener.Accept(acceptCtx)
-	if err != nil {
-		if l.closed.Load() {
+	for {
+		select {
+		case sc := <-l.ready:
+			l.pending.Add(-1)
+			if sc.quicConn.Context().Err() != nil {
+				continue // closed while waiting to be accepted
+			}
+			l.track(sc)
+			return sc, nil
+		case <-l.closing:
 			return nil, ErrListenerClosed
+		case <-l.loopDone:
+			if l.closed.Load() {
+				return nil, ErrListenerClosed
+			}
+			return nil, fmt.Errorf("netquic: accept failed: %w", l.loopErr)
+		case <-acceptCtx.Done():
+			if l.closed.Load() {
+				return nil, ErrListenerClosed
+			}
+			return nil, fmt.Errorf("netquic: accept failed: %w", acceptCtx.Err())
 		}
-		return nil, fmt.Errorf("netquic: accept failed: %w", err)
 	}
+}
 
-	// Accept the first bidirectional stream (control stream)
-	// Use a fresh context to avoid timeout issues from the connection accept phase
-	streamCtx, streamCancel := context.WithTimeout(context.Background(), l.config.AcceptTimeout)
-	defer streamCancel()
-
-	stream, err := conn.AcceptStream(streamCtx)
-	if err != nil {
-		conn.CloseWithError(quic.ApplicationErrorCode(1), "failed to accept stream")
-		return nil, fmt.Errorf("netquic: failed to accept stream: %w", err)
-	}
-
-	// Create server connection
-	sc := &ServerConnection{
-		quicConn: conn,
-		stream:   stream,
-	}
-
-	// Track connection
+// track counts an accepted connection until it closes.
+func (l *Listener) track(sc *ServerConnection) {
+	conn := sc.quicConn
 	connID := conn.RemoteAddr().String()
 	l.connections.Store(connID, sc)
 	l.connCount.Add(1)
-
-	// Set up cleanup on connection close
 	go func() {
 		<-conn.Context().Done()
 		l.connections.Delete(connID)
 		l.connCount.Add(-1)
 	}()
-
-	return sc, nil
 }
 
 // Close stops accepting new connections but does not close existing ones.
@@ -213,6 +292,7 @@ func (l *Listener) Close() error {
 	if l.closed.Swap(true) {
 		return nil // already closed
 	}
+	close(l.closing)
 	return l.quicListener.Close()
 }
 

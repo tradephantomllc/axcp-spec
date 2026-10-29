@@ -4,6 +4,7 @@
 
 - **Go SDK (breaking where noted):**
   - Strict DID syntax (512-byte limit), native Ed25519 `did:key` (`EncodeDIDKey`, `DecodeDIDKey`, `GenerateIdentity`, `DIDKeyResolver`); resolvers can no longer bind a `did:key` to a different key; small-order keys rejected.
+  - QUIC listener: connections open their control stream in bounded background workers (`MaxPendingConnections`, default 64), so a peer that never opens one no longer delays `Accept` for others. Frame reads put the rest of a started header under the body timeout and grow memory with received bytes. A timed-out handshake closes a stream that implements `io.Closer`.
   - Replay protection rewritten as a bitmap window that never forgets active peers; idle-peer TTL raised to the timestamp window; bounded peers (fail closed); enabled by default in `NewValidator`, `ValidateRequest` and the middlewares.
   - Validators check version, profile, single payload member, unknown fields, undefined enums, sequence and signature length on every path; `AllowedDIDs` implemented. **Breaking:** unused `ClientConfig`, `NetworkConfig`, `RequireClientCert` and `RateLimitPerPeer` removed; payload-less envelopes are rejected; recipient errors map to `AUTH_DID_INVALID`.
   - **Breaking:** `auth.Session` requires a recipient and `PayloadForSequence`; sequences start at Unix microseconds. `CachingDIDResolver.PreloadDID` returns an error.
